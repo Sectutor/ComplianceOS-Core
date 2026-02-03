@@ -1,0 +1,238 @@
+# SOC 2 Trust Services Criteria → Technology Mappings
+
+version: "1.0"
+framework: "SOC 2"
+last_updated: "2025-12-23"
+
+controls:
+  # ========== CC6: Logical and Physical Access Controls ==========
+  - code: "CC6.1"
+    name: "Logical and physical access controls"
+    category: "Access Control"
+    technologies:
+      - id: "iam-okta-sso"
+        vendor: "Okta"
+        service: "Single Sign-On"
+        description: "Centralized SSO with MFA for securing access to applications"
+        pros:
+          - "7000+ pre-built integrations"
+          - "Adaptive MFA based on risk signals"
+          - "Excellent audit logging"
+        cons:
+          - "Cost scales with user count"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.okta.com/resources/whitepaper/soc-2-compliance-guide/"
+            title: "Okta SOC 2 Guide"
+      
+      - id: "physical-access-track"
+        vendor: "Verkada"
+        service: "Verkada Access Control"
+        description: "Cloud-managed door access control with video verification and mobile credentials"
+        pros:
+          - "Cloud-managed, no on-prem hardware"
+          - "Integrated with video surveillance"
+          - "Mobile credential support"
+        cons:
+          - "Requires Verkada cameras for full features"
+          - "Subscription-based pricing"
+        implementation_effort: "medium"
+        maturity_level: "mainstream"
+        references:
+          - url: "https://www.verkada.com/products/access-control/"
+            title: "Verkada Access Control"
+
+  # ========== CC7: System Operations ==========
+  - code: "CC7.2"
+    name: "System monitoring"
+    category: "Monitoring"
+    technologies:
+      - id: "monitoring-datadog"
+        vendor: "Datadog"
+        service: "Datadog Observability Platform"
+        description: "Full-stack monitoring with infrastructure, application, and log monitoring plus alerting"
+        pros:
+          - "Unified platform for metrics, traces, logs"
+          - "400+ integrations out of the box"
+          - "Powerful dashboards and alerting"
+        cons:
+          - "Can get expensive with high data volumes"
+          - "Learning curve for advanced features"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.datadoghq.com/solutions/compliance/"
+            title: "Datadog Compliance"
+      
+      - id: "monitoring-newrelic"
+        vendor: "New Relic"
+        service: "New Relic One"
+        description: "Observability platform with APM, infrastructure monitoring, and AI-powered insights"
+        pros:
+          - "Single unified platform"
+          - "AI-powered anomaly detection"
+          - "Generous free tier"
+        cons:
+          - "UI can be complex for beginners"
+          - "Data ingestion pricing model"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://newrelic.com/"
+            title: "New Relic Platform"
+      
+      - id: "siem-splunk"
+        vendor: "Splunk"
+        service: "Splunk Enterprise Security"
+        description: "SIEM platform for security information and event management with threat detection"
+        pros:
+          - "Industry-leading SIEM capabilities"
+          - "Powerful search and analytics"
+          - "Extensive app ecosystem"
+        cons:
+          - "Very expensive for large data volumes"
+          - "Complex to configure and maintain"
+        implementation_effort: "high"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.splunk.com/en_us/products/enterprise-security.html"
+            title: "Splunk Enterprise Security"
+
+  # ========== CC8: Change Management ==========
+  - code: "CC8.1"
+    name: "Change management procedures"
+    category: "Change Management"
+    technologies:
+      - id: "scm-github-enterprise"
+        vendor: "GitHub"
+        service: "GitHub Enterprise"
+        description: "Enterprise source control with branch protection, code review, and audit logs"
+        pros:
+          - "Industry standard for version control"
+          - "Strong code review workflows"
+          - "Excellent audit trail"
+        cons:
+          - "Requires GitHub Enterprise for private repos"
+          - "Can be costly for very large teams"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://github.com/enterprise"
+            title: "GitHub Enterprise"
+      
+      - id: "itsm-servicenow-change"
+        vendor: "ServiceNow"
+        service: "ServiceNow Change Management"
+        description: "Enterprise change management with approval workflows, risk assessment, and rollback plans"
+        pros:
+          - "Comprehensive ITIL-aligned workflows"
+          - "Strong approval and governance"
+          - "Integration with CMDB"
+        cons:
+          - "Enterprise pricing and complexity"
+          - "Overkill for small teams"
+        implementation_effort: "high"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.servicenow.com/products/it-operations-management/change-management.html"
+            title: "ServiceNow Change Management"
+
+  # ========== CC1: Control Environment ==========
+  - code: "CC1.4"
+    name: "Commitment to competence"
+    category: "Control Environment"
+    technologies:
+      - id: "training-knowbe4"
+        vendor: "KnowBe4"
+        service: "Security Awareness Training"
+        description: "Security awareness training with phishing simulations and compliance training modules"
+        pros:
+          - "World's largest library of security content"
+          - "Realistic phishing simulations"
+          - "Compliance training for SOC 2, HIPAA, etc."
+        cons:
+          - "Can be expensive for small teams"
+          - "Requires ongoing management"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.knowbe4.com/"
+            title: "KnowBe4 Platform"
+      
+      - id: "training-security-journey"
+        vendor: "Security Journey"
+        service: "AppSec Training Platform"
+        description: "Application security training for developers with hands-on labs and certifications"
+        pros:
+          - "Developer-focused with hands-on labs"
+          - "Customizable learning paths"
+          - "Integration with Jira, GitHub"
+        cons:
+          - "Focused on AppSec (not general security awareness)"
+        implementation_effort: "low"
+        maturity_level: "mainstream"
+        references:
+          - url: "https://www.securityjourney.com/"
+            title: "Security Journey"
+
+  # ========== CC2: Communication and Information ==========
+  - code: "CC2.2"
+    name: "Internal communication"
+    category: "Communication"
+    technologies:
+      - id: "collaboration-slack-enterprise"
+        vendor: "Slack"
+        service: "Slack Enterprise Grid"
+        description: "Enterprise messaging with governance, compliance exports, and advanced security features"
+        pros:
+          - "Excellent user adoption"
+          - "Strong integration ecosystem"
+          - "Compliance export capabilities"
+        cons:
+          - "Can be distracting without good practices"
+          - "Enterprise tier required for full compliance features"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://slack.com/enterprise"
+            title: "Slack Enterprise Grid"
+
+  # ========== CC9: Risk Assessment ==========
+  - code: "CC9.1"
+    name: "Risk assessment process"
+    category: "Risk Management"
+ technologies:
+      - id: "grc-onspring"
+        vendor: "Onspring"
+        service: "Onspring GRC Platform"
+        description: "No-code GRC platform with risk assessment, audit management, and compliance tracking"
+        pros:
+          - "Highly customizable no-code platform"
+          - "Strong workflow automation"
+          - "Good reporting capabilities"
+        cons:
+          - "Can be expensive"
+          - "Requires configuration effort"
+        implementation_effort: "medium"
+        maturity_level: "mainstream"
+        references:
+          - url: "https://www.onspring.com/"
+            title: "Onspring Platform"
+      
+      - id: "grc-logicgate"
+        vendor: "LogicGate"
+        service: "Risk Cloud"
+        description: "Flexible GRC platform with risk registers, controls library, and automated workflows"
+        pros:
+          - "User-friendly interface"
+          - "Flexible data model"
+          - "Good customer support"
+        cons:
+          - "Can be pricey for small teams"
+          - "Limited out-of-the-box templates"
+        implementation_effort: "medium"
+        maturity_level: "mainstream"
+        references:
+          - url: "https://www.logicgate.com/risk-cloud/"
+            title: "LogicGate Risk Cloud"

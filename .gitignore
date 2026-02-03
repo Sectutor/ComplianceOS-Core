@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+*.txt
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS/system
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+tmp/
+
+# Testing/coverage
+coverage/
+
+# Premium Package (Open for internal tracking)
+# packages/premium/
+
+# Trae AI
+.trae/documents/
+.agent/
+
+# Internal Documents
+brainstorm*.md
+*plan.md
+ROADMAP_IMPLEMENTATION_INTEGRATION.md
+db_plan.md
+docs/features/
+
+# Internal Scripts and Debug Files
+debug_*
+check_*
+analyze_*
+extract_*
+fix_*
+list_*
+append_*
+create_*
+apply_*
+diagnose_*
+*.py
+build_output*
+db_counts*
+
+# Local Netlify folder
+.netlify

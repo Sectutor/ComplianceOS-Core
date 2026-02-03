@@ -1,0 +1,37 @@
+[
+    {
+        "controlId": "AC-17",
+        "weaknessName": "Remote Access MFA Not Enforced",
+        "weaknessDescription": "Multi-factor authentication is not currently enforced for all remote access connections to the internal network, including VPN and administrative portals.",
+        "pointOfContact": "Chief Information Officer",
+        "scheduledCompletionDate": "2026-03-30"
+    },
+    {
+        "controlId": "SC-13",
+        "weaknessName": "FIPS 140-2 Encryption Missing",
+        "weaknessDescription": "The current encryption module used for data-at-rest protection on mobile devices is not FIPS 140-2 validated as required by CMMC Level 2.",
+        "pointOfContact": "IT Security Manager",
+        "scheduledCompletionDate": "2026-04-15"
+    },
+    {
+        "controlId": "AU-2",
+        "weaknessName": "Inadequate Audit Logging on Critical Systems",
+        "weaknessDescription": "Several legacy application servers are not currently capturing successful/failed login attempts and administrative privilege elevation events.",
+        "pointOfContact": "Compliance Officer",
+        "scheduledCompletionDate": "2026-02-28"
+    },
+    {
+        "controlId": "IA-2",
+        "weaknessName": "Shared Administrative Accounts",
+        "weaknessDescription": "Generic 'Administrator' and 'Root' accounts are still being used for shared system administration tasks instead of uniquely identifiable user accounts.",
+        "pointOfContact": "System Administrator",
+        "scheduledCompletionDate": "2026-03-15"
+    },
+    {
+        "controlId": "PE-3",
+        "weaknessName": "Physical Access Logs Not Maintained",
+        "weaknessDescription": "Visitor logs for the primary server room are being maintained on paper and at times contain illegible signatures or missing 'Out' times.",
+        "pointOfContact": "Facilities Manager",
+        "scheduledCompletionDate": "2026-05-01"
+    }
+]

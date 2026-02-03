@@ -1,0 +1,30 @@
+
+export const iso22301Controls = [
+    { id: "4.1", name: "Understanding the organization and its context", description: "The organization shall determine external and internal issues that are relevant to its purpose and that affect its ability to achieve the intended outcomes of its BCMS.", category: "Context" },
+    { id: "4.2", name: "Understanding the needs and expectations of interested parties", description: "The organization shall determine the interested parties that are relevant to the BCMS and their requirements.", category: "Context" },
+    { id: "4.3", name: "Determining the scope of the business continuity management system", description: "The organization shall determine the boundaries and applicability of the BCMS to establish its scope.", category: "Context" },
+    { id: "4.4", name: "Business continuity management system", description: "The organization shall establish, implement, maintain and continually improve a BCMS, including the processes needed and their interactions.", category: "Context" },
+    { id: "5.1", name: "Leadership and commitment", description: "Top management shall demonstrate leadership and commitment with respect to the BCMS.", category: "Leadership" },
+    { id: "5.2", name: "Policy", description: "Top management shall establish a business continuity policy.", category: "Leadership" },
+    { id: "5.3", name: "Roles, responsibilities and authorities", description: "Top management shall ensure that the responsibilities and authorities for relevant roles are assigned and communicated.", category: "Leadership" },
+    { id: "6.1", name: "Actions to address risks and opportunities", description: "The organization shall determine the risks and opportunities that need to be addressed to give assurance that the BCMS can achieve its intended outcomes.", category: "Planning" },
+    { id: "6.2", name: "Business continuity objectives and planning to achieve them", description: "The organization shall establish business continuity objectives at relevant functions, levels and processes.", category: "Planning" },
+    { id: "7.1", name: "Resources", description: "The organization shall determine and provide the resources needed for the establishment, implementation, maintenance and continual improvement of the BCMS.", category: "Support" },
+    { id: "7.2", name: "Competence", description: "The organization shall ensure that persons doing work under its control that affects the performance of the BCMS are competent.", category: "Support" },
+    { id: "7.3", name: "Awareness", description: "Persons doing work under the organization's control shall be aware of the business continuity policy and their contribution to the effectiveness of the BCMS.", category: "Support" },
+    { id: "7.4", name: "Communication", description: "The organization shall determine the internal and external communications relevant to the BCMS.", category: "Support" },
+    { id: "7.5", name: "Documented information", description: "The BCMS shall include documented information required by this document and determined by the organization as being necessary for the effectiveness of the BCMS.", category: "Support" },
+    { id: "8.1", name: "Operational planning and control", description: "The organization shall plan, implement and control the processes needed to meet requirements, and to implement the actions determined in Clause 6.", category: "Operation" },
+    { id: "8.2", name: "Business impact analysis and risk assessment", description: "The organization shall implement and maintain a process for developing business impact analysis and risk assessment.", category: "Operation" },
+    { id: "8.3", name: "Business continuity strategies and solutions", description: "The organization shall identify and select business continuity strategies based on the outputs of the business impact analysis and risk assessment.", category: "Operation" },
+    { id: "8.4", name: "Business continuity plans and procedures", description: "The organization shall establish, implement and maintain business continuity plans and procedures to manage a disruptive incident and continue its activities.", category: "Operation" },
+    { id: "8.5", name: "Exercise programme", description: "The organization shall implement and maintain a programme of exercises and testing to validate the effectiveness of its business continuity strategies and solutions.", category: "Operation" },
+    { id: "8.6", name: "Evaluation of business continuity documentation and capabilities", description: "The organization shall evaluate the adequacy of its business continuity documentation and capabilities.", category: "Operation" },
+    { id: "9.1", name: "Monitoring, measurement, analysis and evaluation", description: "The organization shall determine what needs to be monitored and measured, and the methods for monitoring, measurement, analysis and evaluation.", category: "Performance Evaluation" },
+    { id: "9.2", name: "Internal audit", description: "The organization shall conduct internal audits at planned intervals to provide information on whether the BCMS conforms to requirements.", category: "Performance Evaluation" },
+    { id: "9.3", name: "Management review", description: "Top management shall review the organization's BCMS at planned intervals to ensure its continuing suitability, adequacy and effectiveness.", category: "Performance Evaluation" },
+    { id: "10.1", name: "Nonconformity and corrective action", description: "When nonconformity occurs, the organization shall take action to control and correct it and deal with the consequences.", category: "Improvement" },
+    { id: "10.2", name: "Continual improvement", description: "The organization shall continually improve the suitability, adequacy and effectiveness of the BCMS.", category: "Improvement" },
+];
+
+export default iso22301Controls;

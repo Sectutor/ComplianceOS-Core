@@ -1,0 +1,319 @@
+# ISO 27001:2022 Control → Technology Mappings
+
+version: "1.0"
+framework: "ISO 27001:2022"
+last_updated: "2025-12-23"
+
+controls:
+  # ========== A.5: Organizational Controls ==========
+  - code: "A.5.1"
+    name: "Policies for information security"
+    category: "Organizational"
+    technologies:
+      - id: "policy-management-reciprocity"
+        vendor: "Reciprocity"
+        service: "ZenGRC"
+        description: "Governance, risk, and compliance platform with policy management, version control, and attestation workflows"
+        pros:
+          - "Built-in policy templates for ISO 27001, SOC 2, GDPR"
+          - "Automated policy review cycles and approvals"
+          - "Integration with ticketing systems"
+        cons:
+          - "Can be expensive for small teams"
+          - "Requires training for full utilization"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://reciprocity.com/platform/policy-management/"
+            title: "Reciprocity Policy Management"
+      
+      - id: "policy-management-drata"
+        vendor: "Drata"
+        service: "Compliance Automation Platform"
+        description: "Automates compliance monitoring with policy management and continuous evidence collection"
+        pros:
+          - "Easy onboarding"
+          - "Automated evidence collection"
+          - "Real-time compliance monitoring"
+        cons:
+          - "Limited customization for unique policies"
+          - "Premium pricing"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://drata.com/features/policy-management"
+            title: "Drata Policy Management"
+
+  # ========== A.8: Asset Management ==========
+  - code: "A.8.1"
+    name: "Inventory of assets"
+    category: "Asset Management"
+    technologies:
+      - id: "asset-discovery-servicenow"
+        vendor: "ServiceNow"
+        service: "IT Asset Management (ITAM)"
+        description: "Enterprise asset management with auto-discovery, lifecycle tracking, and financial management"
+        pros:
+          - "Comprehensive asset tracking across hardware, software, cloud"
+          - "Strong integration ecosystem"
+          - "Scalable for large organizations"
+        cons:
+          - "High cost and complexity"
+          - "Steep learning curve"
+        implementation_effort: "high"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.servicenow.com/products/it-asset-management.html"
+            title: "ServiceNow ITAM"
+      
+      - id: "asset-discovery-snipeit"
+        vendor: "Open Source"
+        service: "Snipe-IT"
+        description: "Free, open-source IT asset management with barcode scanning, check-in/check-out, and custom fields"
+        pros:
+          - "Free and open-source"
+          - "Easy to deploy (Docker available)"
+          - "Active community support"
+        cons:
+          - "Manual setup required"
+          - "Limited auto-discovery vs commercial tools"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://snipeitapp.com/"
+            title: "Snipe-IT Homepage"
+
+  # ========== A.9: Access Control ==========
+  - code: "A.9.2"
+    name: "User access management"
+    category: "Access Control"
+    technologies:
+      - id: "iam-okta"
+        vendor: "Okta"
+        service: "Okta Identity Cloud"
+        description: "Cloud-native IAM with SSO, MFA, and lifecycle management for 7000+ integrations"
+        pros:
+          - "Extensive app catalog (7000+ pre-built integrations)"
+          - "Strong MFA options (push, SMS, TOTP, WebAuthn)"
+          - "Excellent user experience"
+          - "Automated provisioning/deprovisioning"
+        cons:
+          - "Premium features require higher tiers"
+          - "Complex policy configuration for advanced use cases"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.okta.com/resources/whitepaper/okta-iso-27001-guide/"
+            title: "Okta ISO 27001 Guide"
+      
+      - id: "iam-azure-ad"
+        vendor: "Microsoft"
+        service: "Azure Active Directory / Entra ID"
+        description: "Cloud IAM with deep Microsoft 365 integration and conditional access policies"
+        pros:
+          - "Deep integration with M365 and Azure ecosystem"
+          - "Conditional access and risk-based authentication"
+          - "Included in many Microsoft licensing bundles"
+        cons:
+          - "Licensing complexity (P1/P2 features)"
+          - "Best for Microsoft-centric environments"
+        implementation_effort: "low"  # if already using M365
+        maturity_level: "mature"
+        references:
+          - url: "https://learn.microsoft.com/en-us/azure/active-directory/"
+            title: "Azure AD Documentation"
+      
+      - id: "iam-auth0"
+        vendor: "Auth0 (Okta)"
+        service: "Auth0 Identity Platform"
+        description: "Developer-friendly IAM with customizable login flows and extensive SDK support"
+        pros:
+          - "Easy integration for custom applications"
+          - "Flexible authentication flows"
+          - "Strong developer documentation"
+        cons:
+          - "Can get expensive with high MAU"
+          - "Enterprise features require higher plans"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://auth0.com/docs/get-started/identity-fundamentals"
+            title: "Auth0 Documentation"
+
+  # ========== A.12: Operations Security ==========
+  - code: "A.12.3"
+    name: "Information backup"
+    category: "Operations Security"
+    technologies:
+      - id: "backup-veeam"
+        vendor: "Veeam"
+        service: "Veeam Backup & Replication"
+        description: "Enterprise backup solution for virtual, physical, and cloud workloads with immutable backups"
+        pros:
+          - "Supports wide range of platforms (VMware, Hyper-V, cloud)"
+          - "Immutable backup for ransomware protection"
+          - "Fast recovery with Instant VM Recovery"
+        cons:
+          - "Licensing costs can be high"
+          - "Requires dedicated infrastructure"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.veeam.com/products/veeam-data-platform.html"
+            title: "Veeam Backup & Replication"
+      
+      - id: "backup-aws-backup"
+        vendor: "AWS"
+        service: "AWS Backup"
+        description: "Centralized backup service for AWS resources with policy-based automation"
+        pros:
+          - "Native integration with AWS services"
+          - "Cross-region and cross-account backups"
+          - "Compliance-ready vault lock"
+        cons:
+          - "AWS-only (doesn't backup on-prem or other clouds natively)"
+          - "Pricing can add up for large volumes"
+        implementation_effort: "low"  # for AWS-native workloads
+        maturity_level: "mature"
+        references:
+          - url: "https://aws.amazon.com/backup/"
+            title: "AWS Backup"
+
+  # ========== A.14: System Acquisition ==========
+  - code: "A.14.2"
+    name: "Security in development and support processes"
+    category: "System Acquisition"
+    technologies:
+      - id: "devsecops-github-actions"
+        vendor: "GitHub"
+        service: "GitHub Advanced Security + Actions"
+        description: "Integrated CI/CD with code scanning, secret scanning, and dependency review"
+        pros:
+          - "Integrated into developer workflow"
+          - "Automated security scanning in pull requests"
+          - "Broad language support"
+        cons:
+          - "Requires GitHub Enterprise for private repos"
+          - "Can have false positives requiring tuning"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://docs.github.com/en/code-security"
+            title: "GitHub Advanced Security"
+      
+      - id: "devsecops-snyk"
+        vendor: "Snyk"
+        service: "Snyk Security Platform"
+        description: "Developer-first security with vulnerability scanning for code, containers, IaC, and open-source dependencies"
+        pros:
+          - "Very developer-friendly UI and IDE integrations"
+          - "Excellent open-source vulnerability database"
+          - "Actionable fix recommendations"
+        cons:
+          - "Can be costly for large organizations"
+          - "May overwhelm teams with alerts initially"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://snyk.io/product/"
+            title: "Snyk Platform"
+
+  # ========== A.16: Incident Management ==========
+  - code: "A.16.1"
+    name: "Management of information security incidents and improvements"
+    category: "Incident Management"
+    technologies:
+      - id: "incident-pagerduty"
+        vendor: "PagerDuty"
+        service: "PagerDuty Incident Response"
+        description: "Incident response platform with on-call management, escalation, and postmortem workflows"
+        pros:
+          - "Excellent on-call scheduling and rotations"
+          - "Broad integration with monitoring tools"
+          - "Structured incident response workflows"
+        cons:
+          - "Can be expensive for large teams"
+          - "Requires process discipline to be effective"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.pagerduty.com/platform/incident-response/"
+            title: "PagerDuty Incident Response"
+      
+      - id: "incident-jira-service-desk"
+        vendor: "Atlassian"
+        service: "Jira Service Management"
+        description: "ITSM platform with incident management, problem tracking, and change management"
+        pros:
+          - "Integrates with Jira Software for development tracking"
+          - "Customizable workflows"
+          - "Strong reporting and analytics"
+        cons:
+          - "Can be complex to configure"
+          - "Performance issues with very large instances"
+        implementation_effort: "medium"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.atlassian.com/software/jira/service-management"
+            title: "Jira Service Management"
+
+  # ========== A.17: Business Continuity ==========
+  - code: "A.17.1"
+    name: "Information security continuity"
+    category: "Business Continuity"
+    technologies:
+      - id: "dr-zerto"
+        vendor: "Zerto (HP)"
+        service: "Zerto Disaster Recovery"
+        description: "Continuous data protection and disaster recovery for VMs and cloud workloads"
+        pros:
+          - "Near-zero RPO with continuous replication"
+          - "Automated failover and failback"
+          - "Non-disruptive testing"
+        cons:
+          - "Enterprise pricing"
+          - "Complexity in multi-cloud scenarios"
+        implementation_effort: "high"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.zerto.com/"
+            title: "Zerto Platform"
+
+  # ========== A.18: Compliance ==========
+  - code: "A.18.1"
+    name: "Compliance with legal and contractual requirements"
+    category: "Compliance"
+    technologies:
+      - id: "compliance-vanta"
+        vendor: "Vanta"
+        service: "Vanta Automation Platform"
+        description: "Automated compliance for SOC 2, ISO 27001, GDPR with continuous monitoring"
+        pros:
+          - "Fast time to certification"
+          - "Automates evidence collection"
+          - "User-friendly interface"
+        cons:
+          - "Can be expensive"
+          - "Less flexibility for custom frameworks"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://www.vanta.com/"
+            title: "Vanta Platform"
+      
+      - id: "compliance-secureframe"
+        vendor: "Secureframe"
+        service: "Compliance Automation"
+        description: "Automated compliance platform with AI-powered evidence collection and streamlined auditor collaboration"
+        pros:
+          - "Strong auditor collaboration features"
+          - "Automated evidence collection from 100+ integrations"
+          - "Good customer support"
+        cons:
+          - "Premium pricing"
+          - "Limited customization for niche requirements"
+        implementation_effort: "low"
+        maturity_level: "mature"
+        references:
+          - url: "https://secureframe.com/"
+            title: "Secureframe Platform"
