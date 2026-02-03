@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img width="2385" height="1054" alt="image" src="https://github.com/user-attachments/assets/0aea91ee-a5c7-4abc-b1ee-2c25a259b28b" />
+
 ![GRCompliance Dashboard](./docs/assets/screenshots/dashboard.png)
 
 **The Open Source Operating System for Governance, Risk, and Compliance.**
