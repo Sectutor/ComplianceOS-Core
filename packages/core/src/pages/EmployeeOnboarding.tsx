@@ -260,7 +260,7 @@ export default function EmployeeOnboarding() {
                                 <Sparkles className="h-8 w-8 text-sky-400" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold tracking-tight">Welcome to ComplianceOS</h1>
+                                <h1 className="text-3xl font-bold tracking-tight">Welcome to GRCompliance</h1>
                                 <p className="text-sky-100/80 text-lg font-medium">Complete your onboarding to get started</p>
                             </div>
                         </div>

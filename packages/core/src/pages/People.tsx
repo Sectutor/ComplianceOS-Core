@@ -94,7 +94,6 @@ export function PeoplePage() {
 
   // -- Queries --
   const { data: employees = [], isLoading, refetch } = trpc.employees.list.useQuery({ clientId });
-  const { data: onboardingStatuses = [] } = (trpc.onboarding as any).getCompanyOnboardingStatus?.useQuery({ clientId }) || { data: [] };
 
   const cleanSearchQuery = searchQuery.toLowerCase().trim();
   const filteredEmployees = employees.filter((employee: any) => {
