@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowLeft, Save, Eye, FileText, Loader2, History, RotateCcw, HelpCircle, ChevronDown, ChevronUp, Sparkles, Send } from "lucide-react";
+import { ArrowLeft, Save, Eye, FileText, Loader2, History, RotateCcw, HelpCircle, ChevronDown, ChevronUp, Sparkles, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@complianceos/ui/ui/dialog";
 import RichTextEditor from "@/components/RichTextEditor";
 import { marked } from "marked";
@@ -30,6 +31,7 @@ import { RiskDetailsDialog } from "@/components/risk/RiskDetailsDialog";
 import { CommentsSection } from "@/components/CommentsSection";
 import { Slot } from "@/registry";
 import { SlotNames } from "@/registry/slotNames";
+import { DistributionDialog } from "@/components/policy/DistributionDialog";
 
 export default function PolicyEditor() {
     const params = useParams();
@@ -56,6 +58,11 @@ export default function PolicyEditor() {
     const { data: linkedControls, refetch: refetchLinkedControls } = trpc.clientPolicies.getLinkedControls.useQuery({ policyId }, { enabled: !!policyId });
     const { data: availableRisks } = trpc.risks.getAll.useQuery({ clientId }, { enabled: !!clientId });
     const { data: availableControls } = trpc.clientControls.list.useQuery({ clientId }, { enabled: !!clientId });
+
+    const { data: assignments, isLoading: loadingAssignments } = trpc.policyManagement.getAssignments.useQuery(
+        { policyId },
+        { enabled: !!policyId }
+    );
 
     const linkRiskMutation = trpc.clientPolicies.linkRisk.useMutation();
     const unlinkRiskMutation = trpc.clientPolicies.unlinkRisk.useMutation();
@@ -97,6 +104,7 @@ export default function PolicyEditor() {
     // Detail Dialog States
     const [selectedRisk, setSelectedRisk] = useState<any>(null);
     const [selectedControl, setSelectedControl] = useState<any>(null);
+    const [showDistributionDialog, setShowDistributionDialog] = useState(false);
 
     // Initialize turndown service for HTML to markdown conversion (matching PolicyTemplates.tsx pattern)
     // Initialize turndown service for HTML to markdown conversion (matching PolicyTemplates.tsx pattern)
@@ -442,7 +450,7 @@ export default function PolicyEditor() {
             toast.error('Cannot send to intake: missing policy or client ID');
             return;
         }
-        
+
         try {
             const mutationData = { clientId, policyId };
             console.log('[PolicyEditor] Calling intake.createFromPolicy with:', mutationData);
@@ -691,6 +699,7 @@ export default function PolicyEditor() {
                                             <TabsTrigger value="edit">Edit</TabsTrigger>
                                             <TabsTrigger value="preview">Preview</TabsTrigger>
                                             <TabsTrigger value="integrations">Integrations</TabsTrigger>
+                                            <TabsTrigger value="employees">Employees</TabsTrigger>
                                             <TabsTrigger value="history">History</TabsTrigger>
                                         </TabsList>
                                     </Tabs>
@@ -736,6 +745,69 @@ export default function PolicyEditor() {
                                                     entityId={policyId}
                                                 />
                                             </div>
+                                        </div>
+                                    </TabsContent>
+                                    <TabsContent value="employees" className="m-0">
+                                        <div className="space-y-4">
+                                            {loadingAssignments ? (
+                                                <div className="flex items-center justify-center py-12">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                                </div>
+                                            ) : assignments && assignments.length > 0 ? (
+                                                <div className="border rounded-md">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Employee</TableHead>
+                                                                <TableHead>Job Title</TableHead>
+                                                                <TableHead>Status</TableHead>
+                                                                <TableHead>Attested Date</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {assignments.map((assignment: any) => (
+                                                                <TableRow key={assignment.id}>
+                                                                    <TableCell>
+                                                                        <div className="font-medium">{assignment.firstName} {assignment.lastName}</div>
+                                                                        <div className="text-xs text-muted-foreground">{assignment.email}</div>
+                                                                    </TableCell>
+                                                                    <TableCell>{assignment.jobTitle || "-"}</TableCell>
+                                                                    <TableCell>
+                                                                        <Badge variant={
+                                                                            assignment.status === 'attested' ? 'default' :
+                                                                                assignment.status === 'viewed' ? 'secondary' : 'outline'
+                                                                        } className={
+                                                                            assignment.status === 'attested' ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' :
+                                                                                assignment.status === 'viewed' ? 'bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-200' : ''
+                                                                        }>
+                                                                            {assignment.status === 'attested' ? 'Attested' :
+                                                                                assignment.status === 'viewed' ? 'Viewed' : 'Pending'}
+                                                                        </Badge>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        {assignment.attestedAt ? (
+                                                                            <div className="flex items-center text-sm text-muted-foreground">
+                                                                                <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                                                                {new Date(assignment.attestedAt).toLocaleDateString()}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-muted-foreground text-xs">-</span>
+                                                                        )}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
+                                                    <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                                    <p>No employees assigned to this policy yet.</p>
+                                                    <Button variant="link" onClick={() => setShowDistributionDialog(true)}>
+                                                        Assign Employees
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     </TabsContent>
                                     <TabsContent value="history" className="m-0">
@@ -1553,6 +1625,14 @@ export default function PolicyEditor() {
                                 <CardTitle>Quick Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-2">
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-start"
+                                    onClick={() => setShowDistributionDialog(true)}
+                                >
+                                    <Users className="mr-2 h-4 w-4" />
+                                    Assign to Employees
+                                </Button>
 
                                 <Button variant="outline" className="w-full justify-start" onClick={handleExportWord}>
                                     <FileText className="mr-2 h-4 w-4" />
@@ -1628,6 +1708,13 @@ export default function PolicyEditor() {
                     onUpdate={() => refetchLinkedControls()}
                 />
             )}
+
+            <DistributionDialog
+                policyId={policyId}
+                clientId={clientId}
+                open={showDistributionDialog}
+                onOpenChange={setShowDistributionDialog}
+            />
         </DashboardLayout>
     );
 }

@@ -92,6 +92,8 @@ import { createFindingsRouter } from "./server/routers/findings";
 import { createTrustCenterRouter } from "./server/routers/trustCenter";
 import { createAiSystemsRouter } from "./server/routers/aiSystems";
 import { createCommentsRouter } from "./server/routers/comments";
+import { createOnboardingRouter } from "./server/routers/onboarding";
+import { createTrainingRouter } from "./server/routers/training";
 
 
 
@@ -139,10 +141,11 @@ const isAdmin = t.middleware(({ ctx, next }) => {
 
 const checkClientAccess = t.middleware(async (opts) => {
   const { ctx, next } = opts;
-  const rawInput = (opts as any).rawInput;
+  // Safer input access that works with both batched and standard requests
+  const input = (opts as any).rawInput || (opts as any).input || {};
+  
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-  const input = rawInput as any;
   const clientId = input?.clientId;
 
   // Admins have implicit access
@@ -151,6 +154,12 @@ const checkClientAccess = t.middleware(async (opts) => {
   }
 
   if (!clientId) {
+    // If no clientId provided in input, we cannot verify client access
+    // However, some procedures might not need clientId immediately or handle it differently
+    // But clientProcedure implies scope to a client. 
+    // If the input doesn't have clientId, we should probably fail if it's strictly a client procedure.
+    // BUT, sometimes inputs are nested or different.
+    // For now, if no clientId, we throw, matching previous logic but safer access.
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Client ID is required for this operation' });
   }
 
@@ -183,8 +192,8 @@ const clientEditorProcedure = clientProcedure.use(checkClientEditor);
 // Premium Feature Guard - Checks if client has Pro or Enterprise tier
 const checkPremiumAccess = t.middleware(async (opts) => {
   const { ctx, next } = opts;
-  const rawInput = (opts as any).rawInput;
-  const input = rawInput as any;
+  // Safer input access that works with both batched and standard requests
+  const input = (opts as any).rawInput || (opts as any).input || {};
   const clientId = input?.clientId || ctx.clientId;
 
   // Global Admin/Owner bypass (Internal access)
@@ -291,6 +300,7 @@ export const appRouter = router({
   readiness: createReadinessRouter(t, clientProcedure),
   calendar: createCalendarRouter(t, clientProcedure),
   intake: createIntakeRouter(t, clientProcedure),
+  employees: createEmployeesRouter(t, clientProcedure),
 
 
   dashboard: createDashboardRouter(t, adminProcedure, publicProcedure.use(isAuthed)),
@@ -325,6 +335,8 @@ export const appRouter = router({
 
   governance: createGovernanceRouter(t, clientProcedure, adminProcedure),
   employees: createEmployeesRouter(t, clientProcedure),
+  onboarding: createOnboardingRouter(t, clientProcedure, clientEditorProcedure),
+  training: createTrainingRouter(t, clientProcedure, clientEditorProcedure),
   knowledgeBase: createKnowledgeBaseRouter(t, clientProcedure),
   questionnaire: createQuestionnaireRouter(t, clientProcedure, premiumClientProcedure),
   taskAssignments: createTaskAssignmentsRouter(t, clientProcedure),

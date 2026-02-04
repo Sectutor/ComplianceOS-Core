@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { Button } from "@complianceos/ui/ui/button";
@@ -9,14 +8,14 @@ import { Send, Users, Check } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@complianceos/ui/ui/command";
 import { cn } from "@/lib/utils";
 
-interface DistributionDialogProps {
-    policyId: number;
+interface TrainingAssignmentDialogProps {
+    moduleId: number;
     clientId: number;
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-export function DistributionDialog({ policyId, clientId, open, onOpenChange }: DistributionDialogProps) {
+export function TrainingAssignmentDialog({ moduleId, clientId, open, onOpenChange }: TrainingAssignmentDialogProps) {
     const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
     const utils = trpc.useUtils();
 
@@ -25,21 +24,22 @@ export function DistributionDialog({ policyId, clientId, open, onOpenChange }: D
         { enabled: open && clientId > 0 }
     );
 
-    const assignMutation = trpc.policyManagement.assignPolicy.useMutation({
+    const assignMutation = (trpc.training as any).assign.useMutation({
         onSuccess: (data: any) => {
-            toast.success(`Policy distributed to ${data.count} employees`);
+            toast.success(`Training assigned to ${data.count} employees`);
             onOpenChange(false);
             setSelectedEmployees([]);
-            utils.policyManagement.getAssignments.invalidate({ policyId });
+            utils.training.getAssignments.invalidate({ moduleId });
+            (utils.training as any).getStats.invalidate({ clientId });
         },
-        onError: (error) => toast.error(error.message)
+        onError: (error: any) => toast.error(error.message)
     });
 
-    const handleDistribute = () => {
+    const handleAssign = () => {
         if (selectedEmployees.length === 0) return;
         assignMutation.mutate({
             clientId,
-            policyId,
+            moduleId,
             employeeIds: selectedEmployees
         });
     };
@@ -64,21 +64,21 @@ export function DistributionDialog({ policyId, clientId, open, onOpenChange }: D
         <EnhancedDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Distribute Policy"
-            description="Select employees who must read and attest to this policy."
-            trigger={null} // Controlled dialog
+            title="Assign Training Module"
+            description="Select employees who must complete this training module."
+            trigger={null}
             footer={
                 <div className="flex justify-end gap-2 w-full">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleDistribute} disabled={selectedEmployees.length === 0 || assignMutation.isPending}>
-                        {assignMutation.isPending ? "Distributing..." : `Distribute to ${selectedEmployees.length} Employees`}
+                    <Button onClick={handleAssign} disabled={selectedEmployees.length === 0 || assignMutation.isLoading}>
+                        {assignMutation.isLoading ? "Assigning..." : `Assign to ${selectedEmployees.length} Employees`}
                     </Button>
                 </div>
             }
         >
             <div className="space-y-4 py-4">
                 <div className="flex items-center justify-between">
-                    <Label>Select Recipients</Label>
+                    <Label>Select Employees</Label>
                     <Button variant="ghost" size="sm" onClick={selectAll}>
                         {employees && selectedEmployees.length === employees.length ? "Deselect All" : "Select All"}
                     </Button>

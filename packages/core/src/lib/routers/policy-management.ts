@@ -3,7 +3,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "../../db";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { policyAssignments, policyExceptions, clientPolicies, employees } from "../../schema";
+import { policyAssignments, policyExceptions, clientPolicies, employees, employeeTrainingRecords } from "../../schema";
 // import { Context } from "../../routers";
 
 // Define local context to avoid circular dependency
@@ -29,35 +29,45 @@ export const createPolicyManagementRouter = (
         // Assign a policy to multiple employees
         assignPolicy: clientEditorProcedure
             .input(z.object({
+                clientId: z.number(),
                 policyId: z.number(),
                 employeeIds: z.array(z.number()),
             }))
             .mutation(async ({ input, ctx }: { input: any, ctx: Context }) => {
-                const dbConn = await db.getDb();
+                try {
+                    const dbConn = await db.getDb();
 
-                // Filter out existing assignments to avoid duplicates
-                const existing = await dbConn.select().from(policyAssignments)
-                    .where(and(
-                        eq(policyAssignments.policyId, input.policyId),
-                        inArray(policyAssignments.employeeId, input.employeeIds)
-                    ));
+                    // Filter out existing assignments to avoid duplicates
+                    const existing = await dbConn.select().from(policyAssignments)
+                        .where(and(
+                            eq(policyAssignments.policyId, input.policyId),
+                            inArray(policyAssignments.employeeId, input.employeeIds)
+                        ));
 
-                const existingIds = existing.map((a: { employeeId: number }) => a.employeeId);
-                const newIds = input.employeeIds.filter((id: number) => !existingIds.includes(id));
+                    const existingIds = existing.map((a: { employeeId: number }) => a.employeeId);
+                    const newIds = input.employeeIds.filter((id: number) => !existingIds.includes(id));
 
-                if (newIds.length === 0) {
-                    return { success: true, count: 0 };
+                    if (newIds.length === 0) {
+                        return { success: true, count: 0 };
+                    }
+
+                    await dbConn.insert(policyAssignments).values(
+                        newIds.map((id: number) => ({
+                            policyId: input.policyId,
+                            employeeId: id,
+                            status: "pending"
+                        }))
+                    );
+
+                    return { success: true, count: newIds.length };
+                } catch (error: any) {
+                    console.error("assignPolicy Error:", error);
+                    throw new TRPCError({
+                        code: "INTERNAL_SERVER_ERROR",
+                        message: `Failed to assign policy: ${error.message || error}`,
+                        cause: error
+                    });
                 }
-
-                await dbConn.insert(policyAssignments).values(
-                    newIds.map((id: number) => ({
-                        policyId: input.policyId,
-                        employeeId: id,
-                        status: "pending"
-                    }))
-                );
-
-                return { success: true, count: newIds.length };
             }),
 
         // Get assignments for a policy (Admin view)
@@ -206,7 +216,7 @@ export const createPolicyManagementRouter = (
             .query(async ({ input }: { input: any }) => {
                 const dbConn = await db.getDb();
 
-                // Get assignments
+                // Get policy assignments
                 const myAssignments = await dbConn.select({
                     assignmentId: policyAssignments.id,
                     status: policyAssignments.status,
@@ -225,9 +235,63 @@ export const createPolicyManagementRouter = (
                     .from(policyExceptions)
                     .where(eq(policyExceptions.employeeId, input.employeeId));
 
+                // Get training records
+                const trainingRecords = await dbConn.select()
+                    .from(employeeTrainingRecords)
+                    .where(eq(employeeTrainingRecords.employeeId, input.employeeId));
+
+                // Define required training modules (hardcoded for now)
+                const requiredTraining = [
+                    { id: 'intro', name: 'Introduction to Compliance', framework: 'iso-27001', description: 'Overview of compliance requirements' },
+                    { id: 'implementation', name: 'Implementation Guide', framework: 'iso-27001', description: 'How to implement compliance controls' },
+                    { id: 'risk-management', name: 'Risk Management', framework: 'iso-27001', description: 'Understanding and managing risks' },
+                    { id: 'incident-response', name: 'Incident Response', framework: 'iso-27001', description: 'How to respond to security incidents' },
+                    { id: 'data-protection', name: 'Data Protection', framework: 'iso-27001', description: 'Protecting sensitive information' },
+                ];
+
+                // Map training records to status
+                const trainingStatus = requiredTraining.map(module => {
+                    const completed = trainingRecords.find(
+                        (r: any) => r.frameworkId === module.framework && r.sectionId === module.id
+                    );
+                    return {
+                        id: module.id,
+                        name: module.name,
+                        framework: module.framework,
+                        description: module.description,
+                        status: completed ? 'completed' : 'pending',
+                        completedAt: completed?.completedAt || null
+                    };
+                });
+
+                // Calculate summary statistics
+                const totalPolicies = myAssignments.length;
+                const attestedPolicies = myAssignments.filter((a: any) => a.status === 'attested').length;
+                const pendingPolicies = totalPolicies - attestedPolicies;
+
+                const totalTraining = requiredTraining.length;
+                const completedTraining = trainingStatus.filter(t => t.status === 'completed').length;
+                const pendingTraining = totalTraining - completedTraining;
+
+                const totalItems = totalPolicies + totalTraining;
+                const completedItems = attestedPolicies + completedTraining;
+                const overallProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
                 return {
                     assignments: myAssignments,
-                    exceptions: myExceptions
+                    exceptions: myExceptions,
+                    training: trainingStatus,
+                    summary: {
+                        totalPolicies,
+                        attestedPolicies,
+                        pendingPolicies,
+                        totalTraining,
+                        completedTraining,
+                        pendingTraining,
+                        totalItems,
+                        completedItems,
+                        overallProgress
+                    }
                 };
             })
 

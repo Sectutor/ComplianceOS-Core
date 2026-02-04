@@ -160,7 +160,7 @@ app.use((req, res, next) => {
         console.log(`[TRPC Debug] Body keys: ${Object.keys(req.body || {})}`);
         if (req.method === 'POST') {
             // Safe log for potential base64 data - truncate
-            const bodyStr = JSON.stringify(req.body);
+            const bodyStr = req.body ? JSON.stringify(req.body) : '{}';
             console.log(`[TRPC Debug] Body: ${bodyStr.substring(0, 500)}...`);
         }
     }

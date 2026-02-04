@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { Plus, FolderOpen, ArrowRight, Search, Building2, Trash2, Edit } from "lucide-react";
+import { Plus, FolderOpen, ArrowRight, Search, Building2, Trash2, Edit, Settings } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -259,7 +259,10 @@ export default function Clients() {
                           Workspace Ready
                         </span>
                         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteClient(client.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLocation(`/clients/${client.id}/settings`)} title="Client Settings">
+                            <Settings className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteClient(client.id)} title="Delete Client">
                             <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                           </Button>
                           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => setLocation(`/clients/${client.id}`)}>

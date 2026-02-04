@@ -12,11 +12,13 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
 import { Textarea } from "@complianceos/ui/ui/textarea";
-import { Trash2, Edit2, Plus, Users, Network, GitGraph, RotateCw, HelpCircle, Search } from "lucide-react";
+import { Trash2, Edit2, Plus, Users, Network, GitGraph, RotateCw, HelpCircle, Search, GraduationCap, FileCheck, CheckCircle2, AlertCircle, Clock, Laptop } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { OrgChart } from "@/components/OrgChart";
+import { AssetAssignmentDialog } from "@/components/AssetAssignmentDialog";
 import { Alert, AlertDescription, AlertTitle } from "@complianceos/ui/ui/alert";
+import { Progress } from "@complianceos/ui/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,9 +89,12 @@ export function PeoplePage() {
 
   const [employeeToDelete, setEmployeeToDelete] = useState<any>(null);
   const [roleToDelete, setRoleToDelete] = useState<any>(null);
+  const [isAssetAssignmentOpen, setIsAssetAssignmentOpen] = useState(false);
+  const [assetAssignmentEmployee, setAssetAssignmentEmployee] = useState<any>(null);
 
   // -- Queries --
   const { data: employees = [], isLoading, refetch } = trpc.employees.list.useQuery({ clientId });
+  const { data: onboardingStatuses = [] } = (trpc.onboarding as any).getCompanyOnboardingStatus?.useQuery({ clientId }) || { data: [] };
 
   const cleanSearchQuery = searchQuery.toLowerCase().trim();
   const filteredEmployees = employees.filter((employee: any) => {
@@ -98,6 +103,17 @@ export function PeoplePage() {
     return searchString.includes(cleanSearchQuery);
   });
   const { data: orgRoles = [], refetch: refetchRoles } = trpc.orgRoles.list.useQuery({ clientId });
+
+  // Fetch bulk onboarding/compliance status for all employees
+  const { data: onboardingStatuses = [] } = (trpc.onboarding as any).getCompanyOnboardingStatus?.useQuery(
+    { clientId },
+    { enabled: clientId > 0 }
+  ) || { data: [] };
+
+  // Create a map for quick lookup
+  const complianceMap = new Map(
+    onboardingStatuses.map((emp: any) => [emp.employeeId, emp])
+  );
 
   // -- Mutations: Employees --
   const createMutation = trpc.employees.create.useMutation({
@@ -226,6 +242,11 @@ export function PeoplePage() {
     setIsAddOpen(true);
   };
 
+  const handleOpenAssetAssignment = (employee: any) => {
+    setAssetAssignmentEmployee(employee);
+    setIsAssetAssignmentOpen(true);
+  };
+
   // -- Handlers: Org Roles --
   const resetRoleForm = () => {
     setRoleFormData({
@@ -288,6 +309,18 @@ export function PeoplePage() {
 
   return (
     <DashboardLayout>
+      {assetAssignmentEmployee && (
+        <AssetAssignmentDialog
+          open={isAssetAssignmentOpen}
+          onOpenChange={(open) => {
+            setIsAssetAssignmentOpen(open);
+            if (!open) setAssetAssignmentEmployee(null);
+          }}
+          employeeId={assetAssignmentEmployee.id}
+          clientId={clientId}
+          employeeName={`${assetAssignmentEmployee.firstName} ${assetAssignmentEmployee.lastName}`}
+        />
+      )}
       <div className="space-y-6">
         {/* Breadcrumb */}
         <Breadcrumb
@@ -412,6 +445,9 @@ export function PeoplePage() {
                           <TableHead className="text-white font-semibold py-4">Department</TableHead>
                           <TableHead className="text-white font-semibold py-4">Manager</TableHead>
                           <TableHead className="text-white font-semibold py-4">Status</TableHead>
+                          <TableHead className="text-white font-semibold py-4">Training</TableHead>
+                          <TableHead className="text-white font-semibold py-4">Policies</TableHead>
+                          <TableHead className="text-white font-semibold py-4">Compliance</TableHead>
                           <TableHead className="w-20 text-white font-semibold py-4">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -439,6 +475,56 @@ export function PeoplePage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="py-4">
+                              {(() => {
+                                const compliance = complianceMap.get(employee.id);
+                                if (!compliance) return <span className="text-gray-400 text-sm">-</span>;
+                                const pct = compliance.trainingCompletion || 0;
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <GraduationCap className="h-4 w-4 text-blue-600" />
+                                    <span className="text-sm font-medium">{pct}%</span>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              {(() => {
+                                const compliance = complianceMap.get(employee.id);
+                                if (!compliance) return <span className="text-gray-400 text-sm">-</span>;
+                                const attested = compliance.policiesAttested || 0;
+                                const total = compliance.totalPolicies || 0;
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <FileCheck className="h-4 w-4 text-green-600" />
+                                    <span className="text-sm font-medium">{attested}/{total}</span>
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              {(() => {
+                                const status = complianceMap.get(employee.id);
+                                if (!status) {
+                                  return (
+                                    <Badge variant="secondary" className="gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      Not Started
+                                    </Badge>
+                                  );
+                                }
+                                const pct = status.percentage || 0;
+                                return (
+                                  <div className="flex flex-col gap-1 w-24">
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                      <span>{pct}%</span>
+                                      {pct >= 100 && <CheckCircle2 className="h-3 w-3 text-green-600" />}
+                                    </div>
+                                    <Progress value={pct} className="h-2" />
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="py-4">
                               <div className="flex gap-2 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
                                 <Button
                                   variant="ghost"
@@ -447,6 +533,15 @@ export function PeoplePage() {
                                   className="h-8 w-8 p-0 hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D] transition-colors duration-200"
                                 >
                                   <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenAssetAssignment(employee)}
+                                  className="h-8 w-8 p-0 hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D] transition-colors duration-200"
+                                  title="Assign Assets"
+                                >
+                                  <Laptop className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"

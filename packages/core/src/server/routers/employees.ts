@@ -59,6 +59,19 @@ export const createEmployeesRouter = (t: any, clientProcedure: any) => {
         return employee;
       }),
 
+    getByEmail: clientProcedure
+      .input(z.object({ email: z.string(), clientId: z.number() }))
+      .query(async ({ input }: any) => {
+        const db = await getDb();
+        const [employee] = await db.select()
+          .from(employees)
+          .where(and(
+            eq(employees.email, input.email),
+            eq(employees.clientId, input.clientId)
+          ));
+        return employee || null;
+      }),
+
     getRACIMatrix: clientProcedure
       .input(z.object({ clientId: z.number() }))
       .query(async ({ input }: any) => {
@@ -93,6 +106,50 @@ export const createEmployeesRouter = (t: any, clientProcedure: any) => {
           gaps: [],
           recommendations: []
         };
+      }),
+
+    ensureSelf: clientProcedure
+      .input(z.object({ clientId: z.number() }))
+      .mutation(async ({ input, ctx }: any) => {
+        const db = await getDb();
+
+        // Check if employee exists
+        const [existing] = await db.select()
+          .from(employees)
+          .where(and(
+            eq(employees.email, ctx.user.email),
+            eq(employees.clientId, input.clientId)
+          ));
+
+        if (existing) return existing;
+
+        // Create new employee record
+        const nameParts = (ctx.user.name || '').split(' ');
+        const firstName = nameParts[0] || ctx.user.email.split('@')[0];
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Import createEmployee from db (checking imports)
+        // It seems createEmployee was exported in db.ts but not imported here.
+        // Using direct db insert if createEmployee not available in this scope, 
+        // but let's try to use the helper if possible or raw insert.
+        // db.insert(employees) is safer if I can't find the helper import easily.
+
+        // Checking imports again: imports `employees` from `../../schema`.
+        // I'll just do a raw insert which is safe.
+
+        const [newEmployee] = await db.insert(employees).values({
+          clientId: input.clientId,
+          email: ctx.user.email,
+          firstName: firstName,
+          lastName: lastName,
+          jobTitle: 'Team Member',
+          department: 'General',
+          status: 'active',
+          startDate: new Date(),
+          employmentType: 'Full-time'
+        }).returning();
+
+        return newEmployee;
       }),
   });
 };

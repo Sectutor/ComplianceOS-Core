@@ -2,10 +2,17 @@ import { useEffect, useRef } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 
-export default function RichTextEditor({ value, onChange, className }: { value: string; onChange: (html: string) => void; className?: string }) {
+export default function RichTextEditor({ value, onChange, className, minHeight = "500px" }: { value: string; onChange: (html: string) => void; className?: string; minHeight?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
   const isUpdatingRef = useRef(false);
+
+  // Set css var
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.style.setProperty('--min-height', minHeight);
+    }
+  }, [minHeight]);
 
   useEffect(() => {
     if (quillRef.current || !containerRef.current) return;
@@ -68,9 +75,9 @@ export default function RichTextEditor({ value, onChange, className }: { value: 
                 border-bottom-left-radius: 0.5rem;
                 border-bottom-right-radius: 0.5rem;
                 background: #ffffff;
-                font-family: 'Inter', sans-serif;
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
                 font-size: 0.95rem;
-                min-height: 500px;
+                min-height: var(--min-height, 500px);
                 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             }
             .rich-text-editor-wrapper .ql-editor {

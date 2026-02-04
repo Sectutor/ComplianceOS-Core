@@ -33,6 +33,7 @@ export function ExceptionRequestDialog({ policyId, employeeId, open, onOpenChang
             setExpirationDate("");
             utils.policyManagement.getMyPolicies.invalidate(); // Refetch my policies if applicable
             utils.policyManagement.getExceptions.invalidate({ policyId }); // Refetch policy exceptions
+            utils.onboarding.getStatus.invalidate(); // Refetch onboarding status
         },
         onError: (error) => toast.error(error.message)
     });

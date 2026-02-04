@@ -46,14 +46,14 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         }));
       }),
     get: clientProcedure
-      .input(z.object({ id: z.number(), clientId: z.number() }))
+      .input(z.object({ id: z.number(), clientId: z.number().optional() }))
       .query(async ({ input }: any) => {
         const result = await db.getClientPolicyById(input.id);
         if (!result) throw new TRPCError({ code: "NOT_FOUND" });
         // Extra check: ensure policy actually belongs to input.clientId
         // Note: getClientPolicyById returns { clientPolicy, template }
         const policy = result.clientPolicy || result;
-        if (policy.clientId !== input.clientId) {
+        if (input.clientId && policy.clientId !== input.clientId) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Policy does not belong to the specified client context" });
         }
         return result;

@@ -38,12 +38,17 @@ import { SmtpSettings } from "@/components/settings/SmtpSettings";
 import { PolicySettingsTab } from "@/components/settings/PolicySettingsTab";
 import { FrameworksSettingsTab } from "@/components/settings/FrameworksSettingsTab";
 import { Badge } from "@complianceos/ui/ui/badge";
+import { OnboardingSettingsTab } from "@/components/settings/OnboardingSettingsTab";
+import { ListTodo } from "lucide-react";
 
 export default function ClientSettings() {
     const params = useParams();
     const clientId = Number(params.id);
     const [, setLocation] = useLocation();
     const { user } = useAuth();
+
+    // Lazy loaded to avoid potential circular dep issues or just keep clean
+
 
     const [isDeletingClient, setIsDeletingClient] = useState(false);
     const [isImportingData, setIsImportingData] = useState(false);
@@ -208,6 +213,13 @@ export default function ClientSettings() {
                             <Database className="mr-2 h-4 w-4" />
                             Demo Data
                         </TabsTrigger>
+                        <TabsTrigger
+                            value="onboarding"
+                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                        >
+                            <ListTodo className="mr-2 h-4 w-4" />
+                            Onboarding
+                        </TabsTrigger>
                     </TabsList>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -252,6 +264,11 @@ export default function ClientSettings() {
                                         />
                                     </CardContent>
                                 </Card>
+                            </TabsContent>
+
+                            {/* Onboarding Tab */}
+                            <TabsContent value="onboarding" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
+                                <OnboardingSettingsTab clientId={clientId} />
                             </TabsContent>
 
                             {/* Policy Settings Tab */}

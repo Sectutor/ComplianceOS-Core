@@ -30,7 +30,7 @@ import {
   LayoutDashboard, LogOut, PanelLeft, Users, User, Shield, FileText, Calendar,
   Link, ClipboardCheck, FileBarChart, Bell, Settings, BookOpen, ChevronRight,
   ChevronDown, Scale, Lock, History, AlertTriangle, Activity, Database, Bug,
-  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag
+  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag, GraduationCap, Video
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Redirect } from "wouter";
@@ -117,6 +117,7 @@ const clientSpecificMenuItems = [
   { icon: ListTodo, label: "Tasks", path: "/tasks" },
   { icon: MessageSquare, label: "Communication", path: "/communication" },
   { icon: History, label: "Activity Log", path: "/activity" },
+  { icon: GraduationCap, label: "Personnel Compliance", path: "/personnel-compliance" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -154,6 +155,8 @@ function resolveNavigationPath(itemPath: string, clientId: number | null): strin
   if (purePath === "/journey") return `/clients/${clientId}/journey${queryStr}`; // New
   if (purePath === "/onboarding") return `/onboarding${queryStr}`; // Global, but good to handle explicitly if needed
   if (purePath === "/gap-analysis") return `/clients/${clientId}/gap-analysis${queryStr}`;
+  if (purePath === "/training/management") return `/clients/${clientId}/training/management${queryStr}`;
+  if (purePath === "/personnel-compliance") return `/clients/${clientId}/personnel-compliance${queryStr}`;
   if (purePath === "/audit-hub") return `/clients/${clientId}/audit-hub${queryStr}`;
   if (purePath === "/reports") return `/clients/${clientId}/reports${queryStr}`;
   if (purePath === "/trust-center") return `/trust-center/${clientId}${queryStr}`;
@@ -490,7 +493,11 @@ function DashboardLayoutContent({
     };
 
     checkAndRedirect();
-  }, [dbUser, location]);
+  }, [dbUser, location, isUserLoading, user, syncSubscription, refetchUser]);
+
+  // Robust role check: use DB user if available, otherwise fall back to auth metadata
+  const userRole = dbUser?.role || user?.user_metadata?.role || user?.app_metadata?.role;
+  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner';
 
   // Group Definition
   const groups = [
@@ -500,6 +507,7 @@ function DashboardLayoutContent({
         { icon: Rocket, label: "Start Here", path: "/start-here" },
         { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
         { icon: Users, label: "Clients", path: "/clients" },
+        { icon: GraduationCap, label: "Employee Onboarding", path: "/onboarding" },
       ]
     },
     {
@@ -709,6 +717,7 @@ function DashboardLayoutContent({
           { icon: Calendar, label: "Calendar", path: "/calendar" },
           { icon: ListTodo, label: "Tasks", path: "/tasks" },
           { icon: MessageSquare, label: "Communication", path: "/communication" },
+          ...(isAdminOrOwner ? [{ icon: GraduationCap, label: "Personnel Compliance", path: "/personnel-compliance" }] : []),
         ]
       },
       {
@@ -720,9 +729,6 @@ function DashboardLayoutContent({
     );
   }
 
-  // Robust role check: use DB user if available, otherwise fall back to auth metadata
-  const userRole = dbUser?.role || user?.user_metadata?.role || user?.app_metadata?.role;
-  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner';
 
   if (isAdminOrOwner) {
     groups.push({
