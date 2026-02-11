@@ -35,6 +35,7 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@complianceos/ui/ui/accordion";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ROPA() {
     const [, setLocation] = useLocation();
@@ -55,13 +56,17 @@ export default function ROPA() {
                 ]}
             />
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Record of Processing Activities</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Map personal data flows to business processes (Article 30 GDPR)
-                    </p>
-                </div>
+            <div className="flex items-center justify-between animate-slide-down">
+                <PageGuide
+                    title="Record of Processing Activities"
+                    description="Maintain a comprehensive inventory of personal data processing activities."
+                    rationale="GDPR Article 30 requires maintaining a record of processing activities under your responsibility."
+                    howToUse={[
+                        { step: "Map", description: "Identify business processes and associate them with data flows." },
+                        { step: "Classify", description: "Detail data elements, subjects, legal basis, and retention periods." },
+                        { step: "Maintain", description: "Regularly review and update records to reflect operational changes." }
+                    ]}
+                />
             </div>
 
             <Card className="flex-1">

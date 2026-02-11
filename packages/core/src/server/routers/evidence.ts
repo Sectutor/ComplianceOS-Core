@@ -1,4 +1,5 @@
 
+import archiver from 'archiver';
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as db from "../../db";
@@ -6,6 +7,7 @@ import { getDb } from "../../db";
 import * as schema from "../../schema";
 import { eq, desc, and, sql, getTableColumns, lt, or, inArray, like } from "drizzle-orm";
 import { llmService } from "../../lib/llm/service";
+import { recalculateRiskScore } from "../services/riskService";
 
 // Shared Framework Seed Data
 export const FRAMEWORK_SEEDS: Record<string, any[]> = {
@@ -215,6 +217,8 @@ export const createEvidenceRouter = (
             }))
             .mutation(async ({ input }: any) => {
                 const dbConn = await getDb();
+
+                // 1. Update Evidence Status
                 await dbConn.update(schema.evidence)
                     .set({
                         status: input.status,
@@ -222,6 +226,55 @@ export const createEvidenceRouter = (
                         updatedAt: new Date()
                     } as any)
                     .where(eq(schema.evidence.id, input.evidenceId));
+
+                // 2. "Live Wire": Propagate to Control and Risk
+                if (input.status === 'verified') {
+                    // Get the evidence to find clientControlId
+                    const [evidence] = await dbConn.select().from(schema.evidence).where(eq(schema.evidence.id, input.evidenceId));
+
+                    if (evidence && evidence.clientControlId) {
+                        // A. Update Client Control to 'implemented'
+                        await dbConn.update(schema.clientControls)
+                            .set({ status: 'implemented', implementationDate: new Date() })
+                            .where(eq(schema.clientControls.id, evidence.clientControlId));
+
+                        // B. Find linked treatments and update effectiveness
+                        // Get the controlId from clientControl
+                        const [clientControl] = await dbConn.select().from(schema.clientControls).where(eq(schema.clientControls.id, evidence.clientControlId));
+
+                        if (clientControl) {
+                            const controlId = clientControl.controlId;
+
+                            // Find all treatmentControls for this control and client
+                            const linkedTreatments = await dbConn.select()
+                                .from(schema.treatmentControls)
+                                .where(and(
+                                    eq(schema.treatmentControls.controlId, controlId),
+                                    eq(schema.treatmentControls.clientId, evidence.clientId)
+                                ));
+
+                            // Update them to 'effective'
+                            if (linkedTreatments.length > 0) {
+                                await dbConn.update(schema.treatmentControls)
+                                    .set({ effectiveness: 'effective', updatedAt: new Date() })
+                                    .where(and(
+                                        eq(schema.treatmentControls.controlId, controlId),
+                                        eq(schema.treatmentControls.clientId, evidence.clientId)
+                                    ));
+
+                                // C. Recalculate Risk for each affected treatment
+                                for (const tc of linkedTreatments) {
+                                    // Get treatment to find riskAssessmentId
+                                    const [treatment] = await dbConn.select().from(schema.riskTreatments).where(eq(schema.riskTreatments.id, tc.treatmentId));
+                                    if (treatment) {
+                                        await recalculateRiskScore(dbConn, treatment.riskAssessmentId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 return { success: true };
             }),
 
@@ -681,6 +734,154 @@ Provide a structured JSON response:
                 .limit(50);
 
             return comments;
-        })
+        }),
+        pack: protectedProcedure
+            .input(z.object({
+                clientId: z.number(),
+                framework: z.string().optional()
+            }))
+            .mutation(async ({ input }) => {
+                const dbConn = await getDb();
+                // Fetch verified evidence items
+                const evidenceList = await dbConn.select().from(schema.evidence)
+                    .where(and(
+                        eq(schema.evidence.clientId, input.clientId),
+                        input.framework ? eq(schema.evidence.framework, input.framework) : undefined,
+                        eq(schema.evidence.status, 'verified')
+                    ));
+
+                if (evidenceList.length === 0) {
+                    // We can either throw or return empty. throw seems appropriate if they asked for a pack.
+                    // But let's verify if filtering by status='verified' is too strict for testing? 
+                    // The requirement is "sealed 'Evidence Pack'". Usually implies verified.
+                }
+
+                const evidenceIds = evidenceList.map((e) => e.id);
+
+                // Fetch associated files for these evidence items
+                const files = evidenceIds.length > 0 ? await dbConn.select().from(schema.evidenceFiles)
+                    .where(inArray(schema.evidenceFiles.evidenceId, evidenceIds)) : [];
+
+                const fs = await import('fs');
+                const path = await import('path');
+                const crypto = await import('crypto');
+
+                // Ensure uploads directory exists (local storage emulation)
+                const uploadDir = path.join(process.cwd(), 'uploads');
+                if (!fs.existsSync(uploadDir)) {
+                    await fs.promises.mkdir(uploadDir, { recursive: true });
+                }
+
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const filename = `Compliance_Evidence_${input.clientId}_${input.framework || 'ALL'}_${timestamp}.zip`;
+                const filePath = path.join(uploadDir, filename);
+                const output = fs.createWriteStream(filePath);
+
+                const archive = archiver('zip', {
+                    zlib: { level: 9 }
+                });
+
+                return new Promise((resolve, reject) => {
+                    output.on('close', () => {
+                        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
+                        resolve({
+                            url: `${baseUrl}/uploads/${filename}`,
+                            filename,
+                            fileCount: files.length,
+                            size: archive.pointer(),
+                            manifest: {
+                                generatedAt: new Date(),
+                                framework: input.framework || "All",
+                                itemCount: evidenceList.length,
+                                fileCount: files.length
+                            }
+                        });
+                    });
+
+                    archive.on('error', (err) => {
+                        console.error("Archiver Error:", err);
+                        reject(new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create zip pack', cause: err }));
+                    });
+
+                    archive.pipe(output);
+
+                    // Add Manifest
+                    const manifest = {
+                        generatedAt: new Date(),
+                        framework: input.framework || "All",
+                        items: evidenceList.map((e) => {
+                            const relatedFiles = files.filter((f) => f.evidenceId === e.id);
+                            return {
+                                id: e.evidenceId,
+                                description: e.description,
+                                files: relatedFiles.map((f) => {
+                                    let hash = 'manual-verification-required';
+
+                                    // Calculate hash for local files
+                                    if (f.url && f.url.startsWith('/uploads/')) {
+                                        try {
+                                            const localFileName = f.url.split('/').pop();
+                                            const localPath = path.join(process.cwd(), 'uploads', localFileName);
+                                            if (fs.existsSync(localPath)) {
+                                                const fileBuffer = fs.readFileSync(localPath);
+                                                hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+                                            }
+                                        } catch (e) {
+                                            console.warn("Failed to hash file", f.filename, e);
+                                        }
+                                    }
+
+                                    return {
+                                        name: f.filename,
+                                        size: f.fileSize,
+                                        hash: hash
+                                    };
+                                }),
+                                status: e.status
+                            };
+                        })
+                    };
+                    archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
+
+                    // Add Files
+                    // Track which files we successfully added
+                    const processedFiles = new Set();
+
+                    // 1. Add actual files
+                    files.forEach((f) => {
+                        const evidence = evidenceList.find((e) => e.id === f.evidenceId);
+                        const folderName = evidence ? evidence.evidenceId : 'Uncategorized';
+
+                        // Handle local files
+                        if (f.url && f.url.startsWith('/uploads/')) {
+                            // Extract just the filename from the URL path
+                            const localFileName = f.url.split('/').pop();
+                            const localPath = path.join(process.cwd(), 'uploads', localFileName);
+
+                            if (fs.existsSync(localPath)) {
+                                archive.file(localPath, { name: `${folderName}/${f.filename}` });
+                                processedFiles.add(f.id);
+                            } else {
+                                archive.append(`File defined but missing on server: ${f.filename}\nPath: ${localPath}`, { name: `${folderName}/${f.filename}.missing.txt` });
+                            }
+                        } else if (f.url) {
+                            // Remote URL - just drop a text link file
+                            archive.append(`Remote File Link: ${f.url}`, { name: `${folderName}/${f.filename}.url` });
+                            processedFiles.add(f.id);
+                        }
+                    });
+
+                    // 2. Add summary text for evidence items that have NO files
+                    evidenceList.forEach((e) => {
+                        const hasFiles = files.some((f) => f.evidenceId === e.id);
+                        if (!hasFiles) {
+                            const fileContent = `Evidence ID: ${e.evidenceId}\nDescription: ${e.description}\nStatus: ${e.status}\nNote: No files attached to this verified evidence item.`;
+                            archive.append(fileContent, { name: `${e.evidenceId}/_info.txt` });
+                        }
+                    });
+
+                    archive.finalize();
+                });
+            }),
     });
 };

@@ -9,6 +9,7 @@ import { useParams, useLocation } from "wouter";
 import { toast } from "sonner";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Map, CheckCircle2, ArrowRight, LayoutTemplate, PenTool, GitMerge, Settings } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ImplementationCreate() {
   const [activeTab, setActiveTab] = useState<'details' | 'template' | 'roadmap'>('details');
@@ -81,11 +82,27 @@ export default function ImplementationCreate() {
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto p-8 animate-in fade-in duration-500">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Create Implementation Plan</h1>
-          <p className="text-muted-foreground mb-6">
-            Choose how you want to start your execution journey.
-          </p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Create Implementation Plan</h1>
+            <p className="text-muted-foreground mb-6">
+              Choose how you want to start your execution journey.
+            </p>
+          </div>
+          <PageGuide
+            title="Plan Creation Wizard"
+            description="Three ways to start your implementation journey."
+            rationale="Flexible creation options allow you to match the plan to the source of the requirement."
+            howToUse={[
+              { step: "Manual Setup", description: "Best for ad-hoc projects or quick tasks." },
+              { step: "Use Template", description: "Best for recurring audits or standard procedures." },
+              { step: "Import from Roadmap", description: "Best for executing long-term strategic initiatives." }
+            ]}
+            integrations={[
+              { name: "Template Library", description: "Access strict standardized templates." },
+              { name: "Roadmap Engine", description: "Pull data from strategic roadmaps." }
+            ]}
+          />
         </div>
 
         <Card className="border-slate-200 shadow-sm">

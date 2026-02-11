@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
@@ -27,6 +27,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
+import { PageGuide } from "@/components/PageGuide";
 
 interface VendorListProps {
     mode?: 'all' | 'discovery' | 'reviews';
@@ -182,10 +183,42 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
     return (
         <div className="space-y-6 page-transition">
             <div className="flex justify-between items-start animate-slide-down">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">{getPageTitle().title}</h1>
-                    <p className="text-muted-foreground mt-1 text-sm">{getPageTitle().desc}</p>
-                </div>
+                <PageGuide
+                    {...useMemo(() => {
+                        switch (mode) {
+                            case 'discovery': return {
+                                title: 'Discovery Hub',
+                                description: 'Review and classify newly discovered vendors.',
+                                rationale: 'Identify shadow IT and bring unmanaged vendors under governance.',
+                                howToUse: [
+                                    { step: "Review", description: "Examine detected apps and services." },
+                                    { step: "Classify", description: "Assign ownership and criticality." },
+                                    { step: "Onboard", description: "Convert to active vendor inventory." }
+                                ]
+                            };
+                            case 'reviews': return {
+                                title: 'Security Reviews',
+                                description: 'Manage active security assessments.',
+                                rationale: 'Ensure vendors meet your security standards before onboarding.',
+                                howToUse: [
+                                    { step: "Track", description: "Monitor progress of sent questionnaires." },
+                                    { step: "Analyze", description: "Review responses and identified gaps." },
+                                    { step: "Approve", description: "Sign off on vendor security posture." }
+                                ]
+                            };
+                            default: return {
+                                title: 'All Vendors',
+                                description: 'Complete inventory of third-party vendors.',
+                                rationale: 'Centralized view of all external relationships.',
+                                howToUse: [
+                                    { step: "Search", description: "Find vendors by name or category." },
+                                    { step: "Filter", description: "Sort by risk level or status." },
+                                    { step: "Manage", description: "View details and update attributes." }
+                                ]
+                            };
+                        }
+                    }, [mode])}
+                />
                 {mode === 'all' && (
                     <div className="flex gap-2">
                         {/* 

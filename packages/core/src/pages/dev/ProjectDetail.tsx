@@ -1,4 +1,5 @@
 
+import { toast } from "sonner";
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useClientContext } from "@/contexts/ClientContext";
@@ -7,9 +8,10 @@ import { Button } from "@complianceos/ui/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@complianceos/ui/ui/card";
 import { Badge } from "@complianceos/ui/ui/badge";
-import { ArrowLeft, Github, ShieldAlert, FileText, Layers, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Github, ShieldAlert, FileText, Layers, Pencil, Trash2, CheckCircle2, ListTodo, Sparkles } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 import { ThreatModelWizard } from "../../components/threat-modeling/ThreatModelWizard";
 import { RiskTreatmentDialog } from "../../components/risk/RiskTreatmentDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
@@ -27,18 +29,22 @@ export const ProjectDetail = () => {
     const clientId = params.clientId ? parseInt(params.clientId) : selectedClientId;
     const projectId = parseInt(params.projectId || "0");
 
-    console.log("[ProjectDetail] Route params:", params);
-    console.log("[ProjectDetail] clientId:", clientId, "type:", typeof clientId);
-    console.log("[ProjectDetail] projectId:", projectId, "type:", typeof projectId);
-
     const { data: project, isLoading, error } = trpc.devProjects.get.useQuery(
         { id: projectId, clientId: clientId! },
-        { enabled: !!clientId && !!projectId }
+        { enabled: !!clientId && !!projectId, retry: false }
     );
 
-    if (error) {
-        console.error("[ProjectDetail] TRPC Error:", error);
-    }
+    // Fallback: Check if this is a Generic Project and redirect if so
+    const { data: genericProject } = trpc.projects.get.useQuery(
+        { id: projectId, clientId: clientId! },
+        { enabled: !!clientId && !!projectId && (!!error || !project), retry: false }
+    );
+
+    React.useEffect(() => {
+        if (genericProject) {
+            setLocation(`/clients/${clientId}/projects/${projectId}`);
+        }
+    }, [genericProject, clientId, projectId, setLocation]);
 
     const [activeTab, setActiveTab] = useState("threat-models");
 
@@ -52,6 +58,53 @@ export const ProjectDetail = () => {
         { clientId: clientId!, devProjectId: projectId },
         { enabled: !!clientId && !!projectId }
     );
+
+    // Fetch OWASP Intelligence based on tech stack
+    const { data: owaspIntelligence } = trpc.advisor.getOwaspIntelligence.useQuery(
+        { tags: project?.techStack || [], limit: 20 },
+        { enabled: !!project?.techStack && project.techStack.length > 0 }
+    );
+
+    const { data: complianceMappings, refetch: refetchMappings } = trpc.devProjects.getComplianceMappings.useQuery(
+        { devProjectId: projectId },
+        { enabled: !!projectId }
+    );
+
+    const mapRequirementMutation = trpc.devProjects.mapRequirement.useMutation();
+    const createTaskMutation = trpc.devProjects.createTask.useMutation();
+
+    const handleMapRequirement = async (req: any) => {
+        try {
+            await mapRequirementMutation.mutateAsync({
+                clientId: clientId!,
+                devProjectId: projectId,
+                framework: "OWASP",
+                requirementId: req.identifier,
+                notes: `Automatically suggested requirement based on tech stack (${project?.techStack?.join(", ")})`,
+            });
+            toast.success(`Mapped ${req.identifier} to project.`);
+            refetchMappings();
+        } catch (error) {
+            console.error("Failed to map requirement", error);
+            toast.error("Failed to map requirement.");
+        }
+    };
+
+    const handleCreateTask = async (req: any) => {
+        try {
+            await createTaskMutation.mutateAsync({
+                clientId: clientId!,
+                devProjectId: projectId,
+                title: `Implement ${req.identifier}: ${req.title}`,
+                description: `Implementation guidance: ${req.guidance || req.description}`,
+                priority: "medium",
+            });
+            toast.success(`Created implementation task for ${req.identifier}.`);
+        } catch (error) {
+            console.error("Failed to create task", error);
+            toast.error("Failed to create task.");
+        }
+    };
 
     const [isMitigationOpen, setIsMitigationOpen] = useState(false);
     const [selectedRiskId, setSelectedRiskId] = useState<number | null>(null);
@@ -142,7 +195,17 @@ export const ProjectDetail = () => {
                         </div>
                         <p className="text-slate-500 mt-1">{project.description}</p>
                     </div>
-                    <div className="ml-auto flex gap-2">
+                    <div className="ml-auto flex gap-2 items-center">
+                        <PageGuide
+                            title="Project Security Hub"
+                            description="Central view for all security aspects of this application."
+                            rationale="Consolidates threat models, risks, and compliance requirements."
+                            howToUse={[
+                                { step: "Threat Models", description: "Create and review architectural diagrams." },
+                                { step: "Risk Register", description: "Track specific vulnerabilities." },
+                                { step: "Compliance", description: "Map OWASP requirements to your stack." }
+                            ]}
+                        />
                         <Badge variant="outline" className="text-sm px-3 py-1 bg-white">
                             {project.owner || "No Owner"}
                         </Badge>
@@ -155,6 +218,7 @@ export const ProjectDetail = () => {
                         <TabsTrigger value="threat-models" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none rounded-none px-4 py-2">Threat Models</TabsTrigger>
                         <TabsTrigger value="risks" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none rounded-none px-4 py-2">Risk Register</TabsTrigger>
                         <TabsTrigger value="mitigations" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none rounded-none px-4 py-2">Mitigations</TabsTrigger>
+                        <TabsTrigger value="compliance" className="border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none rounded-none px-4 py-2">Compliance (OWASP)</TabsTrigger>
                     </TabsList>
 
 
@@ -350,6 +414,77 @@ export const ProjectDetail = () => {
                                         )}
                                     </TableBody>
                                 </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="compliance">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>OWASP Security Requirements</CardTitle>
+                                <CardDescription>Recommended security controls based on your tech stack: {project.techStack?.join(", ")}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    {owaspIntelligence?.map((req: any) => (
+                                        <div key={req.id} className="p-4 border rounded-lg bg-slate-50 hover:bg-white transition-colors group">
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Badge className="bg-blue-600">{req.identifier}</Badge>
+                                                        <Badge variant="outline" className="text-[10px] uppercase">OWASP</Badge>
+                                                        {complianceMappings?.some(m => m.requirementId === req.identifier) && (
+                                                            <Badge className="bg-green-100 text-green-700 border-green-200">
+                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                Mapped to Controls
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="font-bold text-lg text-blue-950 group-hover:text-blue-600 transition-colors">{req.title}</h3>
+                                                </div>
+                                                <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    View Guidelines
+                                                </Button>
+                                            </div>
+                                            <p className="text-sm text-slate-600 mt-2 line-clamp-2">{req.description}</p>
+                                            {req.guidance && (
+                                                <div className="mt-3 p-3 bg-white/50 rounded border border-blue-100/50 italic text-xs text-blue-800">
+                                                    <Sparkles className="w-3 h-3 inline mr-1 text-blue-500" />
+                                                    <strong>Paved Road:</strong> {req.guidance}
+                                                </div>
+                                            )}
+                                            <div className="flex gap-2 mt-4 pt-4 border-t border-slate-200/50">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8"
+                                                    onClick={() => handleMapRequirement(req)}
+                                                    disabled={complianceMappings?.some(m => m.requirementId === req.identifier)}
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                                                    {complianceMappings?.some(m => m.requirementId === req.identifier) ? "Mapped" : "Map to Control"}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="h-8"
+                                                    onClick={() => handleCreateTask(req)}
+                                                >
+                                                    <ListTodo className="h-4 w-4 mr-2" />
+                                                    Create Implementation Task
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!owaspIntelligence || owaspIntelligence.length === 0) && (
+                                        <div className="text-center py-10 text-slate-500 italic flex flex-col items-center">
+                                            <Layers className="h-10 w-10 mb-4 opacity-20" />
+                                            <p>No explicit OWASP requirements found for this tech stack.</p>
+                                            <p className="text-xs mt-1">Add technologies like 'React', 'API', or 'Python' to get specific suggestions.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>

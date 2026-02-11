@@ -1,8 +1,9 @@
 export interface Framework {
     id: string;
     name: string;
+    version?: string;
     description: string;
-    type: 'Security' | 'Privacy' | 'Quality' | 'Business Continuity' | 'AI & Data' | 'Other';
+    type: 'Security' | 'Privacy' | 'Quality' | 'Business Continuity' | 'AI & Data' | 'Governance' | 'Other';
     logo?: string;
     // We can add more specific fields later like 'domains', 'controlsCount' etc.
 }

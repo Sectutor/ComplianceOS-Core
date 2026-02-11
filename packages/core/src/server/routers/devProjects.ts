@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "../../db";
-import { devProjects, threatModels, riskScenarios, riskTreatments } from "../../schema";
+import { devProjects, threatModels, riskScenarios, riskTreatments, projectTasks, projectComplianceMappings } from "../../schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { logActivity } from "../../lib/audit";
 
@@ -41,7 +41,7 @@ export const createDevProjectsRouter = (t: any, clientProcedure: any) => {
                     .where(and(eq(devProjects.id, input.id), eq(devProjects.clientId, input.clientId)));
 
                 if (!project) {
-                    throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+                    return null;
                 }
 
                 const models = await db.select()
@@ -302,6 +302,85 @@ export const createDevProjectsRouter = (t: any, clientProcedure: any) => {
                     details: {}
                 });
                 return { success: true };
+            }),
+
+        createTask: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                devProjectId: z.number(),
+                title: z.string(),
+                description: z.string().optional(),
+                priority: z.string().optional(),
+                dueDate: z.string().optional(),
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                const db = await getDb();
+                const [newTask] = await db.insert(projectTasks)
+                    .values({
+                        clientId: input.clientId,
+                        title: input.title,
+                        description: input.description,
+                        status: "todo",
+                        priority: input.priority || "medium",
+                        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+                        sourceType: "dev_project",
+                        sourceId: input.devProjectId,
+                    } as any)
+                    .returning();
+
+                await logActivity({
+                    userId: ctx.user.id,
+                    clientId: input.clientId,
+                    action: "create",
+                    entityType: "task",
+                    entityId: newTask.id,
+                    details: { title: input.title, devProjectId: input.devProjectId }
+                });
+
+                return newTask;
+            }),
+
+        mapRequirement: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                devProjectId: z.number(),
+                framework: z.string(),
+                requirementId: z.string(),
+                notes: z.string().optional(),
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                const db = await getDb();
+                const [newMapping] = await db.insert(projectComplianceMappings)
+                    .values({
+                        devProjectId: input.devProjectId,
+                        framework: input.framework,
+                        requirementId: input.requirementId,
+                        status: "pending",
+                        notes: input.notes,
+                    } as any)
+                    .returning();
+
+                await logActivity({
+                    userId: ctx.user.id,
+                    clientId: input.clientId,
+                    action: "create",
+                    entityType: "compliance_mapping",
+                    entityId: newMapping.id,
+                    details: { requirementId: input.requirementId, devProjectId: input.devProjectId }
+                });
+
+                return newMapping;
+            }),
+
+        getComplianceMappings: clientProcedure
+            .input(z.object({
+                devProjectId: z.number(),
+            }))
+            .query(async ({ input }: any) => {
+                const db = await getDb();
+                return await db.select()
+                    .from(projectComplianceMappings)
+                    .where(eq(projectComplianceMappings.devProjectId, input.devProjectId));
             }),
     });
 };

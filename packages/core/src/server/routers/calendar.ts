@@ -22,6 +22,10 @@ export const createCalendarRouter = (t: any, clientProcedure: any) => t.router({
             const start = new Date(input.startDate);
             const end = new Date(input.endDate);
 
+            // Get standard compliance events from db.ts
+            const { getCalendarEvents } = await import("../../db");
+            const complianceEvents = await getCalendarEvents(clientId, start, end);
+
             // 1. Project Tasks
             const pTasks = await db.select().from(projectTasks).where(and(eq(projectTasks.clientId, clientId), gte(projectTasks.dueDate, start), lte(projectTasks.dueDate, end)));
 
@@ -42,23 +46,46 @@ export const createCalendarRouter = (t: any, clientProcedure: any) => t.router({
             const poam = await db.select({ item: poamItems }).from(poamItems).innerJoin(federalPoams, eq(poamItems.poamId, federalPoams.id)).where(and(eq(federalPoams.clientId, clientId), gte(poamItems.scheduledCompletionDate, start), lte(poamItems.scheduledCompletionDate, end)));
 
             const events = [
-                ...pTasks.map((t: any) => ({ id: `project_${t.id}`, type: 'project_task', title: t.title, description: t.description || 'Project Task', dueDate: t.dueDate, clientId: t.clientId, clientName: 'Client', status: t.status, entityId: t.id, priority: t.priority, start: t.dueDate, end: t.dueDate, allDay: true })),
+                ...complianceEvents,
+                ...pTasks.map((t: any) => ({
+                    id: `project_${t.id}`,
+                    type: 'project_task',
+                    title: t.title,
+                    description: t.description || 'Project Task',
+                    date: t.dueDate,
+                    clientId: t.clientId,
+                    clientName: 'Client',
+                    status: t.status,
+                    entityId: t.id,
+                    priority: t.priority,
+                    completed: t.status === 'completed'
+                })),
                 ...rItems.map(({ item, plan }: any) => ({
                     id: `roadmap_${item.id}`,
                     type: 'remediation',
                     title: item.title,
                     description: item.description || 'Remediation Task',
-                    dueDate: plan.targetDate,
+                    date: plan.targetDate,
                     clientId: clientId,
                     clientName: 'Client',
                     status: item.status,
                     entityId: item.id,
                     priority: item.phase === 1 ? 'critical' : 'medium',
-                    start: plan.targetDate,
-                    end: plan.targetDate,
-                    allDay: true
+                    completed: item.status === 'completed'
                 })),
-                ...poam.map(({ item }: any) => ({ id: `poam_${item.id}`, type: 'poam', title: `POA&M: ${item.weaknessName || item.id}`, description: item.weaknessDescription || 'POA&M Item', dueDate: item.scheduledCompletionDate, clientId: clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: 'high', start: item.scheduledCompletionDate, end: item.scheduledCompletionDate, allDay: true }))
+                ...poam.map(({ item }: any) => ({
+                    id: `poam_${item.id}`,
+                    type: 'poam',
+                    title: `POA&M: ${item.weaknessName || item.id}`,
+                    description: item.weaknessDescription || 'POA&M Item',
+                    date: item.scheduledCompletionDate,
+                    clientId: clientId,
+                    clientName: 'Client',
+                    status: item.status,
+                    entityId: item.id,
+                    priority: 'high',
+                    completed: item.status === 'completed'
+                }))
             ];
             return events;
         }),

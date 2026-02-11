@@ -1,7 +1,8 @@
 
 import { getDb } from "../../db";
-import { vendorAuthorizations, vendors, clients } from "../../schema";
+import { vendorAuthorizations, vendors, clients, users, userClients } from "../../schema";
 import { eq, and } from "drizzle-orm";
+import { EmailService } from "../../lib/email/service";
 
 export class AuthorizationEngine {
 
@@ -45,8 +46,49 @@ export class AuthorizationEngine {
 
         if (!auth) throw new Error("Authorization not found");
 
-        // Logic to send email to client (mocked for now)
-        console.log(`[AuthorizationEngine] Sending notification for Vendor ${auth.vendorId}`);
+        // Send Real Notification to Client Admins
+        const [client] = await db.select().from(clients).where(eq(clients.id, auth.clientId)).limit(1);
+        const [vendor] = await db.select().from(vendors).where(eq(vendors.id, auth.vendorId)).limit(1);
+
+        // Find owner/admin email
+        const memberships = await db.select()
+            .from(userClients)
+            .innerJoin(users, eq(userClients.userId, users.id))
+            .where(and(
+                eq(userClients.clientId, auth.clientId),
+                eq(userClients.role, 'owner')
+            ))
+            .limit(1);
+
+        const recipientEmail = memberships[0]?.users.email;
+
+        if (recipientEmail) {
+            await EmailService.send({
+                to: recipientEmail,
+                subject: `New Subprocessor Notification: ${vendor?.name}`,
+                html: `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                        <h2 style="color: #1a1a1a;">Subprocessor Change Notification</h2>
+                        <p>This is a formal notification that <strong>${client?.name}</strong> intends to authorize <strong>${vendor?.name}</strong> as a new subprocessor.</p>
+                        
+                        <div style="background-color: #f9f9f9; padding: 16px; border-radius: 4px; margin: 20px 0;">
+                            <strong>Vendor:</strong> ${vendor?.name}<br/>
+                            <strong>Description:</strong> ${vendor?.description || 'N/A'}
+                        </div>
+
+                        <p>Under our Data Processing Agreement, you have 14 days to raise any reasonable objections to this change.</p>
+                        <p><strong>Objection Deadline:</strong> ${new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
+                        
+                        <div style="margin: 24px 0;">
+                            <a href="${process.env.NEXT_PUBLIC_APP_URL}/clients/${auth.clientId}/vendors/${auth.vendorId}" style="background-color: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Review Vendor Details</a>
+                        </div>
+                    </div>
+                `,
+                clientId: auth.clientId
+            });
+        }
+
+        console.log(`[AuthorizationEngine] Notification dispatched for Vendor ${auth.vendorId}`);
 
         // Update Status
         const objectionDeadline = new Date();

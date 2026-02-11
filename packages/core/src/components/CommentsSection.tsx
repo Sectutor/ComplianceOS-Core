@@ -122,7 +122,7 @@ export function CommentsSection({ clientId, entityType, entityId }: CommentsSect
                                                 {formatDistanceToNow(new Date(item.comment.createdAt), { addSuffix: true })}
                                             </span>
                                         </div>
-                                        {(user?.role === 'admin' || user?.id === item.user.id) && (
+                                        {(user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin' || user?.id === item.user.id) && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

@@ -23,23 +23,27 @@ import {
     Trash2,
     Image,
     Server,
+    Mail,
     Database,
     Briefcase,
     MapPin,
     Globe
 } from "lucide-react";
 
-import ClientLogoUpload from "@/components/ClientLogoUpload";
+
 import ClientContactInfo from "@/components/ClientContactInfo";
 import ClientTeamManagement from "@/components/ClientTeamManagement";
 import BillingSettings from "./BillingSettings";
 import ClientGeneralSettings from "@/components/ClientGeneralSettings";
+import ClientBrandingSettings from "@/components/ClientBrandingSettings";
 import { SmtpSettings } from "@/components/settings/SmtpSettings";
 import { PolicySettingsTab } from "@/components/settings/PolicySettingsTab";
 import { FrameworksSettingsTab } from "@/components/settings/FrameworksSettingsTab";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { OnboardingSettingsTab } from "@/components/settings/OnboardingSettingsTab";
-import { ListTodo } from "lucide-react";
+import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+import { PersonalizationReference } from "@/components/settings/PersonalizationReference";
+import { ListTodo, ShoppingBag } from "lucide-react";
 
 export default function ClientSettings() {
     const params = useParams();
@@ -220,6 +224,13 @@ export default function ClientSettings() {
                             <ListTodo className="mr-2 h-4 w-4" />
                             Onboarding
                         </TabsTrigger>
+                        <TabsTrigger
+                            value="email-templates"
+                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                        >
+                            <Mail className="mr-2 h-4 w-4" />
+                            Emails
+                        </TabsTrigger>
                     </TabsList>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -295,19 +306,17 @@ export default function ClientSettings() {
 
                             {/* Branding Tab */}
                             <TabsContent value="branding" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Brand Customization</CardTitle>
-                                        <CardDescription>Upload organization logo to personlize the workspace.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <ClientLogoUpload
-                                            clientId={clientId}
-                                            currentLogoUrl={client?.logoUrl}
-                                            clientName={client?.name || "Client"}
-                                        />
-                                    </CardContent>
-                                </Card>
+                                <ClientBrandingSettings
+                                    clientId={clientId}
+                                    clientName={client?.name || "Client"}
+                                    initialData={{
+                                        logoUrl: client?.logoUrl,
+                                        brandPrimaryColor: client?.brandPrimaryColor,
+                                        brandSecondaryColor: client?.brandSecondaryColor,
+                                        portalTitle: client?.portalTitle
+                                    }}
+                                    onUpdate={refetch}
+                                />
                             </TabsContent>
 
                             {/* Billing Tab */}
@@ -328,10 +337,17 @@ export default function ClientSettings() {
                                 </Card>
                             </TabsContent>
 
+                            {/* Email Templates Tab */}
+                            <TabsContent value="email-templates" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
+                                <EmailTemplatesTab clientId={clientId} />
+                            </TabsContent>
+
                             {/* Frameworks Tab */}
                             <TabsContent value="frameworks" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
                                 <FrameworksSettingsTab clientId={clientId} />
                             </TabsContent>
+
+
 
                             {/* Demo Data Tab */}
                             <TabsContent value="data" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
@@ -395,8 +411,10 @@ export default function ClientSettings() {
                                 </CardContent>
                             </Card>
 
+                            <PersonalizationReference />
+
                             {/* Danger Zone - Only for Admins */}
-                            {user?.role === 'admin' && (
+                            {(user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin') && (
                                 <Card className="border-red-200 bg-red-50/30 overflow-hidden">
                                     <CardHeader className="bg-red-50/50 border-b border-red-100 pb-4">
                                         <CardTitle className="text-red-700 flex items-center gap-2 text-lg">

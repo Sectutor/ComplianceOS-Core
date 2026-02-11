@@ -27,6 +27,7 @@ import { Checkbox } from "@complianceos/ui/ui/checkbox";
 import { Plus, Trash2, Edit, Save, Globe, Lock, Share } from "lucide-react";
 import { toast } from "sonner";
 import { PremiumSlot } from "@/components/PremiumSlot";
+import { useClientContext } from "@/contexts/ClientContext";
 
 export default function AdvisorWorkbench() {
     const [, setLocation] = useLocation();

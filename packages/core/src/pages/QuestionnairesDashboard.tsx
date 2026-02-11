@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
 import { trpc } from "@/lib/trpc";
 import { useParams, useLocation } from "wouter";
 import {
@@ -72,6 +73,20 @@ export default function QuestionnairesDashboard() {
             <p className="text-muted-foreground mt-1">Manage all security questionnaires and assessments.</p>
           </div>
           <div className="flex gap-2">
+            <PageGuide
+              title="Questionnaires"
+              description="Manage incoming and outgoing security assessments."
+              rationale="Streamlines the vendor risk assessment process using AI automation."
+              howToUse={[
+                { step: "Upload Assessment", description: "Import Excel or CSV questionnaires." },
+                { step: "Auto-Fill", description: "Use AI to answer questions from your Knowledge Base." },
+                { step: "Review & Export", description: "Validate answers and export back to original format." }
+              ]}
+              integrations={[
+                { name: "Knowledge Base", description: "Source for AI answers." },
+                { name: "Evidence Library", description: "Attach proofs." }
+              ]}
+            />
             <Button variant="outline">
               <Filter className="w-4 h-4 mr-2" />
               Filter

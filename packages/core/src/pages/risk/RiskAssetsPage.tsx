@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@complianceos/ui/ui/too
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@complianceos/ui/ui/dialog';
 import { ExternalLink, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'wouter/use-browser-location';
+import { PageGuide } from "@/components/PageGuide";
+import { toast } from "sonner";
 
 
 export default function RiskAssetsPage() {
@@ -36,6 +38,14 @@ export default function RiskAssetsPage() {
         { clientId },
         { enabled: !!clientId }
     );
+    const scanAllMutation = trpc.threatIntel.scanAllAssets.useMutation({
+        onSuccess: (data) => {
+            const total = data.results?.reduce((sum: number, r: any) => sum + (r.count || 0), 0) || 0;
+            toast.success(`Scanned ${data.results?.length || 0} assets, found ${total} suggestions`);
+            refetchAssets();
+        },
+        onError: (err) => toast.error(`Scan failed: ${err.message}`)
+    });
 
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
@@ -113,13 +123,38 @@ export default function RiskAssetsPage() {
                         <h1 className="text-2xl font-bold tracking-tight">Asset Inventory</h1>
                         <p className="text-muted-foreground mt-1">Manage your organization's assets and their valuations.</p>
                     </div>
-                    <button
-                        onClick={handleOpenAddDialog}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Add Asset
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => scanAllMutation.mutate({ clientId })}
+                            className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center gap-2 shadow-sm transition-colors"
+                            disabled={scanAllMutation.isPending}
+                            title="Scan all assets against NVD/KEV"
+                        >
+                            <Zap className="w-4 h-4" />
+                            {scanAllMutation.isPending ? "Scanning..." : "Scan All Assets"}
+                        </button>
+                        <button
+                            onClick={handleOpenAddDialog}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-colors"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Asset
+                        </button>
+                        <PageGuide
+                            title="Asset Inventory"
+                            description="Maintain a complete registry of your organization’s critical information assets."
+                            rationale="You cannot protect what you don't know you have. A comprehensive asset inventory is the starting point for all risk assessments."
+                            howToUse={[
+                                { step: "Add Assets", description: "Use the 'Add Asset' button to register hardware, software, data, or people." },
+                                { step: "Value Assets", description: "Assign Confidentiality, Integrity, and Availability (CIA) scores to determine criticality." },
+                                { step: "Identify Threats", description: "Click the lightning bolt icon to see active threats relevant to that asset's technology stack." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Assessment", description: "Assets selected here become the targets for risk scenarios." },
+                                { name: "Threat Intelligence", description: "The system automatically matches asset technologies (e.g. 'Windows') to CVEs and threat feeds." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 <div className="bg-card rounded-xl border shadow-sm min-h-[400px]">
@@ -165,11 +200,20 @@ function AssetInventoryTable({
 
     const getAssetThreats = (asset: any) => {
         if (!securityFeeds?.items) return [];
-        const assetStr = ((asset.name || '') + ' ' + (asset.type || '') + ' ' + (asset.description || '')).toLowerCase();
+        const techTerms = [
+            asset.name,
+            asset.vendor,
+            asset.productName,
+            asset.type,
+            ...(asset.technologies || [])
+        ].filter(Boolean).map(t => t.toLowerCase());
 
         return securityFeeds.items.filter(item => {
             if (!item.techStack) return false;
-            return item.techStack.some((tech: string) => assetStr.includes(tech.toLowerCase()));
+            return item.techStack.some((threatTech: string) => {
+                const lowerThreatTech = threatTech.toLowerCase();
+                return techTerms.some(term => term.includes(lowerThreatTech) || lowerThreatTech.includes(term));
+            });
         });
     };
 
@@ -191,6 +235,14 @@ function AssetInventoryTable({
                 else if (sortConfig.key === 'riskCount') {
                     aValue = a.riskCount || 0;
                     bValue = b.riskCount || 0;
+                }
+                else if (sortConfig.key === 'vulnerabilityCount') {
+                    aValue = a.vulnerabilityCount || 0;
+                    bValue = b.vulnerabilityCount || 0;
+                }
+                else if (sortConfig.key === 'suggestionCount') {
+                    aValue = a.suggestionCount || 0;
+                    bValue = b.suggestionCount || 0;
                 }
                 // Special handling for CIA Valuation
                 else if (sortConfig.key === 'ciaValuation') {
@@ -242,14 +294,13 @@ function AssetInventoryTable({
                             <SortableHeader label="Asset Name" sortKey="name" />
                             <SortableHeader label="Type/Category" sortKey="type" />
                             <SortableHeader label="Description" sortKey="description" />
+                            <SortableHeader label="Active Threats" sortKey="activeThreats" />
+                            <SortableHeader label="CIA" sortKey="ciaValuation" />
                             <SortableHeader label="Owner" sortKey="owner" />
                             <SortableHeader label="Location" sortKey="location" />
                             <SortableHeader label="Status" sortKey="status" />
-                            <SortableHeader label="Acquisition Date" sortKey="acquisitionDate" />
-                            <SortableHeader label="Last Review" sortKey="lastReviewDate" />
-                            <SortableHeader label="Associated Risks" sortKey="riskCount" />
-                            <SortableHeader label="Active Threats" sortKey="activeThreats" />
-                            <SortableHeader label="CIA Valuation" sortKey="ciaValuation" />
+                            <SortableHeader label="Risks" sortKey="riskCount" />
+                            <SortableHeader label="Vulnerabilities" sortKey="vulnerabilityCount" />
                         </tr>
                     </thead>
                     <tbody>
@@ -263,27 +314,8 @@ function AssetInventoryTable({
                                 <td className="px-6 py-4 text-sm font-medium text-black">{asset.name}</td>
                                 <td className="px-6 py-4 text-sm text-gray-600">{asset.type}</td>
                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate" title={asset.description}>{asset.description || '-'}</td>
-                                <td className="px-6 py-4 text-sm text-gray-600">{asset.owner || '-'}</td>
-                                <td className="px-6 py-4 text-sm text-gray-500">{asset.location || '-'}</td>
-                                <td className="px-6 py-4 text-sm">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${asset.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        asset.status === 'archived' ? 'bg-gray-50 text-gray-700 border-gray-200' :
-                                            'bg-red-50 text-red-700 border-red-200'
-                                        }`}>
-                                        {asset.status ? asset.status.charAt(0).toUpperCase() + asset.status.slice(1) : 'Active'}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {asset.acquisitionDate ? new Date(asset.acquisitionDate).toLocaleDateString() : '-'}
-                                </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {asset.lastReviewDate ? new Date(asset.lastReviewDate).toLocaleDateString() : '-'}
-                                </td>
-                                <td className="px-6 py-4 text-sm">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                        {asset.riskCount || 0} Risks
-                                    </span>
-                                </td>
+                                
+                                {/* Moved Columns */}
                                 <td className="px-6 py-4 text-sm">
                                     {(() => {
                                         const activeThreats = getAssetThreats(asset);
@@ -316,14 +348,35 @@ function AssetInventoryTable({
                                         return <span className="text-gray-400 text-xs">-</span>;
                                     })()}
                                 </td>
-                                <td className="px-6 py-4 flex gap-1">
+                                <td className="px-6 py-4 flex gap-1 items-center h-full">
                                     <span className="px-1.5 py-0.5 bg-white text-xs rounded border border-gray-300 text-gray-700" title="Confidentiality">C:{asset.valuationC}</span>
                                     <span className="px-1.5 py-0.5 bg-white text-xs rounded border border-gray-300 text-gray-700" title="Integrity">I:{asset.valuationI}</span>
                                     <span className="px-1.5 py-0.5 bg-white text-xs rounded border border-gray-300 text-gray-700" title="Availability">A:{asset.valuationA}</span>
                                 </td>
+
+                                <td className="px-6 py-4 text-sm text-gray-600">{asset.owner || '-'}</td>
+                                <td className="px-6 py-4 text-sm text-gray-500">{asset.location || '-'}</td>
+                                <td className="px-6 py-4 text-sm">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${asset.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                                        asset.status === 'archived' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                                            'bg-red-50 text-red-700 border-red-200'
+                                        }`}>
+                                        {asset.status ? asset.status.charAt(0).toUpperCase() + asset.status.slice(1) : 'Active'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${asset.riskCount > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                        {asset.riskCount || 0} Risks
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${asset.vulnerabilityCount > 0 ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                                        {asset.vulnerabilityCount || 0} Vulns
+                                    </span>
+                                </td>
                             </tr>
                         ))}
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
 

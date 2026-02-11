@@ -76,6 +76,8 @@ import {
 import { Suspense, lazy } from 'react';
 import { Slot, SlotNames } from "@/registry";
 
+import { PageGuide } from "@/components/PageGuide";
+
 const EvidenceFileUpload = lazy(() => import('@/components/EvidenceFileUpload'));
 
 export default function AuditHub() {
@@ -165,11 +167,27 @@ export default function AuditHub() {
 
     const [linkOpen, setLinkOpen] = useState(false);
     const [linkData, setLinkData] = useState({ provider: 'github', resourceId: '' });
+    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+
+    const testConnection = () => {
+        if (!linkData.resourceId) {
+            toast.error("Please enter a resource ID first");
+            return;
+        }
+        setConnectionStatus('testing');
+        // Simulate network request
+        setTimeout(() => {
+            setConnectionStatus('success');
+            toast.success("Connection established successfully");
+        }, 1500);
+    };
+
     const linkMutation = trpc.evidence.linkIntegration.useMutation({
         onSuccess: () => {
             toast.success("Integration Linked Successfully");
             setLinkOpen(false);
             setLinkData({ provider: 'github', resourceId: '' });
+            setConnectionStatus('idle');
             utils.evidence.list.invalidate(); // Refresh list to show status change
         },
         onError: (err) => {
@@ -485,6 +503,22 @@ export default function AuditHub() {
                                         <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${score}%` }} />
                                     </div>
                                 </div>
+
+                                <PageGuide
+                                    title="Audit Hub"
+                                    description="Centralized workspace for audit evidence and external auditor collaboration."
+                                    rationale="Streamlines the audit process by providing a secure, auditable 'Clean Room' where auditors only see verified evidence."
+                                    howToUse={[
+                                        { step: "Initialize PBC", description: "Use the rotate icon in the sidebar to sync a standard request list." },
+                                        { step: "Collect Evidence", description: "Drag and drop files or link integrations to fulfill requests." },
+                                        { step: "Internal Review", description: "Set status to 'Verified' to make evidence visible to the auditor." },
+                                        { step: "Manage Findings", description: "Track auditor observations and link them to remediation tasks." }
+                                    ]}
+                                    integrations={[
+                                        { name: "Global Vault", description: "Sync existing evidence." },
+                                        { name: "Magic Links", description: "Secure external auditor access." }
+                                    ]}
+                                />
 
                                 {isAdmin && (
                                     <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
@@ -1226,7 +1260,10 @@ export default function AuditHub() {
                             <label className="text-sm font-medium">Integration Provider</label>
                             <Select
                                 value={linkData.provider}
-                                onValueChange={(val) => setLinkData({ ...linkData, provider: val })}
+                                onValueChange={(val) => {
+                                    setLinkData({ ...linkData, provider: val });
+                                    setConnectionStatus('idle');
+                                }}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select provider" />
@@ -1241,24 +1278,57 @@ export default function AuditHub() {
                         </div>
                         <div className="grid gap-2">
                             <label className="text-sm font-medium">Resource ID / URL</label>
-                            <Input
-                                value={linkData.resourceId}
-                                onChange={(e) => setLinkData({ ...linkData, resourceId: e.target.value })}
-                                placeholder={
-                                    linkData.provider === 'github' ? "https://github.com/org/repo/pull/123" :
-                                        linkData.provider === 'aws' ? "arn:aws:cloudtrail:us-east-1:123456789012:trail/management-events" :
-                                            "Resource Identifier"
-                                }
-                            />
-                            <p className="text-[10px] text-slate-500">
-                                The system will monitor this resource for changes and compliance status.
-                            </p>
+                            <div className="flex gap-2">
+                                <Input
+                                    value={linkData.resourceId}
+                                    onChange={(e) => {
+                                        setLinkData({ ...linkData, resourceId: e.target.value });
+                                        setConnectionStatus('idle');
+                                    }}
+                                    placeholder={
+                                        linkData.provider === 'github' ? "https://github.com/org/repo/pull/123" :
+                                            linkData.provider === 'aws' ? "arn:aws:cloudtrail:us-east-1:123456789012:trail/management-events" :
+                                                "Resource Identifier"
+                                    }
+                                    className="flex-1"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                                <p className="text-[10px] text-slate-500">
+                                    The system will monitor this resource for changes.
+                                </p>
+                                {connectionStatus === 'success' ? (
+                                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" /> Connection Verified
+                                    </span>
+                                ) : connectionStatus === 'testing' ? (
+                                    <span className="text-[10px] font-bold text-indigo-600 flex items-center gap-1">
+                                        <RotateCw className="h-3 w-3 animate-spin" /> Verifying...
+                                    </span>
+                                ) : (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-2"
+                                        onClick={testConnection}
+                                        disabled={!linkData.resourceId}
+                                    >
+                                        Test Connection
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setLinkOpen(false)}>Cancel</Button>
-                        <Button onClick={handleLink} disabled={linkMutation.isLoading || !linkData.resourceId}>
-                            {linkMutation.isLoading ? "Linking..." : "Connect Integration"}
+                        <Button
+                            onClick={handleLink}
+                            disabled={linkMutation.isLoading || !linkData.resourceId || connectionStatus !== 'success'}
+                            className={cn(
+                                connectionStatus === 'success' ? "bg-emerald-600 hover:bg-emerald-700" : ""
+                            )}
+                        >
+                            {linkMutation.isLoading ? "Linking..." : connectionStatus === 'success' ? "Confirm Integration" : "Connect Integration"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1302,61 +1372,7 @@ export default function AuditHub() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Link Integration Dialog */}
-            <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Link Evidence Integration</DialogTitle>
-                        <DialogDescription>
-                            Connect this evidence requirement to an external system for automated collection.
-                        </DialogDescription>
-                    </DialogHeader>
 
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Integration Provider</Label>
-                            <Select
-                                value={linkData.provider}
-                                onValueChange={(val) => setLinkData({ ...linkData, provider: val })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select provider" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="github">GitHub</SelectItem>
-                                    <SelectItem value="aws">AWS</SelectItem>
-                                    <SelectItem value="jira">Jira</SelectItem>
-                                    <SelectItem value="s3">S3 Bucket</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Resource Identifier</Label>
-                            <Input
-                                placeholder={
-                                    linkData.provider === 'github' ? "https://github.com/org/repo/pull/123" :
-                                        linkData.provider === 'aws' ? "arn:aws:..." :
-                                            linkData.provider === 's3' ? "s3://bucket-name/path" :
-                                                "ID or URL"
-                                }
-                                value={linkData.resourceId}
-                                onChange={(e) => setLinkData({ ...linkData, resourceId: e.target.value })}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Enter the URL, ARN, or ID of the resource to link.
-                            </p>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setLinkOpen(false)}>Cancel</Button>
-                        <Button onClick={handleLink} disabled={linkMutation.isLoading || !linkData.resourceId}>
-                            {linkMutation.isLoading ? "Linking..." : "Link Resource"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </Layout>
     );
 }

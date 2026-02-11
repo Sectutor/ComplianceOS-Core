@@ -199,5 +199,18 @@ export const createReadinessRouter = (t: any, clientProcedure: any) => {
                     throw new Error(`Failed to complete baseline: ${error.message}`);
                 }
             }),
+
+        /**
+         * Generate a Gap Analysis report (legacy path)
+         */
+        generateReport: clientProcedure
+            .input(z.object({ clientId: z.number() }))
+            .mutation(async ({ input }: any) => {
+                const { generateGapAnalysisReport } = await import("../../lib/reporting");
+                return await generateGapAnalysisReport(input.clientId).then(buffer => ({
+                    filename: `compliance-report-${new Date().toISOString().split('T')[0]}.pdf`,
+                    pdfBase64: buffer.toString('base64')
+                }));
+            }),
     });
 };

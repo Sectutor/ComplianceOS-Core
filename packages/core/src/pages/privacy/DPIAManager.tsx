@@ -24,6 +24,7 @@ import { useParams, useLocation } from "wouter";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function DPIAManager() {
     const { id } = useParams<{ id: string }>();
@@ -178,11 +179,17 @@ export default function DPIAManager() {
                     { label: "DPIA Manager" },
                 ]}
             />
-            <div className="flex justify-between items-center -mb-2">
-                <div>
-                    <h1 className="text-2xl font-bold">DPI Assessment Manager</h1>
-                    <p className="text-muted-foreground">GDPR Article 35 - Data Protection Impact Assessments</p>
-                </div>
+            <div className="flex justify-between items-center -mb-2 animate-slide-down">
+                <PageGuide
+                    title="DPI Assessment Manager"
+                    description="Conduct and manage Data Protection Impact Assessments (DPIAs)."
+                    rationale="Mandatory under GDPR Art. 35 for high-risk processing activities."
+                    howToUse={[
+                        { step: "Screen", description: "Identify high-risk activities needing assessment." },
+                        { step: "Assess", description: "Analyze necessity, proportionality, and risks." },
+                        { step: "Consult", description: "Seek DPO advice and consult supervisory authority if needed." }
+                    ]}
+                />
                 <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> New Assessment
                 </Button>

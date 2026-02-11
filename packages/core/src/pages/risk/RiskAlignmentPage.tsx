@@ -5,6 +5,7 @@ import { Badge } from '@complianceos/ui/ui/badge';
 import { CheckCircle2, Shield, AlertTriangle, Activity, Search, Scale, FileText, BarChart3, TrendingUp, BookOpen } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@complianceos/ui/ui/tabs';
 import { cn } from '@/lib/utils';
+import { PageGuide } from '@/components/PageGuide';
 
 export default function RiskAlignmentPage() {
     const [framework, setFramework] = useState<'iso' | 'nist'>('iso');
@@ -174,15 +175,29 @@ export default function RiskAlignmentPage() {
                 <div className="max-w-7xl mx-auto space-y-8">
                     {/* Header */}
                     <div className="text-center space-y-6">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-600 text-white mb-4">
-                            <Activity className="w-8 h-8" />
+                        <div className="relative">
+                            <div className="absolute top-0 right-0">
+                                <PageGuide
+                                    title="Framework Alignment"
+                                    description="Visualize how your risk management program aligns with international standards."
+                                    rationale="Demonstrating alignment with ISO 27005 or NIST 800-30 is critical for external audits and stakeholder confidence."
+                                    howToUse={[
+                                        { step: "Choose Framework", description: "Toggle between ISO and NIST views to see specific requirements." },
+                                        { step: "Review Gaps", description: "Identify which steps of the risk management lifecycle are implemented." },
+                                        { step: "Explain to Auditors", description: "Use this page to demonstrate your structured approach to risk." }
+                                    ]}
+                                />
+                            </div>
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-600 text-white mb-4">
+                                <Activity className="w-8 h-8" />
+                            </div>
+                            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                                Risk Management
+                            </h1>
+                            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                                Alignment with ISO 27005 and NIST SP 800-30
+                            </p>
                         </div>
-                        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                            Risk Management
-                        </h1>
-                        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                            Alignment with ISO 27005 and NIST SP 800-30
-                        </p>
 
                         {/* Framework Toggle Tabs */}
                         <div className="flex justify-center">

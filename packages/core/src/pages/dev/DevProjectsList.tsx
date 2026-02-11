@@ -18,6 +18,7 @@ import {
 } from "@complianceos/ui/ui/alert-dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 
 import {
     Card,
@@ -118,65 +119,81 @@ export const DevProjectsList = () => {
                         <h1 className="text-3xl font-bold tracking-tight">Threat Modeling</h1>
                         <p className="text-slate-500 mt-2">Manage security and risks for your software development projects.</p>
                     </div>
-                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                        <DialogTrigger asChild>
-                            <Button><Plus className="mr-2 h-4 w-4" /> New Project</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create New Project</DialogTitle>
-                                <DialogDescription>Add a new software project to track security risks.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Project Name</Label>
-                                    <Input
-                                        value={newProject.name}
-                                        onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                                        placeholder="e.g. Customer Portal"
-                                    />
+                    <div className="flex gap-4 items-center">
+                        <PageGuide
+                            title="Threat Modeling"
+                            description="Identify and mitigate security risks in your software design."
+                            rationale="Shift security left by finding design flaws early in the SDLC."
+                            howToUse={[
+                                { step: "Create Project", description: "Define the application scope." },
+                                { step: "Model Threats", description: "Use STRIDE or LINDDUN to find issues." },
+                                { step: "Treat Risks", description: "Assign mitigations to developers." }
+                            ]}
+                            integrations={[
+                                { name: "GitHub", description: "Link repos for automated scanning." },
+                                { name: "JIRA", description: "Push mitigations as tasks." }
+                            ]}
+                        />
+                        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                            <DialogTrigger asChild>
+                                <Button><Plus className="mr-2 h-4 w-4" /> New Project</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create New Project</DialogTitle>
+                                    <DialogDescription>Add a new software project to track security risks.</DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Project Name</Label>
+                                        <Input
+                                            value={newProject.name}
+                                            onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                                            placeholder="e.g. Customer Portal"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Description</Label>
+                                        <Textarea
+                                            value={newProject.description}
+                                            onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                                            placeholder="Brief description of the project..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Repository URL</Label>
+                                        <Input
+                                            value={newProject.repositoryUrl}
+                                            onChange={(e) => setNewProject({ ...newProject, repositoryUrl: e.target.value })}
+                                            placeholder="https://github.com/..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Tech Stack (comma separated)</Label>
+                                        <Input
+                                            value={newProject.techStackInput}
+                                            onChange={(e) => setNewProject({ ...newProject, techStackInput: e.target.value })}
+                                            placeholder="React, Node, Postgres..."
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Owner / Lead</Label>
+                                        <Input
+                                            value={newProject.owner}
+                                            onChange={(e) => setNewProject({ ...newProject, owner: e.target.value })}
+                                            placeholder="Tech Lead or Team Name"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Description</Label>
-                                    <Textarea
-                                        value={newProject.description}
-                                        onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                                        placeholder="Brief description of the project..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Repository URL</Label>
-                                    <Input
-                                        value={newProject.repositoryUrl}
-                                        onChange={(e) => setNewProject({ ...newProject, repositoryUrl: e.target.value })}
-                                        placeholder="https://github.com/..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Tech Stack (comma separated)</Label>
-                                    <Input
-                                        value={newProject.techStackInput}
-                                        onChange={(e) => setNewProject({ ...newProject, techStackInput: e.target.value })}
-                                        placeholder="React, Node, Postgres..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Owner / Lead</Label>
-                                    <Input
-                                        value={newProject.owner}
-                                        onChange={(e) => setNewProject({ ...newProject, owner: e.target.value })}
-                                        placeholder="Tech Lead or Team Name"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                                <Button onClick={handleCreate} disabled={!newProject.name || createMutation.isLoading}>
-                                    {createMutation.isLoading ? "Creating..." : "Create Project"}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                                    <Button onClick={handleCreate} disabled={!newProject.name || createMutation.isLoading}>
+                                        {createMutation.isLoading ? "Creating..." : "Create Project"}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
 
                 <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>

@@ -21,7 +21,8 @@ import {
     CreditCard,
     CheckSquare,
     PlayCircle,
-    Video
+    Video,
+    Loader2
 } from "lucide-react";
 import { TrainingModuleViewer } from "@/components/training/TrainingModuleViewer";
 import { useState, useEffect, useMemo } from "react";
@@ -41,6 +42,7 @@ import { Eye } from "lucide-react";
 import { marked } from "marked";
 import { toast } from "sonner";
 import { ExceptionRequestDialog } from "@/components/policy/ExceptionRequestDialog";
+import { PageGuide } from "@/components/PageGuide";
 
 // Mock Policy Content (In a real app, this would come from the API)
 const POLICY_CONTENT = {
@@ -104,6 +106,7 @@ export default function EmployeeOnboarding() {
     const [isExceptionDialogOpen, setIsExceptionDialogOpen] = useState(false);
     const [exceptionPolicyKey, setExceptionPolicyKey] = useState<string | null>(null);
     const [exceptionPolicyId, setExceptionPolicyId] = useState<number | null>(null);
+    const [exceptionPolicyType, setExceptionPolicyType] = useState<'policy' | 'document'>('document');
 
     const markAsViewed = (policyId: string) => {
         setViewedPolicies(prev => new Set(prev).add(policyId));
@@ -166,7 +169,7 @@ export default function EmployeeOnboarding() {
     // Attest training mutation
     const attestTrainingMutation = (trpc.onboarding as any).attestTraining?.useMutation({
         onSuccess: () => {
-            utils.onboarding.getOnboardingStatus.invalidate();
+            (utils.onboarding as any).getOnboardingStatus?.invalidate();
             refetchOnboarding();
         }
     });
@@ -174,24 +177,43 @@ export default function EmployeeOnboarding() {
     // Acknowledgment mutation
     const submitAcknowledgmentMutation = (trpc.onboarding as any).submitAcknowledgment?.useMutation({
         onSuccess: () => {
-            utils.onboarding.getOnboardingStatus.invalidate();
+            (utils.onboarding as any).getOnboardingStatus?.invalidate();
             refetchOnboarding();
+            toast.success("Document accepted");
         }
     });
+
+    const attestPolicyMutation = (trpc.policyManagement as any).attestPolicy?.useMutation({
+        onSuccess: () => {
+            (utils.onboarding as any).getOnboardingStatus?.invalidate();
+            refetchOnboarding();
+            toast.success("Policy accepted");
+        }
+    });
+
+
 
     // Security setup mutation
     const updateSecuritySetupMutation = (trpc.onboarding as any).updateSecuritySetup?.useMutation({
         onSuccess: () => {
-            utils.onboarding.getOnboardingStatus.invalidate();
+            (utils.onboarding as any).getOnboardingStatus?.invalidate();
             refetchOnboarding();
+            toast.success("Security setup updated");
+        },
+        onError: (err: any) => {
+            toast.error("Failed to update security setup: " + err.message);
         }
     });
 
     // Asset receipt mutation
     const confirmAssetReceiptMutation = (trpc.onboarding as any).confirmAssetReceipt?.useMutation({
         onSuccess: () => {
-            utils.onboarding.getOnboardingStatus.invalidate();
+            (utils.onboarding as any).getOnboardingStatus?.invalidate();
             refetchOnboarding();
+            toast.success("Asset receipt confirmed");
+        },
+        onError: (err: any) => {
+            toast.error("Failed to confirm asset receipt: " + err.message);
         }
     });
 
@@ -244,12 +266,51 @@ export default function EmployeeOnboarding() {
     return (
         <DashboardLayout>
             <div className="space-y-8 pb-12">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: "/dashboard" },
-                        { label: "Employee Onboarding" },
-                    ]}
-                />
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <Breadcrumb
+                            items={[
+                                { label: "Dashboard", href: "/dashboard" },
+                                { label: "Employee Onboarding" },
+                            ]}
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {(() => {
+                            const isGlobalAdmin = me?.role === 'admin' || me?.role === 'owner' || me?.role === 'super_admin';
+                            const clientRole = myClients?.find(c => c.id === effectiveClientId)?.role;
+                            const isClientAdmin = clientRole === 'admin' || clientRole === 'owner';
+
+                            if (isGlobalAdmin || isClientAdmin) {
+                                return (
+                                    <Button variant="outline" size="sm" asChild className="gap-2 border-primary/20 hover:border-primary/50 bg-primary/5">
+                                        <a href={`/clients/${effectiveClientId}/personnel-compliance`}>
+                                            <Shield className="h-4 w-4 text-primary" />
+                                            Configure Onboarding Checklist
+                                        </a>
+                                    </Button>
+                                );
+                            }
+                            return null;
+                        })()}
+                        <PageGuide
+                            title="Employee Security Onboarding"
+                            description="Your personal checklist for completing security and compliance requirements."
+                            rationale="Security is a shared responsibility. This onboarding process ensures that every team member understands their role in protecting the organization's data and assets from day one. Completing these steps is mandatory for access to production systems."
+                            howToUse={[
+                                { step: "Security Training", description: "Watch required training modules to understand key security concepts." },
+                                { step: "Policy Acceptance", description: "Read and acknowledge core security policies (e.g., Code of Conduct)." },
+                                { step: "Account Setup", description: "Configure MFA and password manager to secure your identity." },
+                                { step: "Asset Verification", description: "Confirm receipt of your assigned laptop and devices." }
+                            ]}
+                            integrations={[
+                                { name: "HR System", description: "Employee records are synced from the HRIS." },
+                                { name: "Device Management", description: "Asset confirmation updates the central inventory." },
+                                { name: "Audit Logs", description: "All acknowledgments are time-stamped for compliance audits." }
+                            ]}
+                        />
+                    </div>
+                </div>
 
                 {/* Hero Section with Progress */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#002a40] via-[#004d70] to-[#0284c7] p-8 text-white shadow-2xl">
@@ -450,9 +511,11 @@ export default function EmployeeOnboarding() {
                                             onException={() => {
                                                 setExceptionPolicyId(req.id);
                                                 setExceptionPolicyKey(req.key);
+                                                setExceptionPolicyType(req.isPolicy ? 'policy' : 'document');
                                                 setIsExceptionDialogOpen(true);
                                             }}
                                             viewed={viewedPolicies.has(req.key)}
+                                            exceptionStatus={req.exception?.status}
                                         />
                                     ))
                                 ) : (
@@ -586,16 +649,19 @@ export default function EmployeeOnboarding() {
                                     label="Multi-Factor Authentication (MFA) Enrolled"
                                     checked={onboardingStatus?.tasks.security?.mfaEnrolled || false}
                                     onCheck={(value) => handleSecuritySetup('mfaEnrolled', value)}
+                                    isLoading={updateSecuritySetupMutation.isLoading}
                                 />
                                 <SecurityCheckbox
                                     label="Password Manager Setup Complete"
                                     checked={onboardingStatus?.tasks.security?.passwordManagerSetup || false}
                                     onCheck={(value) => handleSecuritySetup('passwordManagerSetup', value)}
+                                    isLoading={updateSecuritySetupMutation.isLoading}
                                 />
                                 <SecurityCheckbox
                                     label="Security Questions Configured"
                                     checked={onboardingStatus?.tasks.security?.securityQuestionsSet || false}
                                     onCheck={(value) => handleSecuritySetup('securityQuestionsSet', value)}
+                                    isLoading={updateSecuritySetupMutation.isLoading}
                                 />
                             </div>
                         </CardContent>
@@ -641,6 +707,7 @@ export default function EmployeeOnboarding() {
                                             label={`${asset.type.charAt(0).toUpperCase() + asset.type.slice(1).replace('_', ' ')} Received`}
                                             checked={asset.status === 'confirmed'}
                                             onCheck={() => handleAssetReceipt(asset.type)}
+                                            isLoading={confirmAssetReceiptMutation.isLoading}
                                         />
                                     ))
                                 ) : (
@@ -710,7 +777,9 @@ export default function EmployeeOnboarding() {
                     <ExceptionRequestDialog
                         open={isExceptionDialogOpen}
                         onOpenChange={setIsExceptionDialogOpen}
-                        policyId={exceptionPolicyId}
+                        policyId={exceptionPolicyType === 'policy' ? exceptionPolicyId : undefined}
+                        requirementId={exceptionPolicyType === 'document' ? exceptionPolicyId : undefined}
+                        policyType={exceptionPolicyType}
                         employeeId={employee?.id || 0}
                     />
                 )}
@@ -727,14 +796,32 @@ export default function EmployeeOnboarding() {
             return;
         }
 
-        // Logic moved to "I have read and understood" button inside the modal
-        // This function is now only called when the user clicks the button in the modal
-        submitAcknowledgmentMutation?.mutate({
-            clientId: effectiveClientId,
-            employeeId: employee.id,
-            acknowledgmentType: policyId,
-            version: "1.0"
-        });
+        if (policyId.startsWith('policy_')) {
+            // It's a real policy assignment
+            const requirement = (onboardingStatus.tasks.acknowledgments.requirements as any[]).find(r => r.key === policyId);
+            if (requirement?.isPolicy) {
+                // Find assignment ID? Wait, onboardingStatus now returns assignmentId? 
+                // Let's check onboarding.ts again. Yes, assignedPolicies had assignmentId.
+                // But in requirements mapping I didn't pass it. Let me fix that in onboarding.ts first.
+                // Wait, I can just find the policy by ID and attest it if I know the employee.
+                // Actually, I should probably pass assignmentId in onboarding.ts
+
+                // For now, let's assume we can attest by policyId and employeeId if we had a procedure for it.
+                // But attestPolicy takes assignmentId.
+
+                // I'll update onboarding.ts to include the assignmentId in the requirement object.
+                attestPolicyMutation?.mutate({
+                    assignmentId: requirement.assignmentId
+                });
+            }
+        } else {
+            submitAcknowledgmentMutation?.mutate({
+                clientId: effectiveClientId,
+                employeeId: employee.id,
+                acknowledgmentType: policyId,
+                version: "1.0"
+            });
+        }
     }
 
     function handleSecuritySetup(field: 'mfaEnrolled' | 'passwordManagerSetup' | 'securityQuestionsSet', value: boolean) {
@@ -770,7 +857,8 @@ function AcknowledgmentCheckbox({
     onCheck,
     onView,
     onException,
-    viewed
+    viewed,
+    exceptionStatus
 }: {
     label: string;
     checked: boolean;
@@ -778,6 +866,7 @@ function AcknowledgmentCheckbox({
     onView: () => void;
     onException: () => void;
     viewed: boolean;
+    exceptionStatus?: string;
 }) {
     const canCheck = checked || viewed;
 
@@ -813,7 +902,7 @@ function AcknowledgmentCheckbox({
             </div>
 
             <div className="flex items-center gap-2">
-                {!checked && (
+                {!checked && (!exceptionStatus || exceptionStatus === 'rejected') && (
                     <Button
                         variant="ghost"
                         size="sm"
@@ -823,8 +912,17 @@ function AcknowledgmentCheckbox({
                         }}
                         className="text-xs text-muted-foreground hover:text-destructive h-8 px-2"
                     >
-                        Request Exception
+                        {exceptionStatus === 'rejected' ? 'Appeal / Retry' : 'Request Exception'}
                     </Button>
+                )}
+                {exceptionStatus && (
+                    <Badge variant={
+                        exceptionStatus === 'approved' ? 'default' :
+                            exceptionStatus === 'rejected' ? 'destructive' : 'secondary'
+                    } className="text-xs h-6">
+                        {exceptionStatus === 'approved' ? 'Exception Granted' :
+                            exceptionStatus === 'rejected' ? 'Exception Rejected' : 'Exception Pending'}
+                    </Badge>
                 )}
                 <Button
                     variant="outline"
@@ -843,17 +941,22 @@ function AcknowledgmentCheckbox({
     );
 }
 
-function SecurityCheckbox({ label, checked, onCheck }: { label: string; checked: boolean; onCheck: (value: boolean) => void }) {
+function SecurityCheckbox({ label, checked, onCheck, isLoading }: { label: string; checked: boolean; onCheck: (value: boolean) => void; isLoading?: boolean }) {
     return (
         <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
             <button
                 onClick={() => onCheck(!checked)}
+                disabled={isLoading}
                 className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked
                     ? 'bg-blue-500 border-blue-500'
                     : 'border-gray-300 hover:border-blue-500'
-                    }`}
+                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-                {checked && <CheckCircle2 className="h-4 w-4 text-white" />}
+                {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                ) : checked ? (
+                    <CheckCircle2 className="h-4 w-4 text-white" />
+                ) : null}
             </button>
             <span className={`text-sm ${checked ? 'text-gray-500' : 'text-gray-900'}`}>
                 {label}
@@ -862,18 +965,22 @@ function SecurityCheckbox({ label, checked, onCheck }: { label: string; checked:
     );
 }
 
-function AssetCheckbox({ label, checked, onCheck }: { label: string; checked: boolean; onCheck: () => void }) {
+function AssetCheckbox({ label, checked, onCheck, isLoading }: { label: string; checked: boolean; onCheck: () => void; isLoading?: boolean }) {
     return (
         <div className="flex items-center gap-3 p-3 rounded-lg border hover:bg-gray-50 transition-colors">
             <button
                 onClick={onCheck}
-                disabled={checked}
+                disabled={checked || isLoading}
                 className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${checked
                     ? 'bg-indigo-500 border-indigo-500'
                     : 'border-gray-300 hover:border-indigo-500'
-                    }`}
+                    } ${(checked || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-                {checked && <CheckCircle2 className="h-4 w-4 text-white" />}
+                {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                ) : checked ? (
+                    <CheckCircle2 className="h-4 w-4 text-white" />
+                ) : null}
             </button>
             <span className={`text-sm ${checked ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                 {label}

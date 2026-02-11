@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding, BrandLogo } from "@/config/branding";
 import { Avatar, AvatarFallback } from "@complianceos/ui/ui/avatar";
 import {
     DropdownMenu,
@@ -61,6 +62,7 @@ export default function AdminLayout({
         return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
     });
     const { loading, user } = useAuth();
+    const { appName } = useBranding();
 
     useEffect(() => {
         localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -76,7 +78,7 @@ export default function AdminLayout({
                 <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
                     <Shield className="h-16 w-16 text-primary" />
                     <h1 className="text-2xl font-semibold tracking-tight text-center">
-                        Sign in to Compliance OS
+                        Sign in to {appName}
                     </h1>
                     <Button onClick={() => window.location.href = getLoginUrl()}>
                         Sign in
@@ -112,6 +114,7 @@ function AdminLayoutContent({
     const [isResizing, setIsResizing] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const isMobile = useIsMobile();
+    const { appName } = useBranding();
 
     useEffect(() => {
         if (isCollapsed) setIsResizing(false);
@@ -155,7 +158,7 @@ function AdminLayoutContent({
                             </button>
                             {!isCollapsed && (
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-semibold tracking-tight truncate">Admin Console</span>
+                                    <span className="font-semibold tracking-tight truncate">{appName} Admin</span>
                                 </div>
                             )}
                         </div>

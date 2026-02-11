@@ -1,0 +1,1 @@
+import{aK as s,r as i}from"./index-DOc7Nwb7.js";function r(e){const{setContext:a}=s();i.useEffect(()=>(a({type:"page",id:window.location.pathname,data:e}),()=>{}),[e.pageTitle,e.description,JSON.stringify(e.keyTopics)])}export{r as u};

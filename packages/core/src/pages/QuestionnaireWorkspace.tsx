@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
 import { Button } from "@complianceos/ui/ui/button";
 import { Input } from "@complianceos/ui/ui/input";
 import { Textarea } from "@complianceos/ui/ui/textarea";
@@ -334,6 +335,20 @@ export default function QuestionnaireWorkspace() {
               </p>
             </div>
           </div>
+          <PageGuide
+            title="Questionnaire Workspace"
+            description="AI-powered workspace for completing security assessments."
+            rationale="Significantly reduces time spent on manual questionnaire filling by leveraging your Knowledge Base."
+            howToUse={[
+              { step: "Upload", description: "Import Excel, CSV, or PDF security questionnaires." },
+              { step: "Generate", description: "AI automatically suggests answers based on your policies and past responses." },
+              { step: "Review", description: "Verify confidence scores, edit answers, and approve for export." }
+            ]}
+            integrations={[
+              { name: "Knowledge Base", description: "Source of truth for automated answers." },
+              { name: "Exports", description: "Download completed files." }
+            ]}
+          />
         </div>
 
         {/* Stepper */}

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@complianceos/ui/ui/StatusBadge";
 import { format } from "date-fns";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function SubprocessorRegister() {
     const { id } = useParams<{ id: string }>();
@@ -68,10 +69,17 @@ export default function SubprocessorRegister() {
     return (
         <div className="space-y-6 page-transition">
             <div className="flex justify-between items-start animate-slide-down">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subprocessor Governance</h1>
-                    <p className="text-muted-foreground mt-1 text-sm">Manage GDPR Article 28 compliance and chain of trust.</p>
-                </div>
+
+                <PageGuide
+                    title="Subprocessor Governance"
+                    description="Manage GDPR Article 28 compliance and chain of trust in your supply chain."
+                    rationale="Maintain visibility into 'fourth-party' data risks to ensure full regulatory compliance."
+                    howToUse={[
+                        { step: "Inventory", description: "Maintain a list of all active sub-processors." },
+                        { step: "Analyze", description: "Verify transfer mechanisms and data locations." },
+                        { step: "Map", description: "Visualize the chain of trust and data flows." }
+                    ]}
+                />
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => window.open(`/api/public/subprocessors/${clientId}`, '_blank')}>
                         <Share2 className="w-4 h-4 mr-2" />

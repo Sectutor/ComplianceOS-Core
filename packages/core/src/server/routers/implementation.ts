@@ -221,6 +221,29 @@ export const createImplementationRouter = (t: any, publicProcedure: any, adminPr
             return updated;
         }),
 
+        createTask: adminProcedure.input(z.object({
+            planId: z.number(),
+            clientId: z.number(),
+            title: z.string(),
+            description: z.string().optional(),
+            priority: z.string().optional(),
+            pdca: z.string().optional(),
+            status: z.string().optional(),
+        })).mutation(async ({ input, ctx }: any) => {
+            const db = await getDb();
+            const [task] = await db.insert(schema.implementationTasks).values({
+                implementationPlanId: input.planId,
+                clientId: input.clientId,
+                title: input.title,
+                description: input.description,
+                priority: input.priority || 'medium',
+                pdca: input.pdca || 'Plan',
+                status: input.status || 'todo',
+                createdById: ctx.user?.id || 1,
+            } as any).returning();
+            return task;
+        }),
+
         updatePlan: adminProcedure.input(z.object({
             planId: z.number(),
             title: z.string().optional(),
@@ -546,7 +569,7 @@ export const createImplementationRouter = (t: any, publicProcedure: any, adminPr
                     const jsonMatch = rawText.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
                     const jsonToParse = jsonMatch ? jsonMatch[0] : rawText;
                     const parsed = JSON.parse(jsonToParse);
-                    
+
                     // Look for the tasks array
                     newTasksDef = findDeepArray(parsed);
                 } catch (pe) {

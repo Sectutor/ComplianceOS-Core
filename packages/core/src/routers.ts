@@ -1,11 +1,11 @@
-
+// Router index - updated at 2026-02-11 17:15
 import { createClientPoliciesRouter } from "./server/routers/clientPolicies";
 import { createClientControlsRouter } from "./server/routers/clientControls";
 import { createComplianceRouter } from "./server/routers/compliance";
 import { createEvidenceRouter } from "./server/routers/evidence";
 import { createControlsRouter } from "./server/routers/controls"; // Restore missing router mapping
 import { createEvidenceFilesRouter } from "./server/routers/evidenceFiles";
-// import { createAdvisorRouter } from "./server/routers/advisor";
+import { createAdvisorRouter } from "./server/routers/advisor";
 import { initTRPC, TRPCError } from "@trpc/server";
 import * as crypto from 'crypto';
 import { z } from "zod";
@@ -18,6 +18,8 @@ import { createRoadmapRouter } from "./server/routers/roadmap";
 import { createVendorContractsRouter } from "./server/routers/vendorContracts";
 import { createVendorDpasRouter } from "./server/routers/vendorDpas";
 import { createVendorRequestsRouter } from "./server/routers/vendorRequests";
+import { createThreatIntelRouter } from "./server/routers/threatIntel";
+import { createAsvsRouter } from "./server/routers/asvs";
 // Premium import placeholders
 // import { createSubprocessorsRouter } from "./server/routers/subprocessors";
 import { createPrivacyEnhancementsRouter } from "./server/routers/privacyEnhancements";
@@ -27,6 +29,7 @@ import { businessImpactAnalyses, biaQuestionnaires, recoveryObjectives, bcStrate
 import { tasks, auditLogs, users, regulationMappings, clientPolicies, evidence, evidenceRequests, notificationLog, clientReadinessResponses, userClients, cloudConnections, cloudAssets, issueTrackerConnections, remediationTasks, userInvitations, assets, riskScenarios, riskTreatments, vulnerabilities, threats, riskAssessments, riskPolicyMappings, treatmentControls, controls, clientControls, controlPolicyMappings, projectTasks, orgRoles, employees, employeeTaskAssignments, kris, vendors, vendorAssessments, vendorContacts, vendorContracts, clients, frameworkMappings, llmProviders, llmRouterRules } from "./schema";
 import { logActivity } from "./lib/audit";
 import { eq, desc, asc, and, sql, getTableColumns, lt, or, inArray, like } from "drizzle-orm";
+import { createSammRouter } from "./server/routers/samm";
 import { createEmployeesRouter } from "./server/routers/employees";
 import {
   sendOverdueNotification,
@@ -37,27 +40,29 @@ import {
 import { llmService } from "./lib/llm/service";
 import { generateGapAnalysisReport } from "./lib/reporting";
 import { suggestControlsForTreatment } from "./lib/ai/controlSuggestions";
-import * as threatIntel from "./lib/threatIntelligence";
+// cleaned up unused imports
 import * as adversaryIntelService from "./lib/adversaryService";
-import { nvdCveCache, cisaKevCache, assetCveMatches, threatIntelSyncLog } from "./schema";
+// threatIntel related schema tables removed
 
-// Initialize tRPC
 // Initialize tRPC
 import { inferAsyncReturnType } from "@trpc/server";
 import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { createCrmRouter } from './lib/modules/crm/router';
 import { createSalesRouter } from './lib/modules/crm/sales-router';
 import { createFrameworkImportRouter } from './server/routers/frameworkImport';
+import { createFrameworkPluginsRouter } from './server/routers/frameworkPlugins';
 import { createReadinessRouter } from './server/routers/readiness';
 // Roadmap & Implementation
 import { createImplementationRouter } from './server/routers/implementation';
 import { createDevProjectsRouter } from './server/routers/devProjects';
 import { createThreatModelsRouter } from './server/routers/threatModels';
+import { createProjectsRouter } from './server/routers/projects';
 
 // Add missing imports
 import { createChecklistRouter } from './server/routers/checklist';
 import { businessContinuitySubRouter } from "./server/routers/businessContinuity";
 import { createRisksRouter } from "./server/routers/risks";
+import { createMetricsRouter } from "./server/routers/metrics";
 import { createGovernanceRouter } from "./server/routers/governance";
 import { createAutopilotRouter } from "./server/routers/autopilot";
 import { createGapAnalysisRouter } from "./server/routers/gapAnalysis";
@@ -94,18 +99,26 @@ import { createAiSystemsRouter } from "./server/routers/aiSystems";
 import { createCommentsRouter } from "./server/routers/comments";
 import { createOnboardingRouter } from "./server/routers/onboarding";
 import { createTrainingRouter } from "./server/routers/training";
-
-
-
+import { magicLinksRouter } from "./server/routers/magicLinks";
+import { createSammV2Router } from "./server/routers/samm-v2";
+import { emailTemplatesRouter } from "./server/routers/emailTemplates";
+import { emailTriggersRouter } from "./server/routers/emailTriggers";
+import { createAdversaryIntelRouter } from "./server/routers/adversaryIntel";
+import { createEssentialEightRouter } from "./server/routers/essentialEight";
+import { createStudioRouter } from "./server/routers/studio";
 
 
 // Context type definition
-export const createContext = ({ req, res }: CreateExpressContextOptions) => ({
-  req,
-  res,
-  user: req.user,
-  clientId: (req as any).clientId as number | undefined, // Support for other middlewares if any
-});
+export const createContext = ({ req, res }: CreateExpressContextOptions) => {
+  const headerClientId = req.headers['x-client-id'] ? parseInt(req.headers['x-client-id'] as string) : undefined;
+  return {
+    req,
+    res,
+    user: req.user,
+    clientId: (req as any).clientId || headerClientId as number | undefined,
+    aal: (req as any).aal as 'aal1' | 'aal2' | null,
+  };
+};
 export type Context = inferAsyncReturnType<typeof createContext>;
 
 const t = initTRPC.context<Context>().create({
@@ -127,13 +140,14 @@ const isAuthed = t.middleware(({ ctx, next }) => {
   }
   return next({
     ctx: {
+      ...ctx,
       user: ctx.user,
     },
   });
 });
 
 const isAdmin = t.middleware(({ ctx, next }) => {
-  if (!ctx.user || (ctx.user.role !== 'admin' && ctx.user.role !== 'owner')) {
+  if (!ctx.user || (ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin')) {
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
   }
   return next({ ctx });
@@ -143,23 +157,23 @@ const checkClientAccess = t.middleware(async (opts) => {
   const { ctx, next } = opts;
   // Safer input access that works with both batched and standard requests
   const input = (opts as any).rawInput || (opts as any).input || {};
-  
+
   if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-  const clientId = input?.clientId;
+  const clientId = input?.clientId || input?.id || ctx.clientId;
+
+  console.log('[DEBUG checkClientAccess routers.ts] Path:', (opts as any).path);
+  console.log('[DEBUG checkClientAccess routers.ts] User:', ctx.user.id, 'Role:', ctx.user.role);
+  console.log('[DEBUG checkClientAccess routers.ts] ctx.clientId:', ctx.clientId);
+  console.log('[DEBUG checkClientAccess routers.ts] Resolved clientId:', clientId);
 
   // Admins have implicit access
-  if (ctx.user.role === 'admin' || ctx.user.role === 'owner') {
+  if (ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin') {
     return next({ ctx: { ...ctx, clientId, clientRole: 'owner' } });
   }
 
   if (!clientId) {
-    // If no clientId provided in input, we cannot verify client access
-    // However, some procedures might not need clientId immediately or handle it differently
-    // But clientProcedure implies scope to a client. 
-    // If the input doesn't have clientId, we should probably fail if it's strictly a client procedure.
-    // BUT, sometimes inputs are nested or different.
-    // For now, if no clientId, we throw, matching previous logic but safer access.
+    console.log('[DEBUG checkClientAccess routers.ts] No clientId found - THROWING FORBIDDEN');
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Client ID is required for this operation' });
   }
 
@@ -169,6 +183,7 @@ const checkClientAccess = t.middleware(async (opts) => {
     .limit(1);
 
   if (membership.length === 0) {
+    console.log('[DEBUG checkClientAccess routers.ts] Membership not found for client:', clientId);
     throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this client workspace' });
   }
 
@@ -194,11 +209,12 @@ const checkPremiumAccess = t.middleware(async (opts) => {
   const { ctx, next } = opts;
   // Safer input access that works with both batched and standard requests
   const input = (opts as any).rawInput || (opts as any).input || {};
-  const clientId = input?.clientId || ctx.clientId;
+  const clientId = input?.clientId || input?.id || ctx.clientId;
 
-  // Global Admin/Owner bypass (Internal access)
-  if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner') {
-    console.log(`[PremiumGuard] Global bypass for Administrator/Owner`);
+  // Global Admin/Owner bypass OR Client Owner/Admin bypass
+  if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner' || ctx.user?.role === 'super_admin' ||
+    (ctx as any).clientRole === 'owner' || (ctx as any).clientRole === 'admin') {
+    console.log(`[PremiumGuard] Bypass for Global Admin or Client Owner/Admin`);
     return next({ ctx: { ...ctx, isPremium: true } });
   }
 
@@ -237,6 +253,21 @@ const checkPremiumAccess = t.middleware(async (opts) => {
 
 // Premium client procedure - requires auth + client access + premium tier
 export const premiumClientProcedure = clientProcedure.use(checkPremiumAccess);
+const requiresMFA = t.middleware(async ({ ctx, next }) => {
+  const clientId = (ctx as any).clientId;
+  if (!clientId) return next();
+  const dbConn = await db.getDb();
+  const [client] = await dbConn.select({ requireMfa: schema.clients.requireMfa as any })
+    .from(schema.clients)
+    .where(eq(schema.clients.id, clientId))
+    .limit(1);
+  const must = !!client?.requireMfa;
+  const aal = (ctx as any).aal;
+  if (must && aal !== 'aal2') {
+    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Multi-factor authentication required' });
+  }
+  return next();
+});
 
 const STANDARD_CONTROLS_CONTEXT = `
 AC-1: Access Control Policy and Procedures
@@ -280,38 +311,51 @@ SI-4: Information System Monitoring
 
 
 
+import { createAuditorsRouter } from "./server/routers/auditors";
+
 export const appRouter = router({
   evidenceFiles: createEvidenceFilesRouter(t, adminProcedure, publicProcedure),
   actions: createActionsRouter(t, clientProcedure),
-  clients: createClientsRouter(t, adminProcedure, clientProcedure, clientEditorProcedure, publicProcedure, isAuthed),
+  auditors: createAuditorsRouter(t, adminProcedure, clientProcedure),
+  clients: createClientsRouter(t, adminProcedure, clientProcedure, clientEditorProcedure, publicProcedure, isAuthed, requiresMFA),
   controls: createControlsRouter(t, adminProcedure, publicProcedure), // Restore missing router mapping
   clientControls: createClientControlsRouter(t, clientProcedure, adminProcedure, publicProcedure, clientEditorProcedure),
   clientPolicies: createClientPoliciesRouter(t, clientProcedure, adminProcedure, publicProcedure, clientEditorProcedure),
   users: usersSubRouter,
+  employees: createEmployeesRouter(t, clientProcedure),
   crm: createCrmRouter(t, clientProcedure),
   sales: createSalesRouter(t, clientProcedure),
   businessContinuity: businessContinuitySubRouter,
   billing: createBillingRouter(t, clientProcedure, isAuthed, publicProcedure),
-  frameworks: createFrameworksRouter(t, clientProcedure),
-  autopilot: createAutopilotRouter(router, clientProcedure),
+  frameworks: createFrameworksRouter(t, protectedProcedure),
+  frameworkImport: createFrameworkImportRouter(t, clientProcedure),
+  frameworkPlugins: createFrameworkPluginsRouter(t, protectedProcedure),
+  autopilot: createAutopilotRouter(t, clientProcedure),
   checklist: createChecklistRouter(t, clientProcedure),
   gapAnalysis: createGapAnalysisRouter(t, clientProcedure),
   federal: createFederalRouter(t, clientProcedure),
   readiness: createReadinessRouter(t, clientProcedure),
+  samm: createSammRouter(t, clientProcedure),
+  sammV2: createSammV2Router(t, clientProcedure),
+  essentialEight: createEssentialEightRouter(t, clientProcedure),
+  asvs: createAsvsRouter(t, clientProcedure),
   calendar: createCalendarRouter(t, clientProcedure),
   intake: createIntakeRouter(t, clientProcedure),
-  employees: createEmployeesRouter(t, clientProcedure),
 
 
   dashboard: createDashboardRouter(t, adminProcedure, publicProcedure.use(isAuthed)),
   compliance: createComplianceRouter(t, adminProcedure, clientProcedure, clientEditorProcedure, publicProcedure),
   evidence: createEvidenceRouter(t, adminProcedure, publicProcedure, protectedProcedure),
-  notifications: createNotificationsRouter(t, clientProcedure, adminProcedure),
+  notifications: createNotificationsRouter(t, clientProcedure, adminProcedure, protectedProcedure),
 
   // Risk Management Module
   risks: createRisksRouter(t, clientProcedure, premiumClientProcedure),
+  metrics: createMetricsRouter(t, clientProcedure),
   devProjects: createDevProjectsRouter(t, clientProcedure),
+  projects: createProjectsRouter(t, clientProcedure),
   threatModels: createThreatModelsRouter(t, clientProcedure),
+  threatIntel: createThreatIntelRouter(t, adminProcedure, publicProcedure, protectedProcedure, clientProcedure),
+  adversaryIntel: createAdversaryIntelRouter(t, publicProcedure, clientProcedure),
   vendors: createVendorAssessmentsRouter(t, clientProcedure, publicProcedure, premiumClientProcedure, adminProcedure),
   roadmap: createRoadmapRouter(t, publicProcedure, adminProcedure),
   globalVendors: createGlobalVendorsRouter(t, premiumClientProcedure),
@@ -326,6 +370,10 @@ export const appRouter = router({
   findings: createFindingsRouter(t, protectedProcedure),
 
   waitlist: createWaitlistRouter(t, publicProcedure, adminProcedure),
+  magicLinks: magicLinksRouter,
+  emailTemplates: emailTemplatesRouter,
+  emailTriggers: emailTriggersRouter,
+
   globalCrm: createGlobalCrmRouter(t, adminProcedure),
   privacy: createPrivacyRouter(t, clientProcedure),
   cyber: createCyberRouter(t, clientProcedure),
@@ -334,7 +382,6 @@ export const appRouter = router({
   policyManagement: createPolicyManagementRouter(t, clientProcedure, clientEditorProcedure, adminProcedure),
 
   governance: createGovernanceRouter(t, clientProcedure, adminProcedure),
-  employees: createEmployeesRouter(t, clientProcedure),
   onboarding: createOnboardingRouter(t, clientProcedure, clientEditorProcedure),
   training: createTrainingRouter(t, clientProcedure, clientEditorProcedure),
   knowledgeBase: createKnowledgeBaseRouter(t, clientProcedure),
@@ -350,9 +397,10 @@ export const appRouter = router({
     systems: createAiSystemsRouter(t, clientProcedure),
     // advisor: createAdvisorRouter(t, clientProcedure)
   }),
+  studio: createStudioRouter(t, protectedProcedure),
+  advisor: createAdvisorRouter(t, clientProcedure),
 
   comments: createCommentsRouter(t, clientProcedure),
-
 
   // New and Management Readiness Tools
   // management: createManagementRouter(t, protectedProcedure),
@@ -1174,79 +1222,34 @@ export const appRouter = router({
       }),
   }),
 
-  vendorContracts: router({
-    list: premiumClientProcedure
-      .input(z.object({ vendorId: z.number() }))
-      .query(async ({ input }) => {
-        const db = await getDb();
-        return db.select().from(schema.vendorContracts).where(eq(schema.vendorContracts.vendorId, input.vendorId));
-      }),
-    create: premiumClientProcedure
-      .input(z.object({
-        clientId: z.number(),
-        vendorId: z.number(),
-        title: z.string(),
-        description: z.string().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        autoRenew: z.boolean().optional(),
-        value: z.string().optional(),
-        status: z.string().optional(),
-        documentUrl: z.string().optional()
-      }))
-      .mutation(async ({ input }) => {
-        const db = await getDb();
-        const { startDate, endDate, ...rest } = input;
-        const [contract] = await db.insert(schema.vendorContracts).values({
-          ...rest,
-          startDate: startDate ? new Date(startDate) : undefined,
-          endDate: endDate ? new Date(endDate) : undefined
-        }).returning();
-        return contract;
-      }),
-    update: premiumClientProcedure
-      .input(z.object({
-        id: z.number(),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        autoRenew: z.boolean().optional(),
-        value: z.string().optional(),
-        status: z.string().optional(),
-        documentUrl: z.string().optional()
-      }))
-      .mutation(async ({ input }) => {
-        const db = await getDb();
-        const { id, startDate, endDate, ...data } = input;
-
-        const updateData: any = { ...data };
-        if (startDate) updateData.startDate = new Date(startDate);
-        if (endDate) updateData.endDate = new Date(endDate);
-
-        const [contract] = await db.update(schema.vendorContracts).set(updateData).where(eq(schema.vendorContracts.id, id)).returning();
-        return contract;
-      }),
-    delete: premiumClientProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input }) => {
-        const db = await getDb();
-        await db.delete(schema.vendorContracts).where(eq(schema.vendorContracts.id, input.id));
-        return true;
-      }),
-  }),
 
   vendorAnalytics: router({
-    getOverdueAssessments: premiumClientProcedure
+    getOverdueAssessments: protectedProcedure
       .input(z.object({ clientId: z.number().optional() }).optional())
       .query(async ({ input = {}, ctx }) => {
         const db = await getDb();
-
         const now = new Date();
         const conditions = [lt(schema.vendorAssessments.dueDate, now)];
 
         if (input?.clientId) {
+          // If specific clientId provided, check access
+          const membership = ctx.user.role === 'admin' || ctx.user.role === 'owner' ? [true] :
+            await db.select().from(schema.userClients)
+              .where(and(eq(schema.userClients.userId, ctx.user.id), eq(schema.userClients.clientId, input.clientId)))
+              .limit(1);
+
+          if (membership.length === 0) {
+            throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this client' });
+          }
           conditions.push(eq(schema.vendors.clientId, input.clientId));
+        } else if (ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
+          // For non-admins calling globally, filter by their clients
+          const userClientIds = await db.select({ id: schema.userClients.clientId })
+            .from(schema.userClients)
+            .where(eq(schema.userClients.userId, ctx.user.id));
+
+          if (userClientIds.length === 0) return [];
+          conditions.push(inArray(schema.vendors.clientId, userClientIds.map(c => c.id)));
         }
 
         const results = await db.select({
@@ -1586,7 +1589,7 @@ export const appRouter = router({
           to: toList,
           subject: msg.subject || "(No Subject)",
           html: msg.body || "",
-          // from: msg.from, // Let transporter decide based on settings
+          replyTo: msg.from || undefined, // Allow recipients to reply to sender
           clientId: input.clientId
         });
 
@@ -1745,9 +1748,14 @@ ONLY return the JSON. No Markdown formatting.
           console.log("LLM Response received:", response.text.substring(0, 50) + "...");
 
           // Clean response of potential markdown code blocks
+          // Clean response of potential markdown code blocks
           const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(cleanJson);
 
+          if (!cleanJson) {
+            throw new Error("Empty response from LLM");
+          }
+
+          const parsed = JSON.parse(cleanJson);
           return parsed;
 
         } catch (error: any) {
@@ -1813,6 +1821,7 @@ ONLY return the JSON. No Markdown formatting.
                 temperature: 0.3
               });
               const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+              if (!cleanJson) throw new Error("Empty response from LLM");
               return JSON.parse(cleanJson);
             } catch (e: any) {
               console.error("LLM failed for suggestTechnologies:", e);
@@ -1891,6 +1900,7 @@ ONLY return the JSON. No Markdown formatting.
                 temperature: 0.3
               });
               const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+              if (!cleanJson) throw new Error("Empty response from LLM");
               return JSON.parse(cleanJson);
             } catch (e: any) {
               console.error("LLM failed for implementationPlan:", e);
@@ -1973,6 +1983,7 @@ ONLY return the JSON. No Markdown formatting.
                 temperature: 0.3
               });
               const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+              if (!cleanJson) throw new Error("Empty response from LLM");
               return JSON.parse(cleanJson);
             } catch (e: any) {
               console.error("LLM failed for explainMapping:", e);
@@ -2039,6 +2050,7 @@ ONLY return the JSON. No Markdown formatting.
                 temperature: 0.5
               });
               const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+              if (!cleanJson) throw new Error("Empty response from LLM");
               return JSON.parse(cleanJson);
             } catch (e: any) {
               console.error("LLM failed for askQuestion:", e);
@@ -3560,6 +3572,7 @@ Example format:
 
           // Clean markdown code blocks if present
           const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+          if (!cleanJson) throw new Error("Empty response from LLM");
           const result = JSON.parse(cleanJson);
 
           // Map back to full control details
@@ -3660,6 +3673,7 @@ Return JSON:
           });
 
           const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+          if (!cleanJson) throw new Error("Empty response from LLM");
           const result = JSON.parse(cleanJson);
 
           // Re-hydrate with full details
@@ -4432,247 +4446,10 @@ Return JSON:
       }),
   }),
 
-  // ==================== THREAT INTELLIGENCE ====================
-  threatIntel: router({
-    // Scan a single asset for CVE matches
-    scanAsset: clientProcedure
-      .input(z.object({
-        clientId: z.number(),
-        assetId: z.number(),
-      }))
-      .mutation(async ({ input }) => {
-        const dbConn = await db.getDb();
 
-        const asset = await dbConn.select().from(assets)
-          .where(eq(assets.id, input.assetId))
-          .limit(1);
 
-        if (!asset[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
 
-        // DEBUG: Log asset data being used for scanning
-        console.log('[ThreatIntel] Scanning asset:', {
-          id: asset[0].id,
-          name: asset[0].name,
-          vendor: asset[0].vendor,
-          productName: asset[0].productName,
-          version: asset[0].version,
-          technologies: asset[0].technologies,
-        });
 
-        const keywords = threatIntel.extractKeywordsFromAsset(asset[0]);
-        console.log('[ThreatIntel] Extracted keywords:', keywords);
-
-        const suggestions = await threatIntel.scanAssetForCves(asset[0]);
-        return { suggestions, scannedAt: new Date() };
-      }),
-
-    // Scan all assets for a client
-    scanAllAssets: clientProcedure
-      .input(z.object({ clientId: z.number() }))
-      .mutation(async ({ input }) => {
-        const results = await threatIntel.scanAllAssetsForClient(input.clientId);
-        return { results, scannedAt: new Date() };
-      }),
-
-    // Get CVE suggestions for an asset (from cache)
-    getAssetSuggestions: clientProcedure
-      .input(z.object({ assetId: z.number() }))
-      .query(async ({ input }) => {
-        const suggestions = await threatIntel.getAssetCveSuggestions(input.assetId);
-        return suggestions;
-      }),
-
-    // Get CVE details (from cache or fetch)
-    getCveDetails: publicProcedure
-      .input(z.object({ cveId: z.string() }))
-      .query(async ({ input }) => {
-        const dbConn = await db.getDb();
-
-        // Check cache first
-        const cached = await dbConn.select().from(nvdCveCache)
-          .where(eq(nvdCveCache.cveId, input.cveId))
-          .limit(1);
-
-        if (cached[0]) {
-          return cached[0];
-        }
-
-        // Fetch from NVD
-        const nvdResult = await threatIntel.getCveById(input.cveId);
-        if (nvdResult?.vulnerabilities?.[0]) {
-          await threatIntel.cacheCveData(nvdResult.vulnerabilities[0].cve);
-          // Re-fetch from cache
-          const newCached = await dbConn.select().from(nvdCveCache)
-            .where(eq(nvdCveCache.cveId, input.cveId))
-            .limit(1);
-          return newCached[0] || null;
-        }
-
-        return null;
-      }),
-
-    // Lookup a CVE by ID (mutation for Vulnerability Editor)
-    lookupCve: publicProcedure
-      .input(z.object({ cveId: z.string() }))
-      .mutation(async ({ input }) => {
-        const dbConn = await db.getDb();
-
-        // Check cache first
-        if (dbConn) {
-          const cached = await dbConn.select().from(nvdCveCache)
-            .where(eq(nvdCveCache.cveId, input.cveId))
-            .limit(1);
-
-          if (cached[0]) {
-            return { cve: cached[0], source: 'cache' };
-          }
-        }
-
-        // Fetch from NVD
-        const nvdResult = await threatIntel.getCveById(input.cveId);
-        if (nvdResult?.vulnerabilities?.[0]) {
-          const cve = nvdResult.vulnerabilities[0].cve;
-
-          // Cache it
-          if (dbConn) {
-            await threatIntel.cacheCveData(cve);
-          }
-
-          // Extract CVSS score
-          const cvssV31 = cve.metrics?.cvssMetricV31?.[0]?.cvssData;
-          const cvssV2 = cve.metrics?.cvssMetricV2?.[0]?.cvssData;
-          const cvssScore = cvssV31?.baseScore?.toString() || cvssV2?.baseScore?.toString() || null;
-
-          return {
-            cve: {
-              cveId: cve.id,
-              description: cve.descriptions.find(d => d.lang === 'en')?.value || cve.descriptions[0]?.value || '',
-              cvssScore,
-              cvssVector: cvssV31?.vectorString || cvssV2?.vectorString || null,
-            },
-            source: 'nvd'
-          };
-        }
-
-        return { cve: null, source: 'not_found' };
-      }),
-
-    // Scan a single vendor for CVE matches
-    scanVendor: clientProcedure
-      .input(z.object({
-        clientId: z.number(),
-        vendorId: z.number(),
-      }))
-      .mutation(async ({ input }) => {
-        const suggestions = await threatIntel.scanVendorForCves(input.vendorId);
-        return { suggestions, scannedAt: new Date() };
-      }),
-
-    // Get CVE suggestions for a vendor (from cache)
-    getVendorSuggestions: clientProcedure
-      .input(z.object({ vendorId: z.number() }))
-      .query(async ({ input }) => {
-        const suggestions = await threatIntel.getVendorCveSuggestions(input.vendorId);
-        return suggestions;
-      }),
-
-    // Sync CISA KEV catalog
-    syncKevCatalog: adminProcedure
-      .mutation(async () => {
-        const count = await threatIntel.syncCisaKevCatalog();
-        return { synced: count, syncedAt: new Date() };
-      }),
-
-    // Get KEV catalog stats
-    getKevStats: publicProcedure
-      .query(async () => {
-        const dbConn = await db.getDb();
-
-        const countResult = await dbConn.select({ count: sql<number>`count(*)` })
-          .from(cisaKevCache);
-
-        const lastSync = await dbConn.select().from(threatIntelSyncLog)
-          .where(eq(threatIntelSyncLog.source, 'cisa_kev'))
-          .orderBy(desc(threatIntelSyncLog.completedAt))
-          .limit(1);
-
-        return {
-          total: countResult[0]?.count || 0,
-          lastSync: lastSync[0]?.completedAt || null,
-        };
-      }),
-
-    // Update match status (accept/dismiss/import)
-    updateMatchStatus: clientProcedure
-      .input(z.object({
-        matchId: z.number(),
-        status: z.enum(['accepted', 'dismissed', 'imported']),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        await threatIntel.updateMatchStatus(input.matchId, input.status, ctx.user?.id);
-        return { success: true };
-      }),
-
-    // Import CVE as vulnerability
-    importCveAsVulnerability: clientProcedure
-      .input(z.object({
-        clientId: z.number(),
-        assetId: z.number(),
-        cveId: z.string(),
-        matchId: z.number().optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const dbConn = await db.getDb();
-
-        // Get CVE details from cache
-        const cached = await dbConn.select().from(nvdCveCache)
-          .where(eq(nvdCveCache.cveId, input.cveId))
-          .limit(1);
-
-        if (!cached[0]) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "CVE not found in cache" });
-        }
-
-        const cve = cached[0];
-
-        // Check if in KEV
-        const isKev = await threatIntel.isInKevCatalog(input.cveId);
-
-        // Create vulnerability record
-        // Parse CVSS score: schema expects integer (x10 scale, e.g. 7.5 -> 75)
-        const cvssNum = parseFloat(cve.cvssScore || '0');
-        const cvssInt = Math.round(cvssNum * 10);
-
-        const [newVuln] = await dbConn.insert(vulnerabilities).values({
-          clientId: input.clientId,
-          vulnerabilityId: input.cveId, // Schema uses vulnerabilityId, not vulnId
-          name: `${input.cveId}: ${cve.description?.substring(0, 100)}...`,
-          description: cve.description,
-          cveId: input.cveId,
-          severity: cvssNum >= 9 ? 'Critical' :
-            cvssNum >= 7 ? 'High' :
-              cvssNum >= 4 ? 'Medium' : 'Low',
-          cvssScore: cvssInt, // Integer x10 scale
-          affectedAssets: [],
-          source: 'NVD',
-          status: isKev ? 'open' : 'open',
-          discoveryDate: new Date(),
-        }).returning();
-
-        // Update match status if matchId provided
-        if (input.matchId) {
-          await dbConn.update(assetCveMatches)
-            .set({
-              status: 'imported',
-              importedVulnerabilityId: newVuln.id,
-              reviewedAt: new Date(),
-            })
-            .where(eq(assetCveMatches.id, input.matchId));
-        }
-
-        return { vulnerability: newVuln, isKev };
-      }),
-  }),
 
   // ==================== ADVERSARY INTELLIGENCE (PREMIUM) ====================
   // Live security feeds and MITRE ATT&CK integration
@@ -5896,4 +5673,6 @@ Return JSON:
 
 
 export type AppRouter = typeof appRouter;
+
+
 

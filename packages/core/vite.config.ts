@@ -28,11 +28,21 @@ export default defineConfig({
             '/api': {
                 target: 'http://127.0.0.1:3002',
                 changeOrigin: true,
+                secure: false,
             },
             '/uploads': {
                 target: 'http://127.0.0.1:3002',
                 changeOrigin: true,
+                secure: false,
             },
         },
     },
+    optimizeDeps: {
+        include: [
+            '@dnd-kit/core',
+            '@dnd-kit/sortable',
+            '@dnd-kit/utilities',
+            'date-fns'
+        ]
+    }
 });

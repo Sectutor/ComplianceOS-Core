@@ -9,6 +9,7 @@ import { Input } from '@complianceos/ui/ui/input';
 import { Button } from '@complianceos/ui/ui/button';
 import { RiskHeatmap } from '@/components/risk/RiskHeatmap';
 import { Breadcrumb } from '@/components/Breadcrumb';
+import { PageGuide } from '@/components/PageGuide';
 
 export default function RiskAssessmentsPage() {
     const params = useParams();
@@ -196,6 +197,20 @@ export default function RiskAssessmentsPage() {
                             <Plus className="w-4 h-4 mr-2" />
                             New Assessment
                         </Button>
+                        <PageGuide
+                            title="Risk Assessments"
+                            description="Evaluate, score, and treat organizational risks."
+                            rationale="Systematic risk assessments provide the data needed to make informed security investment decisions."
+                            howToUse={[
+                                { step: "Identify Risks", description: "Create new assessments for specific threat scenarios." },
+                                { step: "Analyze Heatmap", description: "Use the Risk Heatmap to focus on High Impact/High Likelihood risks." },
+                                { step: "Monitor Treatments", description: "Ensure all critical risks have documented treatment plans." }
+                            ]}
+                            integrations={[
+                                { name: "Controls Library", description: "Apply controls to reduce Inherent Risk to an acceptable Residual Risk level." },
+                                { name: "Gap Analysis", description: "Identify missing controls directly from the assessment workflow." }
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -420,6 +435,6 @@ export default function RiskAssessmentsPage() {
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

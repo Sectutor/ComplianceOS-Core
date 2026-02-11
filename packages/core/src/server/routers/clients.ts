@@ -9,91 +9,112 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { generateGapAnalysisReport } from "../../lib/reporting";
 import { sendEmail } from "../../lib/email/transporter";
 
-export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure: any, clientEditorProcedure: any, publicProcedure: any, isAuthed: any) => {
+export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure: any, clientEditorProcedure: any, publicProcedure: any, isAuthed: any, requiresMFA: any) => {
     return t.router({
         list: publicProcedure
             .use(isAuthed)
             .input(z.any())
             .query(async ({ ctx }: any) => {
-                const dbConn = await db.getDb();
-                console.log('[DEBUG] clients.list called');
-                console.log('[DEBUG] ctx.user:', JSON.stringify(ctx.user, null, 2));
+                try {
+                    const dbConn = await db.getDb();
+                    console.log('[DEBUG] clients.list called');
+                    console.log('[DEBUG] ctx.user:', JSON.stringify(ctx.user, null, 2));
 
-                // Admins/owners: list all clients
-                if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner') {
-                    console.log('[DEBUG] Admin path taken');
-                    const all = await dbConn.select({
+                    // Validate user context
+                    if (!ctx.user?.id) {
+                        console.error('[DEBUG] No user ID in context');
+                        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not authenticated' });
+                    }
+
+                    // Admins/owners/super_admins: list all clients
+                    if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner' || ctx.user?.role === 'super_admin') {
+                        console.log('[DEBUG] Admin path taken');
+                        const all = await dbConn.select({
+                            id: clients.id,
+                            name: clients.name,
+                            description: clients.description,
+                            industry: clients.industry,
+                            size: clients.size,
+                            updatedAt: clients.updatedAt,
+                            createdAt: clients.createdAt,
+                            status: clients.status,
+                            logoUrl: clients.logoUrl,
+                            planTier: clients.planTier,
+                            activeModules: clients.activeModules,
+                            brandPrimaryColor: clients.brandPrimaryColor,
+                            brandSecondaryColor: clients.brandSecondaryColor,
+                            portalTitle: clients.portalTitle,
+                            role: userClients.role, // Get their role if they are a member
+                        })
+                            .from(clients)
+                            .leftJoin(userClients, and(eq(clients.id, userClients.clientId), eq(userClients.userId, ctx.user.id)))
+                            .orderBy(desc(clients.updatedAt));
+
+                        console.log('[DEBUG] Admin listing clients count:', all.length);
+                        return all.map((c: any) => ({
+                            ...c,
+                            updatedAt: c.updatedAt?.toString() || null,
+                            createdAt: c.createdAt?.toString() || null,
+                        }));
+                    }
+
+                    // Else list clients by membership (non-admin users)
+                    console.log('[DEBUG] User path taken');
+                    const fullUser = await db.getUserById(ctx.user!.id);
+                    const maxClients = fullUser?.maxClients || 2;
+
+                    const rows = await dbConn.select({
                         id: clients.id,
                         name: clients.name,
                         description: clients.description,
                         industry: clients.industry,
                         size: clients.size,
                         updatedAt: clients.updatedAt,
-                        createdAt: clients.createdAt, // Added
+                        createdAt: clients.createdAt,
                         status: clients.status,
                         logoUrl: clients.logoUrl,
-                        planTier: clients.planTier, // Added
-                        activeModules: clients.activeModules, // Added
+                        planTier: clients.planTier,
+                        activeModules: clients.activeModules,
                         brandPrimaryColor: clients.brandPrimaryColor,
                         brandSecondaryColor: clients.brandSecondaryColor,
                         portalTitle: clients.portalTitle,
-                    }).from(clients).orderBy(desc(clients.updatedAt));
-                    console.log('[DEBUG] Admin listing clients count:', all.length);
-                    // Log first client ID if available to verify data structure
-                    if (all.length > 0) {
-                        console.log('[DEBUG] Sample client ID:', all[0].id);
-                    }
-                    // Ensure dates are serializable
-                    return all.map((c: any) => ({
+                        role: userClients.role,
+                    })
+                        .from(userClients)
+                        .innerJoin(clients, eq(userClients.clientId, clients.id))
+                        .where(eq(userClients.userId, ctx.user!.id));
+
+                    // Enforce maxClients limit: separate owned vs invited clients
+                    const ownedClients = rows.filter((c: any) => c.role === 'owner');
+                    const invitedClients = rows.filter((c: any) => c.role !== 'owner');
+
+                    // Sort owned clients by creation date (oldest first) and limit to maxClients
+                    ownedClients.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    const allowedOwned = ownedClients.slice(0, maxClients);
+
+                    // Combine: allowed owned + all invited (invited don't count toward limit)
+                    const allowed = [...allowedOwned, ...invitedClients];
+
+                    console.log(`[DEBUG] User listing: ${rows.length} total, ${ownedClients.length} owned, limit=${maxClients}, showing=${allowed.length}`);
+                    return allowed.map((c: any) => ({
                         ...c,
                         updatedAt: c.updatedAt?.toString() || null,
-                        createdAt: c.createdAt?.toString() || null, // Added serialization
+                        createdAt: c.createdAt?.toString() || null,
                     }));
+                } catch (error) {
+                    console.error('[DEBUG] Error in clients.list:', error);
+                    throw error;
                 }
-
-                // Else list clients by membership
-                console.log('[DEBUG] User path taken');
-                const rows = await dbConn.select({
-                    id: clients.id,
-                    name: clients.name,
-                    description: clients.description,
-                    industry: clients.industry,
-                    size: clients.size,
-                    updatedAt: clients.updatedAt,
-                    createdAt: clients.createdAt, // Added
-                    status: clients.status,
-                    logoUrl: clients.logoUrl,
-                    planTier: clients.planTier, // Added
-                    activeModules: clients.activeModules, // Added
-                    brandPrimaryColor: clients.brandPrimaryColor,
-                    brandSecondaryColor: clients.brandSecondaryColor,
-                    portalTitle: clients.portalTitle,
-                })
-                    .from(userClients)
-                    .innerJoin(clients, eq(userClients.clientId, clients.id))
-                    .where(eq(userClients.userId, ctx.user!.id));
-
-                console.log('[DEBUG] User listing clients count:', rows.length);
-                return rows.map((c: any) => ({
-                    ...c,
-                    updatedAt: c.updatedAt?.toString() || null,
-                    createdAt: c.createdAt?.toString() || null,
-                }));
             }),
         get: clientProcedure
             .input(z.object({ id: z.number() }))
             .query(async ({ input, ctx }: any) => {
-                // Explicit security check since input is 'id' not 'clientId'
-                if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner') {
-                    const dbConn = await db.getDb();
-                    const membership = await dbConn.select().from(schema.userClients)
-                        .where(and(eq(schema.userClients.userId, ctx.user.id), eq(schema.userClients.clientId, input.id)))
-                        .limit(1);
-                    if (membership.length === 0) throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this client workspace' });
-                }
                 const client = await db.getClientById(input.id);
                 if (!client) throw new TRPCError({ code: 'NOT_FOUND' });
-                return client;
+                return {
+                    ...client,
+                    userRole: ctx.clientRole
+                };
             }),
         getComplianceScore: clientProcedure // Dashboard Score
             .input(z.object({ clientId: z.number() }))
@@ -226,8 +247,8 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const currentCount = Number(userOrgs[0]?.count || 0);
                     const limit = fullUser?.maxClients || 2;
 
-                    // Admins/Internal Owners bypass limit
-                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
+                    // Admins/Internal Owners/Super Admins bypass limit
+                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
                         throw new TRPCError({
                             code: 'FORBIDDEN',
                             message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
@@ -347,7 +368,7 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const currentCount = Number(userOrgs[0]?.count || 0);
                     const limit = fullUser?.maxClients || 2;
 
-                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
+                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
                         throw new TRPCError({
                             code: 'FORBIDDEN',
                             message: `Organization Limit Reached: Your current plan allows for ${limit} organizations.`
@@ -384,53 +405,82 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 includeSampleData: z.boolean().default(false),
             }))
             .mutation(async ({ input, ctx }: any) => {
-                if (!ctx.user) {
-                    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found in context' });
-                }
-
-                // Check Limits
-                const d = await db.getDb();
-                const fullUser = await db.getUserById(ctx.user.id);
-                const userOrgs = await d.select({ count: sql<number>`count(*)` })
-                    .from(schema.userClients)
-                    .where(and(
-                        eq(schema.userClients.userId, ctx.user.id),
-                        eq(schema.userClients.role, 'owner')
-                    ));
-
-                const currentCount = Number(userOrgs[0]?.count || 0);
-                const limit = fullUser?.maxClients || 2;
-
-                if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
-                    throw new TRPCError({
-                        code: 'FORBIDDEN',
-                        message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
-                    });
-                }
-
-                // 1. Transactional Setup for Main Client
-                const client = await db.onboardClient({
-                    name: input.name,
-                    industry: input.industry,
-                    userId: ctx.user.id,
-                    frameworks: input.frameworks,
-                    companyName: input.name
-                });
-
-                // 2. (Removed individual steps as they are covered by onboardClient)
-
-                // 3. Always create a second "DEMO" Client with sample data fo new users
                 try {
-                    await db.seedSampleData(ctx.user.id, {
-                        name: `${input.name} DEMO`,
-                        industry: input.industry
-                    });
-                } catch (err) {
-                    console.error("Failed to create secondary demo organization:", err);
-                    // We don't fail the whole request if the demo org fails
-                }
+                    if (!ctx.user) {
+                        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'User not found in context' });
+                    }
 
-                return client;
+                    const d = await db.getDb();
+                    const fullUser = await db.getUserById(ctx.user.id);
+                    const userOrgs = await d.select({ count: sql<number>`count(*)` })
+                        .from(schema.userClients)
+                        .where(and(
+                            eq(schema.userClients.userId, ctx.user.id),
+                            eq(schema.userClients.role, 'owner')
+                        ));
+
+                    const currentCount = Number(userOrgs[0]?.count || 0);
+                    const limit = fullUser?.maxClients || 2;
+
+                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
+                        throw new TRPCError({
+                            code: 'FORBIDDEN',
+                            message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
+                        });
+                    }
+
+                    const selectedFrameworks = Array.isArray(input.frameworks)
+                        ? input.frameworks.filter((f: any) => typeof f === 'string' && f.trim().length > 0)
+                        : [];
+
+                    const canonicalNameByCode: Record<string, string> = {
+                        ISO27001: 'ISO 27001:2022',
+                        SOC2: 'SOC 2 Type II',
+                        GDPR: 'GDPR',
+                        NISTCSF: 'NIST CSF 2.0',
+                        NIST80053: 'NIST SP 800-53 Rev 5',
+                        NIST800171: 'NIST SP 800-171',
+                        PCIDSSV4: 'PCI DSS v4.0',
+                        CISV8: 'CIS Controls v8',
+                        ISO22301: 'ISO 22301:2019',
+                        FEDRAMP_LOW: 'FedRAMP Low',
+                        FEDRAMP_MODERATE: 'FedRAMP Moderate',
+                        FEDRAMP_HIGH: 'FedRAMP High',
+                        CCMV4: 'CSA CCM v4',
+                        CYBERESSENTIALS: 'Cyber Essentials',
+                        HITRUST: 'HITRUST-Aligned (Representative)',
+                    };
+                    const normalizedFrameworks = selectedFrameworks.map((code: any) => {
+                        const c = String(code).toUpperCase().replace(/\s/g, '');
+                        return canonicalNameByCode[c] || code;
+                    });
+
+                    const client = await db.onboardClient({
+                        name: input.name,
+                        industry: input.industry,
+                        userId: ctx.user.id,
+                        frameworks: normalizedFrameworks,
+                        companyName: input.name
+                    });
+
+                    try {
+                        await db.seedSampleData(ctx.user.id, {
+                            name: `${input.name} DEMO`,
+                            industry: input.industry
+                        });
+                    } catch (err) {
+                        console.error("Failed to create secondary demo organization:", err);
+                    }
+
+                    return client;
+                } catch (error: any) {
+                    console.error('[Clients] AutoSetup Error:', error);
+                    if (error instanceof TRPCError) throw error;
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Auto-setup failed: ${error?.message || 'Unknown error'}`
+                    });
+                }
             }),
         createSampleData: publicProcedure.use(isAuthed)
             .input(z.object({
@@ -472,7 +522,7 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     });
                 }
             }),
-        update: publicProcedure.use(isAuthed)
+        update: publicProcedure.use(isAuthed).use(requiresMFA)
             .input(z.object({
                 id: z.number(),
                 name: z.string().optional(),
@@ -503,12 +553,13 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 brandPrimaryColor: z.string().optional().nullable(),
                 brandSecondaryColor: z.string().optional().nullable(),
                 portalTitle: z.string().optional().nullable(),
+                requireMfa: z.boolean().optional(),
             }))
             .mutation(async ({ input, ctx }: any) => {
                 const { id, ...data } = input;
 
                 // Security Check: Allow Global Admins OR Client Admins
-                if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner') {
+                if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner' && ctx.user?.role !== 'super_admin') {
                     const isAllowed = await db.isUserAllowedForClient(ctx.user.id, id, 'admin');
                     if (!isAllowed) {
                         throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have permission to update this client.' });
@@ -562,9 +613,16 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 }
                 return { success: true };
             }),
-        delete: adminProcedure
+        delete: publicProcedure.use(isAuthed).use(requiresMFA)
             .input(z.object({ id: z.number() }))
-            .mutation(async ({ input }: any) => {
+            .mutation(async ({ input, ctx }: any) => {
+                // Security Check: Allow Global Admins OR Client Owner
+                if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner' && ctx.user?.role !== 'super_admin') {
+                    const isOwner = await db.isUserAllowedForClient(ctx.user.id, input.id, 'owner');
+                    if (!isOwner) {
+                        throw new TRPCError({ code: 'FORBIDDEN', message: 'Only organization owners or global admins can delete a client.' });
+                    }
+                }
                 await db.deleteClient(input.id);
                 return { success: true };
             }),
@@ -573,17 +631,26 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
             .query(async ({ input }: any) => {
                 return await db.getClientStats(input.clientId);
             }),
-        removeLogo: adminProcedure
+        removeLogo: adminProcedure.use(requiresMFA)
             .input(z.object({ clientId: z.number() }))
             .mutation(async ({ input }: any) => {
                 await db.updateClient(input.clientId, { logoUrl: null });
                 return { success: true };
             }),
-        updateContactInfo: adminProcedure
+        uploadLogo: adminProcedure.use(requiresMFA)
+            .input(z.object({
+                clientId: z.number(),
+                logoUrl: z.string()
+            }))
+            .mutation(async ({ input }: any) => {
+                await db.updateClient(input.clientId, { logoUrl: input.logoUrl });
+                return { success: true };
+            }),
+        updateContactInfo: adminProcedure.use(requiresMFA)
             .input(z.object({
                 clientId: z.number(),
                 primaryContactName: z.string().optional(),
-                primaryContactEmail: z.string().email().optional().or(z.literal("")),
+                primaryContactEmail: z.string().optional().or(z.literal("")),
                 primaryContactPhone: z.string().optional(),
                 address: z.string().optional(),
                 serviceModel: z.string().optional(),

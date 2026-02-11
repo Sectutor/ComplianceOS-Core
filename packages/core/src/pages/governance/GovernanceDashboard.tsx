@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from '@/components/PageGuide';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
@@ -70,6 +71,21 @@ export default function GovernanceDashboard() {
                             Establish robust governance, manage policies, and orchestrate compliance workflows.
                         </p>
                     </div>
+                    <PageGuide
+                        title="Governance Dashboard"
+                        description="Establish robust governance, manage policies, and orchestrate compliance workflows."
+                        rationale="A strong governance framework ensures that security activities are aligned with business goals and compliance requirements."
+                        howToUse={[
+                            { step: "Monitor Health", description: "Track your overall Governance Health Score and key compliance metrics." },
+                            { step: "Review Controls", description: "Check the 'Control Readiness' card to see implementation progress." },
+                            { step: "Manage Tasks", description: "Use 'Quick Actions' to draft policies or manage tasks." }
+                        ]}
+                        integrations={[
+                            { name: "Policies", description: "Draft and approve policies." },
+                            { name: "Controls", description: "Map and implement controls." },
+                            { name: "Risk Register", description: "Assess and mitigate risks." }
+                        ]}
+                    />
                 </div>
 
                 {/* Program Overview Callout */}

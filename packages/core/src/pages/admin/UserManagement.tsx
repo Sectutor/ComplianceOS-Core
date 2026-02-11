@@ -30,6 +30,7 @@ export default function UserManagement() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [selectedRole, setSelectedRole] = useState("user");
     const [userToImpersonate, setUserToImpersonate] = useState<any>(null);
+    const [userToDelete, setUserToDelete] = useState<any>(null);
 
     const { data: users, isLoading, refetch } = trpc.users.list.useQuery();
 
@@ -172,6 +173,7 @@ export default function UserManagement() {
                                         <TableHead className="text-white font-semibold py-4">Email</TableHead>
                                         <TableHead className="text-white font-semibold py-4">Role</TableHead>
                                         <TableHead className="text-white font-semibold py-4">Organizations</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Limit</TableHead>
                                         <TableHead className="text-white font-semibold py-4">Status</TableHead>
                                         <TableHead className="text-white font-semibold py-4">Joined</TableHead>
                                         <TableHead className="text-white font-semibold py-4">Actions</TableHead>
@@ -190,19 +192,25 @@ export default function UserManagement() {
                                             </TableCell>
                                             <TableCell className="text-gray-600 py-4">{user.email}</TableCell>
                                             <TableCell className="py-4">
-                                                <Badge variant={user.role === 'admin' || user.role === 'owner' ? 'default' : 'secondary'} className={user.role === 'admin' ? "bg-purple-500 hover:bg-purple-600" : ""}>
-                                                    {user.role}
+                                                <Badge
+                                                    variant={user.role === 'admin' || user.role === 'owner' || user.role === 'super_admin' ? 'default' : 'secondary'}
+                                                    className={user.role === 'admin' ? "bg-purple-500 hover:bg-purple-600" : user.role === 'super_admin' ? "bg-red-600 hover:bg-red-700 font-bold animate-pulse" : ""}
+                                                >
+                                                    {user.role === 'admin' ? 'Global Admin' : user.role === 'super_admin' ? 'Super Admin' : user.role === 'user' ? 'Org Admin' : user.role}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <div className="flex flex-wrap gap-1">
-                                                    {user.memberships?.map((m: any) => (
-                                                        <Badge key={m.clientId} variant="outline" className="text-xs">
+                                                    {user.memberships?.map((m: any, index: number) => (
+                                                        <Badge key={`${m.clientId}-${index}`} variant="outline" className="text-xs">
                                                             {m.clientName} ({m.role})
                                                         </Badge>
                                                     ))}
                                                     {(!user.memberships || user.memberships.length === 0) && <span className="text-muted-foreground text-xs italic">No memberships</span>}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className="py-4 font-mono text-sm">
+                                                {user.maxClients >= 9999 ? 'Unlimited' : user.maxClients}
                                             </TableCell>
                                             <TableCell className="py-4">
                                                 <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Active</Badge>

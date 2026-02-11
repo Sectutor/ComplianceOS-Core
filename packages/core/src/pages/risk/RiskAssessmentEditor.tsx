@@ -17,6 +17,7 @@ import { RiskTreatmentCard } from '@/components/risk/RiskTreatmentCard';
 import { useClientContext } from '@/contexts/ClientContext';
 import { Separator } from '@complianceos/ui/ui/separator';
 import DashboardLayout from '@/components/DashboardLayout';
+import { PageGuide } from '@/components/PageGuide';
 import { SearchableSelect, type SearchableSelectItem } from '@/components/ui-custom/SearchableSelect';
 import { GapAnalysis } from '@/components/risk/GapAnalysis';
 import { Slot } from "@/registry";
@@ -88,7 +89,7 @@ export default function RiskAssessmentEditor() {
     // Queries
     const { data: controls } = trpc.clientControls.list.useQuery({ clientId }, { enabled: !!clientId });
     const { data: assets } = trpc.risks.getAssets.useQuery({ clientId }, { enabled: !!clientId });
-    const { data: users } = trpc.clients.getUsers.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: users } = (trpc.clients as any).getUsers.useQuery({ clientId }, { enabled: !!clientId });
     const { data: threatsData } = trpc.risks.getThreats.useQuery({ clientId }, { enabled: !!clientId });
     const { data: vulnerabilitiesData } = trpc.risks.getVulnerabilities.useQuery({ clientId }, { enabled: !!clientId });
     const { data: processes } = trpc.businessContinuity.processes.list.useQuery({ clientId }, { enabled: !!clientId });
@@ -427,6 +428,21 @@ export default function RiskAssessmentEditor() {
                             <Save className="w-4 h-4 mr-2" />
                             Save Assessment
                         </Button>
+                        <PageGuide
+                            title={assessmentId ? "Edit Risk Assessment" : "New Risk Assessment"}
+                            description="Score the likelihood and impact of a specific threat scenario."
+                            rationale="Standardized scoring ('Low', 'Medium', 'High') removes subjectivity and helps prioritize resources."
+                            howToUse={[
+                                { step: "Define Scenario", description: "Combine a Threat and a Vulnerability to describe the risk event." },
+                                { step: "Score Inherent Risk", description: "Estimate the risk level assuming NO controls are in place." },
+                                { step: "Apply Controls", description: "Select existing controls to reduce the risk to a 'Residual' level." },
+                                { step: "Plan Treatment", description: "If residual risk is still too high, define a treatment plan (e.g., Avoid, Mitigate, Transfer)." }
+                            ]}
+                            integrations={[
+                                { name: "Gap Analysis", description: "Click 'View Source Gap' to see the original compliance gap that triggered this risk." },
+                                { name: "Control Effectiveness", description: "The status of linked controls directly influences the residual risk score." }
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -945,6 +961,6 @@ export default function RiskAssessmentEditor() {
                     </div>
                 </Tabs>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

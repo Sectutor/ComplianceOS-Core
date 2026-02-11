@@ -14,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@complianceos/ui/ui/select";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RiskReportList() {
     const params = useParams();
@@ -57,6 +58,19 @@ export default function RiskReportList() {
                         <h1 className="text-3xl font-bold tracking-tight">Risk Reports</h1>
                         <p className="text-muted-foreground">Manage and archive risk management reports.</p>
                     </div>
+                    <PageGuide
+                        title="Risk Reports"
+                        description="Archive and manage generated risk management reports."
+                        rationale="Maintaining a history of risk reports is crucial for demonstrating compliance over time and tracking improvements."
+                        howToUse={[
+                            { step: "View Reports", description: "Access past reports to compare risk postures." },
+                            { step: "Manage Status", description: "Track reports through Draft, Review, and Approval stages." },
+                            { step: "Export", description: "Download reports for board meetings or audits." }
+                        ]}
+                        integrations={[
+                            { name: "Risk Assessments", description: "Reports are generated directly from your live assessment data." }
+                        ]}
+                    />
                 </div>
 
                 <Card>

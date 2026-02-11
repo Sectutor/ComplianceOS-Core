@@ -17,6 +17,7 @@ import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Badge } from "@complianceos/ui/ui/badge";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RiskFramework() {
     const { id } = useParams<{ id: string }>();
@@ -237,11 +238,29 @@ export default function RiskFramework() {
                             ]}
                         />
                     </div>
-                    <Button onClick={handleSave} disabled={updateMutation.isPending}>
-                        {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Changes
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={handleSave} disabled={updateMutation.isPending}>
+                            {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Changes
+                        </Button>
+                        <PageGuide
+                            title="Risk Management Framework"
+                            description="Define the rules and context for your risk management program."
+                            rationale="Before assessing risks, you must define the rules of the game. A consistent framework ensures that 'High Risk' means the same thing to everyone in the organization."
+                            howToUse={[
+                                { step: "Define Context", description: "Document internal and external factors (e.g., regulations, market) in the 'Scope & Context' tab." },
+                                { step: "Set Appetite", description: "Establish your acceptable level of risk and specific tolerance thresholds." },
+                                { step: "Customize Criteria", description: "Adjust the Impact and Likelihood scales to match your business reality." },
+                                { step: "Monitor KRIs", description: "Set up Key Risk Indicators to track leading metrics of potential threats." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Register", description: "The criteria defined here (Impact/Likelihood) are used to score every risk." },
+                                { name: "Heatmaps", description: "The 5x5 matrix is dynamically generated based on your custom levels." },
+                                { name: "Reporting", description: "Executive reports reference the Risk Appetite statement to validate decisions." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 <div>

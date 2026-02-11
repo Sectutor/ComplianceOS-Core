@@ -2,17 +2,19 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { controls } from "../../schema";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import * as schema from "../../schema";
+import { eq, and, isNull, sql, asc, or, ilike } from "drizzle-orm";
 import * as db from "../../db";
 import * as XLSX from 'xlsx';
 import { nistAiRmfControls } from '../../data/frameworks/nist_ai_rmf';
 
 export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
+    console.log('[FrameworksRouter] Initializing createFrameworksRouter...');
     return t.router({
         importCustom: protectedProcedure
             .input(z.object({
                 clientId: z.number(),
-                type: z.enum(["pci_dss_v4", "cis_v8", "ccm_v4", "iso22301", "hitrust", "fedramp", "fedramp_low", "fedramp_high", "cyber_essentials", "nist_ai_rmf", "iso27001", "soc2", "cis_v8_system"]),
+                type: z.enum(["pci_dss_v4", "cis_v8", "ccm_v4", "iso22301", "hitrust", "fedramp", "fedramp_low", "fedramp_high", "cyber_essentials", "nist_ai_rmf", "iso27001", "soc2", "cis_v8_system", "owasp_aisvs", "owasp_asvs", "owasp_masvs", "owasp_samm", "owasp_api_top10", "owasp_top10", "owasp_top10_2021", "owasp_ml_top10", "owasp_scvs"]),
                 fileContent: z.string().optional(), // Base64, optional for system frameworks
             }))
             .mutation(async ({ ctx, input }: any) => {
@@ -293,11 +295,47 @@ export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
                         version: 1,
                         grouping: "CIS v8"
                     }));
+                } else if (input.type === "owasp_aisvs") {
+                    frameworkName = "OWASP AISVS (AI Security)";
+                    // Use bulkAssign later
+                } else if (input.type === "owasp_asvs") {
+                    frameworkName = "OWASP ASVS (App Security)";
+                    // Use bulkAssign later
+                } else if (input.type === "owasp_masvs") {
+                    frameworkName = "OWASP MASVS (Mobile Security)";
+                    // Use bulkAssign later
+                } else if (input.type === "owasp_samm") {
+                    frameworkName = "OWASP SAMM (Maturity Model)";
+                    // Use bulkAssign later
+                } else if (input.type === "owasp_api_top10") {
+                    frameworkName = "OWASP API Security Top 10";
+                    // Use bulkAssign later
+                } else if (input.type === "owasp_top10") {
+                    frameworkName = "OWASP Web Top 10";
+                } else if (input.type === "owasp_top10_2021") {
+                    frameworkName = "OWASP Web Top 10 (2021)";
+                } else if (input.type === "owasp_ml_top10") {
+                    frameworkName = "OWASP ML Security Top 10";
+                } else if (input.type === "owasp_scvs") {
+                    frameworkName = "OWASP SCVS (Supply Chain Security)";
                 }
 
                 try {
+                    const d = await db.getDb();
+                    if (input.type === "owasp_aisvs" || input.type === "owasp_asvs" || input.type === "owasp_masvs" || input.type === "owasp_samm" || input.type === "owasp_api_top10" || input.type === "owasp_top10" || input.type === "owasp_top10_2021" || input.type === "owasp_ml_top10" || input.type === "owasp_scvs") {
+                        await db.bulkAssignControls(input.clientId, frameworkName);
+                        // Count how many were assigned
+                        const count = await d.select({ count: sql<number>`count(*)` })
+                            .from(schema.clientControls)
+                            .innerJoin(schema.controls, eq(schema.clientControls.controlId, schema.controls.id))
+                            .where(and(
+                                eq(schema.clientControls.clientId, input.clientId),
+                                eq(schema.controls.framework, frameworkName)
+                            ));
+                        return { success: true, count: Number(count[0]?.count || 0) };
+                    }
+
                     if (newControls.length > 0) {
-                        const d = await db.getDb();
                         // Delete existing for this framework/client to avoid duplicates on re-import
                         await d.delete(controls).where(and(
                             eq(controls.clientId, input.clientId),
@@ -335,7 +373,7 @@ export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
           GROUP BY framework
          `);
 
-                return result.rows.map((r: any) => ({
+                return (result.rows || result).map((r: any) => ({
                     id: r.framework, // Use name as ID
                     name: r.framework,
                     scope: r.client_id ? 'custom' : 'system',
@@ -360,6 +398,204 @@ export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
                     eq(controls.framework, input.frameworkName)
                 ));
                 return { success: true };
+            }),
+
+        getWorkProcessData: protectedProcedure
+            .input(z.object({
+                clientId: z.number(),
+                frameworkId: z.string() // shortCode like 'scvs' or full name
+            }))
+            .query(async ({ input }: { input: { clientId: number, frameworkId: string } }) => {
+                const dbConn = await db.getDb();
+                console.log(`[FrameworksRouter] Fetching work process data for client ${input.clientId}, framework ${input.frameworkId}`);
+
+                // 1. Resolve framework name if it's a shortCode
+                let frameworkName = input.frameworkId;
+                const frameworks = await dbConn.select().from(schema.complianceFrameworks)
+                    .where(eq(schema.complianceFrameworks.shortCode, input.frameworkId.toUpperCase()))
+                    .limit(1);
+
+                if (frameworks.length > 0) {
+                    frameworkName = frameworks[0].name;
+                }
+
+                // 2. Fetch controls with client status and evidence counts
+                const results = await dbConn.select({
+                    id: schema.clientControls.id,
+                    controlId: schema.controls.controlId,
+                    name: schema.controls.name,
+                    description: schema.controls.description,
+                    status: schema.clientControls.status,
+                    category: schema.controls.category,
+                    implementationGuidance: schema.controls.implementationGuidance,
+                    evidenceCount: sql<number>`(
+                        SELECT count(*)::int 
+                        FROM ${schema.evidenceRequests} 
+                        WHERE ${schema.evidenceRequests.clientControlId} = ${schema.clientControls.id} 
+                        AND ${schema.evidenceRequests.status} != 'rejected'
+                    )`.mapWith(Number)
+                })
+                    .from(schema.clientControls)
+                    .innerJoin(schema.controls, eq(schema.clientControls.controlId, schema.controls.id))
+                    .where(and(
+                        eq(schema.clientControls.clientId, input.clientId),
+                        sql`${schema.controls.framework} IN (${frameworkName}, ${input.frameworkId.toUpperCase()}, ${input.frameworkId})`
+                    ))
+                    .orderBy(asc(schema.controls.controlId));
+
+                console.log(`[FrameworksRouter] Found ${results.length} controls for ${frameworkName}`);
+                return results;
+            }),
+
+        getOnboardingFrameworks: protectedProcedure
+            .query(async ({ ctx }: any) => {
+                const dbConn = await db.getDb();
+
+                const allowedCodes = new Set([
+                    'ISO27001',
+                    'SOC2',
+                    'GDPR',
+                    'NISTCSF',
+                    'NIST80053',
+                    'NIST800171',
+                    'PCIDSSV4',
+                    'CISV8',
+                    'ISO22301',
+                    'FEDRAMP_LOW',
+                    'FEDRAMP_MODERATE',
+                    'FEDRAMP_HIGH',
+                    'CCMV4',
+                    'CYBERESSENTIALS',
+                    'HITRUST'
+                ]);
+                const canonicalNameByCode: Record<string, string> = {
+                    ISO27001: 'ISO 27001:2022',
+                    SOC2: 'SOC 2 Type II',
+                    GDPR: 'GDPR',
+                    NISTCSF: 'NIST CSF 2.0',
+                    NIST80053: 'NIST SP 800-53 Rev 5',
+                    NIST800171: 'NIST SP 800-171',
+                    PCIDSSV4: 'PCI DSS v4.0',
+                    CISV8: 'CIS Controls v8',
+                    ISO22301: 'ISO 22301:2019',
+                    FEDRAMP_LOW: 'FedRAMP Low',
+                    FEDRAMP_MODERATE: 'FedRAMP Moderate',
+                    FEDRAMP_HIGH: 'FedRAMP High',
+                    CCMV4: 'CSA CCM v4',
+                    CYBERESSENTIALS: 'Cyber Essentials',
+                    HITRUST: 'HITRUST'
+                };
+                const resolveShortCode = (text: string | null | undefined) => {
+                    if (!text) return null;
+                    const t = String(text).toUpperCase();
+                    if (t.includes('ISO') && t.includes('27001')) return 'ISO27001';
+                    if (t.includes('SOC') && t.includes('2')) return 'SOC2';
+                    if (t.includes('GDPR')) return 'GDPR';
+                    if (t.includes('NIST') && t.includes('CSF')) return 'NISTCSF';
+                    if (t.includes('800-53') || (t.includes('800') && t.includes('53'))) return 'NIST80053';
+                    if (t.includes('800-171') || (t.includes('800') && t.includes('171'))) return 'NIST800171';
+                    if (t.includes('PCI') && t.includes('DSS')) return 'PCIDSSV4';
+                    if (t.includes('CIS') && t.includes('V8')) return 'CISV8';
+                    if (t.includes('CIS') && t.includes('CONTROLS') && !t.includes('V7')) return 'CISV8';
+                    if (t.includes('ISO') && t.includes('22301')) return 'ISO22301';
+                    if (t.includes('FEDRAMP') && t.includes('LOW')) return 'FEDRAMP_LOW';
+                    if (t.includes('FEDRAMP') && t.includes('MODERATE')) return 'FEDRAMP_MODERATE';
+                    if (t.includes('FEDRAMP') && t.includes('HIGH')) return 'FEDRAMP_HIGH';
+                    if ((t.includes('CSA') || t.includes('CCM')) && t.includes('V4')) return 'CCMV4';
+                    if (t.includes('CYBER') && t.includes('ESSENTIAL')) return 'CYBERESSENTIALS';
+                    if (t.includes('HITRUST')) return 'HITRUST';
+                    return null;
+                };
+
+                // Fetch frameworks from the database
+                const frameworks = await dbConn
+                    .select()
+                    .from(schema.complianceFrameworks)
+                    .orderBy(asc(schema.complianceFrameworks.name));
+
+                // Fetch counts for each framework
+                // We use parallel queries for efficiency since this is only called during onboarding
+
+                const dbItems = await Promise.all(frameworks.map(async (fw: any) => {
+                    const controlCount = await dbConn
+                        .select({ count: sql<number>`count(*)` })
+                        .from(schema.controls)
+                        .where(
+                            or(
+                                ilike(schema.controls.framework, `%${fw.name}%`),
+                                sql`${fw.name} ILIKE '%' || ${schema.controls.framework} || '%'`,
+                                sql`REPLACE(REPLACE(${schema.controls.framework}, ' ', ''), '-', '') ILIKE '%' || REPLACE(REPLACE(${fw.shortCode}, ' ', ''), '-', '') || '%'`,
+                                sql`REPLACE(REPLACE(${schema.controls.framework}, ' ', ''), '-', '') ILIKE '%' || REPLACE(REPLACE(${fw.name}, ' ', ''), '-', '') || '%'`
+                            )
+                        );
+
+
+                    return {
+                        id: fw.id,
+                        name: fw.name,
+                        shortCode: fw.shortCode,
+                        version: fw.version,
+                        description: fw.description,
+                        type: fw.type,
+                        createdAt: fw.createdAt,
+                        updatedAt: fw.updatedAt,
+                        controlCount: Number(controlCount[0]?.count || 0)
+                    };
+                }));
+
+                const curated = dbItems
+                    .map((r: any) => {
+                        const code = resolveShortCode(r.shortCode || r.name);
+                        return code && allowedCodes.has(code)
+                            ? { ...r, shortCode: code, name: canonicalNameByCode[code] || r.name }
+                            : null;
+                    })
+                    .filter(Boolean) as any[];
+
+                const existingShortCodes = new Set(curated.map((r: any) => String(r.shortCode)));
+                const controlFrameworks = await dbConn.select({
+                    framework: schema.controls.framework,
+                    count: sql<number>`count(*)`
+                }).from(schema.controls).groupBy(schema.controls.framework);
+
+                for (const cf of controlFrameworks) {
+                    const name = String(cf.framework || '').trim();
+                    if (!name) continue;
+                    const code = resolveShortCode(name);
+                    if (!code || !allowedCodes.has(code) || existingShortCodes.has(code)) continue;
+                    curated.push({
+                        id: `derived-${code}`,
+                        name: canonicalNameByCode[code] || name,
+                        shortCode: code,
+                        version: null,
+                        description: null,
+                        type: 'framework',
+                        createdAt: null,
+                        updatedAt: null,
+                        controlCount: Number(cf.count || 0)
+                    });
+                    existingShortCodes.add(code);
+                }
+
+                for (const code of Array.from(allowedCodes)) {
+                    if (!existingShortCodes.has(code)) {
+                        curated.push({
+                            id: `default-${code}`,
+                            name: canonicalNameByCode[code] || code,
+                            shortCode: code,
+                            version: null,
+                            description: null,
+                            type: 'framework',
+                            createdAt: null,
+                            updatedAt: null,
+                            controlCount: 0
+                        });
+                        existingShortCodes.add(code);
+                    }
+                }
+
+                curated.sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
+                return curated;
             })
     });
 };

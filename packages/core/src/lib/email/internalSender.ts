@@ -1,7 +1,8 @@
 
 import { getDb } from "../../db";
-import { emailMessages, users, userClients, clients } from "../../schema";
+import { emailMessages, users, userClients } from "../../schema";
 import { eq, and } from "drizzle-orm";
+import { EmailService } from "./service";
 
 interface SystemEmailParams {
     clientId: number;
@@ -80,6 +81,19 @@ export async function sendInternalSystemEmail({
         });
 
         console.log(`[SystemEmail] Delivered "${subject}" to User ${targetUserId} (Client ${clientId})`);
+
+        // Trigger real email dispatch
+        try {
+            await EmailService.send({
+                to: toEmail,
+                subject: `[Internal] ${subject}`,
+                html: body,
+                clientId
+            });
+        } catch (e) {
+            console.error("[SystemEmail] External dispatch failed:", e);
+        }
+
         return true;
     } catch (error) {
         console.error("[SystemEmail] Failed to insert email:", error);

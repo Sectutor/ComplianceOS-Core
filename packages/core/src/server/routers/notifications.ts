@@ -2,10 +2,10 @@
 import { z } from "zod";
 import * as schema from "../../schema";
 import * as db from "../../db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
-export const createNotificationsRouter = (t: any, clientProcedure: any, adminProcedure: any) => {
+export const createNotificationsRouter = (t: any, clientProcedure: any, adminProcedure: any, protectedProcedure: any) => {
     return t.router({
         getSettings: clientProcedure
             .input(z.object({ clientId: z.number() }))
@@ -32,6 +32,26 @@ export const createNotificationsRouter = (t: any, clientProcedure: any, adminPro
                 }
 
                 return settings[0];
+            }),
+
+        sendEvent: protectedProcedure
+            .input(z.object({
+                event: z.string(),
+                to: z.string(),
+                data: z.record(z.any()).optional(),
+                clientId: z.number().optional(),
+                from: z.string().optional()
+            }))
+            .mutation(async ({ input }: any) => {
+                const { EmailService } = await import("../../lib/email/service");
+                const res = await EmailService.triggerEvent({
+                    event: input.event,
+                    to: input.to,
+                    data: input.data || {},
+                    clientId: input.clientId,
+                    from: input.from
+                });
+                return res;
             }),
 
         updateSettings: clientProcedure
@@ -75,14 +95,72 @@ export const createNotificationsRouter = (t: any, clientProcedure: any, adminPro
                 limit: z.number().optional().default(20)
             }))
             .query(async ({ input, ctx }: any) => {
-                // Return empty list for now until logging is fully implemented
-                return [];
+                const dbConn = await db.getDb();
+                return await dbConn.select()
+                    .from(schema.notificationLog)
+                    .where(eq(schema.notificationLog.userId, ctx.user.id)) // Assuming ctx.user.id is available
+                    .orderBy(desc(schema.notificationLog.sentAt))
+                    .limit(input.limit);
+            }),
+
+        getNotifications: clientProcedure
+            .input(z.object({
+                limit: z.number().optional().default(50)
+            }))
+            .query(async ({ input, ctx }: any) => {
+                const dbConn = await db.getDb();
+                return await dbConn.select()
+                    .from(schema.notificationLog)
+                    .where(eq(schema.notificationLog.userId, ctx.user.id))
+                    .orderBy(desc(schema.notificationLog.sentAt))
+                    .limit(input.limit);
+            }),
+
+        getUnreadCount: protectedProcedure
+            .query(async ({ ctx }: any) => {
+                const dbConn = await db.getDb();
+                const result = await dbConn.select({
+                    count: sql<number>`count(*)`
+                })
+                    .from(schema.notificationLog)
+                    .where(and(
+                        eq(schema.notificationLog.userId, ctx.user.id),
+                        sql`${schema.notificationLog.readAt} IS NULL`
+                    ));
+                return result[0]?.count || 0;
+            }),
+
+        markAsRead: clientProcedure
+            .input(z.object({ id: z.number() }))
+            .mutation(async ({ input, ctx }: any) => {
+                const dbConn = await db.getDb();
+                await dbConn.update(schema.notificationLog)
+                    .set({ readAt: new Date() })
+                    .where(and(
+                        eq(schema.notificationLog.id, input.id),
+                        eq(schema.notificationLog.userId, ctx.user.id)
+                    ));
+                return { success: true };
+            }),
+
+        markAllAsRead: clientProcedure
+            .mutation(async ({ ctx }: any) => {
+                const dbConn = await db.getDb();
+                await dbConn.update(schema.notificationLog)
+                    .set({ readAt: new Date() })
+                    .where(and(
+                        eq(schema.notificationLog.userId, ctx.user.id),
+                        sql`${schema.notificationLog.readAt} IS NULL`
+                    ));
+                return { success: true };
             }),
 
         sendOverdueAlert: adminProcedure
             .input(z.object({ clientId: z.number().optional() }))
             .mutation(async ({ input, ctx }: any) => {
-                return { itemCount: 0, sent: true };
+                const { sendOverdueNotification } = await import("../../emailNotification");
+                const result = await sendOverdueNotification();
+                return { ...result, sent: true };
             }),
 
         sendUpcomingAlert: adminProcedure
@@ -91,19 +169,25 @@ export const createNotificationsRouter = (t: any, clientProcedure: any, adminPro
                 days: z.number().optional()
             }))
             .mutation(async ({ input, ctx }: any) => {
-                return { itemCount: 0, sent: true };
+                const { sendUpcomingNotification } = await import("../../emailNotification");
+                const result = await sendUpcomingNotification(input.days);
+                return { ...result, sent: true };
             }),
 
         sendDailyDigest: adminProcedure
             .input(z.object({ clientId: z.number().optional() }))
             .mutation(async ({ input, ctx }: any) => {
-                return { overdueCount: 0, upcomingCount: 0, sent: true };
+                const { sendDailyDigest } = await import("../../emailNotification");
+                const result = await sendDailyDigest();
+                return { ...result, sent: true };
             }),
 
         sendWeeklyDigest: adminProcedure
             .input(z.object({ clientId: z.number().optional() }))
             .mutation(async ({ input, ctx }: any) => {
-                return { overdueCount: 0, upcomingCount: 0, sent: true };
+                const { sendWeeklyDigest } = await import("../../emailNotification");
+                const result = await sendWeeklyDigest();
+                return { ...result, sent: true };
             }),
     });
 };

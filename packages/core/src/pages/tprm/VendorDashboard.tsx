@@ -11,6 +11,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { ProgressIndicator } from "@complianceos/ui/ui/ProgressIndicator";
 import { StatusBadge } from "@complianceos/ui/ui/StatusBadge";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function VendorDashboard() {
     const { id } = useParams<{ id: string }>();
@@ -33,10 +34,16 @@ export default function VendorDashboard() {
 
             {/* Header */}
             <div className="animate-slide-down">
-                <h1 className="text-3xl font-bold">Vendor Risk Management</h1>
-                <p className="text-muted-foreground mt-1">
-                    Overview of vendor ecosystem and risk posture
-                </p>
+                <PageGuide
+                    title="Vendor Risk Management"
+                    description="Overview of vendor ecosystem and risk posture."
+                    rationale="Monitor vendor compliance and security posture to mitigate supply chain risks."
+                    howToUse={[
+                        { step: "Distribution", description: "View vendors by criticality (High, Medium, Low)." },
+                        { step: "Discovery", description: "Find and onboard new vendors." },
+                        { step: "Reviews", description: "Track active security assessments." }
+                    ]}
+                />
             </div>
 
 

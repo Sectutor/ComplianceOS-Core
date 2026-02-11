@@ -11,6 +11,7 @@ import { Label } from "@complianceos/ui/ui/label";
 import { trpc } from "@/lib/trpc";
 import { useClientContext } from "@/contexts/ClientContext";
 import { Plus, Trash2, Edit2, Loader2 } from "lucide-react";
+import RichTextEditor from "@/components/RichTextEditor";
 import {
     Dialog,
     DialogContent,
@@ -198,13 +199,12 @@ export default function OnboardingSettings({ hideLayout = false, clientId: propC
                             <p className="text-xs text-gray-500">Lowercase, underscores only. Cannot be changed later.</p>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="description">Content (HTML)</Label>
-                            <Textarea
-                                id="description"
-                                placeholder="<p>Policy content goes here...</p>"
-                                className="h-[200px] font-mono text-sm"
+                            <Label htmlFor="description">Content</Label>
+                            <RichTextEditor
+                                minHeight="200px"
+                                className="[&_.ql-container]:max-h-[400px] [&_.ql-container]:overflow-y-auto"
                                 value={newItem.description}
-                                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                onChange={(html) => setNewItem({ ...newItem, description: html })}
                             />
                         </div>
                         <div className="flex items-center space-x-2">
@@ -238,11 +238,12 @@ export default function OnboardingSettings({ hideLayout = false, clientId: propC
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Content (HTML)</Label>
-                            <Textarea
-                                className="h-[200px] font-mono text-sm"
+                            <Label>Content</Label>
+                            <RichTextEditor
+                                minHeight="200px"
+                                className="[&_.ql-container]:max-h-[400px] [&_.ql-container]:overflow-y-auto"
                                 value={editingItem?.description || ''}
-                                onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                                onChange={(html) => setEditingItem({ ...editingItem, description: html })}
                             />
                         </div>
                         <div className="flex items-center space-x-2">

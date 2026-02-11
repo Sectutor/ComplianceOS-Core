@@ -12,6 +12,7 @@ import { WizardStep7_Summary } from "@/components/readiness/wizard/WizardStep7_S
 import DashboardLayout from "@/components/DashboardLayout";
 import { toast } from "sonner";
 import { READINESS_STANDARDS } from "@/data/readiness-standards";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ReadinessWizardPage() {
     const [match, params] = useRoute("/clients/:clientId/readiness/wizard/:standardId?");
@@ -238,6 +239,24 @@ export default function ReadinessWizardPage() {
                 clientId={clientId}
                 embedded={true}
                 standardName={standardId.replace('ISO', 'ISO ').replace('SOC', 'SOC ').replace('NIST', 'NIST ')}
+                pageGuide={
+                    <PageGuide
+                        title="Compliance Readiness Wizard"
+                        description="Step-by-step guide to assessing your compliance posture."
+                        rationale="A structured assessment helps identify gaps early, saving time and resources during the audit."
+                        howToUse={[
+                            { step: "Define Scope", description: "Select the business units and systems to be assessed." },
+                            { step: "Assign Stakeholders", description: "Identify key personnel responsible for compliance." },
+                            { step: "Upload Evidence", description: "Provide existing policies and documentation." },
+                            { step: "Assess Controls", description: "Answer specific questions to determine maturity." },
+                            { step: "Generate Report", description: "Review findings and create a remediation plan." }
+                        ]}
+                        integrations={[
+                            { name: "Policy Center", description: "Links to your existing policy library." },
+                            { name: "Risk Register", description: "Automatically flags risks based on answers." }
+                        ]}
+                    />
+                }
             >
                 {getStepContent()}
             </WizardLayout>

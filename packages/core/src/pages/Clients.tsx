@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { Plus, FolderOpen, ArrowRight, Search, Building2, Trash2, Edit, Settings } from "lucide-react";
+import { Plus, FolderOpen, ArrowRight, Search, Building2, Trash2, Edit, Settings, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { useBilling } from "@/hooks/useBilling";
+import { PageGuide } from "@/components/PageGuide";
 
 
 export default function Clients() {
@@ -36,8 +37,13 @@ export default function Clients() {
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
   const [clientData, setClientData] = useState({ name: "", description: "", industry: "", size: "" });
 
-  const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery();
-  console.log('Clients page render. isLoading:', isLoading, 'clients:', clients);
+  const { data: clients, isLoading, error: clientsError, refetch } = trpc.clients.list.useQuery();
+  console.log('Clients page render. isLoading:', isLoading, 'clients:', clients, 'error:', clientsError);
+
+  // Add error state handling
+  if (clientsError) {
+    console.error('Failed to load clients:', clientsError);
+  }
 
   const { upgradeAccount, isLoading: isBillingLoading } = useBilling();
 
@@ -82,7 +88,11 @@ export default function Clients() {
 
   // Count organizations where user is owner
   const ownedClientsLimit = me?.maxClients || 2;
-  const isAtLimit = clientsArray.length >= ownedClientsLimit && me?.role !== 'admin' && me?.role !== 'owner';
+  const ownedClientsCount = clientsArray.filter((c: any) => c.role === 'owner').length;
+  const isAtLimit = ownedClientsCount >= ownedClientsLimit &&
+    me?.role !== 'admin' &&
+    me?.role !== 'owner' &&
+    me?.role !== 'super_admin';
 
   const filteredClients = clientsArray.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,7 +123,53 @@ export default function Clients() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-            <p className="text-muted-foreground mt-1">Manage your client organizations and their compliance workspaces.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+              <p className="text-muted-foreground">Manage your client organizations and their compliance workspaces.</p>
+              {me && (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                    {me.role === 'admin' || me.role === 'owner' || me.role === 'super_admin' ? "Unlimited Organizations" : `${ownedClientsCount} / ${ownedClientsLimit} used`}
+                  </span>
+                  <PageGuide
+                    title="Client Management"
+                    description="This page allows you to manage different legal entities, departments, or client organizations that you oversee within ComplianceOS."
+                    rationale="In a tiered compliance environment, isolation is key. Each client represents a dedicated workspace with its own policies, controls, and evidence, ensuring multi-tenant security and focused compliance management."
+                    howToUse={[
+                      {
+                        step: "Create a Client",
+                        description: "Click 'New Client' to set up a new organization. This initializes a fresh compliance workspace with default settings."
+                      },
+                      {
+                        step: "Access Workspace",
+                        description: "Click 'Open Workspace' on any client card to enter their dedicated compliance dashboard and start managing their security posture."
+                      },
+                      {
+                        step: "Manage Team",
+                        description: "Use the 'Settings' icon to invite team members and assign roles (Owner, Admin, Editor, Viewer) specific to that client's workspace."
+                      },
+                      {
+                        step: "Policy Generation",
+                        description: "Once inside a workspace, use the Policy module to generate baseline documentation tailored to that client's specific industry and regulatory needs."
+                      }
+                    ]}
+                    integrations={[
+                      {
+                        name: "Global Dashboard",
+                        description: "Aggregated statistics and risk metrics across all your managed clients are visible from the main dashboard."
+                      },
+                      {
+                        name: "Evidence Repository",
+                        description: "Each client has a secure, isolated document storage for audit-ready evidence and compliance artifacts."
+                      },
+                      {
+                        name: "Automated Controls",
+                        description: "Connect external systems (Cloud, IAM, HRIS) to automatically verify and monitor controls within each client's environment."
+                      }
+                    ]}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <EnhancedDialog
             open={isCreateOpen}

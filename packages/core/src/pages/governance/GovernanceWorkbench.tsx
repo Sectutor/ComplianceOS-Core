@@ -1,6 +1,7 @@
 
 import { useParams } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
 import { CreateWorkItemDialog } from "@/components/governance/CreateWorkItemDialog";
 import { StatsOverview } from "@/components/governance/StatsOverview";
 import { WorkItemList } from "@/components/governance/WorkItemList";
@@ -46,11 +47,29 @@ export default function GovernanceWorkbench() {
         <DashboardLayout>
             <div className="space-y-8">
                 {/* Header Section */}
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Governance Workbench</h1>
-                    <p className="text-muted-foreground">
-                        Your centralized mission control for compliance operations, tasks, and oversight.
-                    </p>
+                <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-3xl font-bold tracking-tight">Governance Workbench</h1>
+                        <p className="text-muted-foreground">
+                            Your centralized mission control for compliance operations, tasks, and oversight.
+                        </p>
+                    </div>
+                    <PageGuide
+                        title="Governance Workbench"
+                        description="Central mission control for compliance operations, tasks, and oversight."
+                        rationale="Effective governance requires continuous monitoring. This workbench aggregates tasks from across your compliance program—policy reviews, risk assessments, and control validations—into a single actionable feed."
+                        howToUse={[
+                            { step: "Monitor Health", description: "Review the top cards for an instant snapshot of your compliance posture." },
+                            { step: "Manage Tasks", description: "Use the 'Governance Tasks' feed to track and resolve pending items." },
+                            { step: "Run Autopilot", description: "Click 'Run Autopilot' to have the AI analyze your program and generate recommendations." },
+                            { step: "Create Items", description: "Manually add tasks for your team using the 'Create Work Item' dialog." }
+                        ]}
+                        integrations={[
+                            { name: "Policy Management", description: "Policy review tasks appear here automatically when due." },
+                            { name: "Risk Register", description: "Risk mitigation actions are tracked as governance tasks." },
+                            { name: "Autopilot", description: "AI-driven insights inject new tasks based on regulatory changes or gaps." }
+                        ]}
+                    />
                 </div>
 
                 {/* Top Stats Cards - Compliance Dashboard Style */}

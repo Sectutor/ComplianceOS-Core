@@ -11,6 +11,7 @@ import {
     CardTitle,
 } from "@complianceos/ui/ui/card";
 import { Plus, Edit, FileText } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 import { Link, useLocation } from "wouter";
 
 export default function AssessmentTemplates() {
@@ -25,12 +26,16 @@ export default function AssessmentTemplates() {
     return (
         <div className="p-8 space-y-8">
             <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Assessment Templates</h1>
-                    <p className="text-muted-foreground mt-2">
-                        Create and manage questionnaires for vendor assessments.
-                    </p>
-                </div>
+                <PageGuide
+                    title="Assessment Templates"
+                    description="Create and manage questionnaires for vendor assessments."
+                    rationale="Standardize your security review process with reusable, version-controlled templates."
+                    howToUse={[
+                        { step: "Create", description: "Build new templates from scratch or clone standards." },
+                        { step: "Customize", description: "Add logic, scoring, and specific compliance questions." },
+                        { step: "Deploy", description: "Use templates to launch new vendor reviews." }
+                    ]}
+                />
                 <Button onClick={() => setLocation(`/clients/${clientId}/vendors/templates/new`)}>
                     <Plus className="mr-2 h-4 w-4" />
                     New Template

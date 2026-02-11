@@ -1,6 +1,7 @@
 
 import React from 'react';
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from '@/components/PageGuide';
 import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import {
@@ -119,13 +120,30 @@ export default function ComplianceOverview() {
     return (
         <DashboardLayout>
             <div className="space-y-10 pb-20 px-6">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: "/dashboard" },
-                        { label: "Compliance", href: `/clients/${clientId}/compliance` },
-                        { label: "Overview & Guidance" },
-                    ]}
-                />
+                <div className="flex justify-between items-center">
+                    <Breadcrumb
+                        items={[
+                            { label: "Dashboard", href: "/dashboard" },
+                            { label: "Compliance", href: `/clients/${clientId}/compliance` },
+                            { label: "Overview & Guidance" },
+                        ]}
+                    />
+                    <PageGuide
+                        title="Compliance Overview"
+                        description="Central command for audit readiness and compliance documentation."
+                        rationale="Streamlines the path to certification through automated workflows and centralized evidence management."
+                        howToUse={[
+                            { step: "Access Modules", description: "Navigate to specific tools like Knowledge Base or AI Questionnaires." },
+                            { step: "Track Readiness", description: "Monitor audit preparation progress." },
+                            { step: "Map Frameworks", description: "Use crosswalks to align multiple standards." }
+                        ]}
+                        integrations={[
+                            { name: "Knowledge Base", description: "Centralized policy documentation." },
+                            { name: "Questionnaires", description: "AI-driven gap analysis." },
+                            { name: "Evidence", description: "Automated evidence collection." }
+                        ]}
+                    />
+                </div>
 
                 {/* Hero Section */}
                 <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 md:p-16 text-white shadow-2xl">

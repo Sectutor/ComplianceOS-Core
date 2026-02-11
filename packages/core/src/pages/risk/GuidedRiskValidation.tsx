@@ -13,6 +13,7 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@complianceos/ui/ui/breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function GuidedRiskValidation() {
     const params = useParams<{ clientId: string }>();
@@ -55,9 +56,24 @@ export default function GuidedRiskValidation() {
                     </BreadcrumbList>
                 </Breadcrumb>
 
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-blue-600">Guided Risk Assessment</h1>
-                    <p className="text-gray-500 mt-2">A step-by-step assistant to identify, analyze, and treat risks standardizing your compliance posture.</p>
+                <div className="mb-8 flex justify-between items-start">
+                    <div>
+                        <h1 className="text-3xl font-bold text-blue-600">Guided Risk Assessment</h1>
+                        <p className="text-gray-500 mt-2">A step-by-step assistant to identify, analyze, and treat risks standardizing your compliance posture.</p>
+                    </div>
+                    <PageGuide
+                        title="Guided Risk Assessment"
+                        description="A step-by-step wizard for identifying and treating risks."
+                        rationale="Lowers the barrier to entry for risk management by guiding you through the standard ISO 27005 process."
+                        howToUse={[
+                            { step: "Start Wizard", description: "Click 'Start Assessment' to begin the guided flow." },
+                            { step: "Answer Questions", description: "Follow the prompts to identify assets, threats, and vulnerabilities." },
+                            { step: "Auto-Calculate", description: "The system will suggest risk scores based on your answers." }
+                        ]}
+                        integrations={[
+                            { name: "Risk Register", description: "Completed assessments are automatically saved to your Risk Register." }
+                        ]}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

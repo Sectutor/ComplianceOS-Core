@@ -22,7 +22,10 @@ import {
     Loader2,
     Plus,
     Lock,
-    Key
+    Key,
+    Link as LinkIcon,
+    Trash2,
+    ExternalLink
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,6 +39,13 @@ interface SectionContent {
     environmentDescription?: string;
     rolesDescription?: string;
     attachmentsNotes?: string;
+    // FIPS
+    securityObjectiveConfidentiality?: string;
+    securityObjectiveIntegrity?: string;
+    securityObjectiveAvailability?: string;
+    rationaleConfidentiality?: string;
+    rationaleIntegrity?: string;
+    rationaleAvailability?: string;
 }
 
 export default function SSPEditor() {
@@ -72,7 +82,16 @@ export default function SSPEditor() {
     const deleteSspControlMutation = trpc.federal.deleteSspControl.useMutation();
     const createControlMutation = trpc.federal.createControl.useMutation();
     const createSSPMutation = trpc.federal.createSSP.useMutation();
+    const saveFipsMutation = trpc.federal.saveFipsCategorization.useMutation();
     const utils = trpc.useUtils();
+
+    // Fetch FIPS Categorization
+    const { data: fipsCategorization } = trpc.federal.getFipsCategorization.useQuery({
+        clientId,
+        sspId: currentSSP?.id || 0
+    }, {
+        enabled: !!currentSSP?.id
+    });
 
     const [activeTab, setActiveTab] = useState("overview");
     const [sectionData, setSectionData] = useState<Record<string, SectionContent>>({});
@@ -103,6 +122,24 @@ export default function SSPEditor() {
             }
         }
     }, [currentSSP]);
+
+    // Initialize FIPS data
+    useEffect(() => {
+        if (fipsCategorization) {
+            setSectionData(prev => ({
+                ...prev,
+                overview: {
+                    ...prev.overview,
+                    securityObjectiveConfidentiality: fipsCategorization.securityObjectiveConfidentiality || 'low',
+                    securityObjectiveIntegrity: fipsCategorization.securityObjectiveIntegrity || 'low',
+                    securityObjectiveAvailability: fipsCategorization.securityObjectiveAvailability || 'low',
+                    rationaleConfidentiality: fipsCategorization.rationaleConfidentiality || '',
+                    rationaleIntegrity: fipsCategorization.rationaleIntegrity || '',
+                    rationaleAvailability: fipsCategorization.rationaleAvailability || '',
+                }
+            }));
+        }
+    }, [fipsCategorization]);
 
     const updateField = (section: string, field: string, value: string) => {
         setSectionData(prev => ({
@@ -188,6 +225,56 @@ export default function SSPEditor() {
         } catch (error) {
             console.error('Error updating control details:', error);
             toast.error('Failed to update control details');
+        }
+    };
+
+    const handleAddEvidence = async (controlId: string, name: string, url: string) => {
+        if (!currentSSP?.id) return;
+
+        // Find current control data
+        const sspControl = sspControls?.find(c => c.controlId === controlId);
+        const currentEvidence = (sspControl?.evidenceLinks as any[]) || [];
+
+        const newEvidence = [...currentEvidence, {
+            id: `ev-${Date.now()}`,
+            name,
+            url,
+            type: 'link'
+        }];
+
+        try {
+            await saveSspControlMutation.mutateAsync({
+                clientId,
+                sspId: currentSSP.id,
+                controlId,
+                evidenceLinks: newEvidence,
+            });
+            toast.success("Evidence added");
+        } catch (error) {
+            console.error("Error adding evidence:", error);
+            toast.error("Failed to add evidence");
+        }
+    };
+
+    const handleRemoveEvidence = async (controlId: string, evidenceId: string) => {
+        if (!currentSSP?.id) return;
+
+        const sspControl = sspControls?.find(c => c.controlId === controlId);
+        const currentEvidence = (sspControl?.evidenceLinks as any[]) || [];
+
+        const newEvidence = currentEvidence.filter((e: any) => e.id !== evidenceId);
+
+        try {
+            await saveSspControlMutation.mutateAsync({
+                clientId,
+                sspId: currentSSP.id,
+                controlId,
+                evidenceLinks: newEvidence,
+            });
+            toast.success("Evidence removed");
+        } catch (error) {
+            console.error("Error removing evidence:", error);
+            toast.error("Failed to remove evidence");
         }
     };
 
@@ -294,6 +381,20 @@ export default function SSPEditor() {
                 id: currentSSP.id,
                 content: JSON.stringify(content)
             });
+
+            // Save FIPS data if in overview section
+            if (section === 'overview') {
+                await saveFipsMutation.mutateAsync({
+                    clientId,
+                    sspId: currentSSP.id,
+                    securityObjectiveConfidentiality: sectionData['overview']?.securityObjectiveConfidentiality,
+                    securityObjectiveIntegrity: sectionData['overview']?.securityObjectiveIntegrity,
+                    securityObjectiveAvailability: sectionData['overview']?.securityObjectiveAvailability,
+                    rationaleConfidentiality: sectionData['overview']?.rationaleConfidentiality,
+                    rationaleIntegrity: sectionData['overview']?.rationaleIntegrity,
+                    rationaleAvailability: sectionData['overview']?.rationaleAvailability,
+                });
+            }
 
             toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section saved successfully`);
         } catch (error) {
@@ -562,6 +663,146 @@ export default function SSPEditor() {
                                                         <option value="moderate">Moderate Impact</option>
                                                         <option value="high">High Impact</option>
                                                     </select>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+
+                                    {/* FIPS 199 Categorization */}
+                                    <div className="mt-8">
+                                        <div className="space-y-2 mb-4">
+                                            <h3 className="text-xl font-bold text-slate-900">FIPS 199 Security Categorization</h3>
+                                            <p className="text-slate-500">Determine the security category of the system based on the potential impact of loss.</p>
+                                        </div>
+
+                                        <Card className="border-slate-200 shadow-sm">
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-lg font-bold text-slate-900">Security Objectives</CardTitle>
+                                                <CardDescription>Select the potential impact level for each security objective.</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-6">
+                                                {/* Confidentiality */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                                                    <div className="md:col-span-1">
+                                                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                                            <Lock className="h-4 w-4 text-blue-600" />
+                                                            Confidentiality
+                                                        </h4>
+                                                        <p className="text-sm text-slate-500 mt-1">Preserving authorized restrictions on information access and disclosure.</p>
+                                                    </div>
+                                                    <div className="md:col-span-2 space-y-3">
+                                                        <div className="flex gap-4">
+                                                            {['low', 'moderate', 'high'].map((level) => (
+                                                                <label key={level} className={`flex-1 border rounded-lg p-3 cursor-pointer transition-all ${sectionData['overview']?.securityObjectiveConfidentiality === level ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'hover:bg-slate-50 border-slate-200'}`}>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name="confidentiality"
+                                                                            value={level}
+                                                                            checked={sectionData['overview']?.securityObjectiveConfidentiality === level}
+                                                                            onChange={(e) => updateField('overview', 'securityObjectiveConfidentiality', e.target.value)}
+                                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                                                        />
+                                                                        <span className="font-bold text-slate-900 capitalize">{level}</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-500">
+                                                                        {level === 'low' && "Limited adverse effect"}
+                                                                        {level === 'moderate' && "Serious adverse effect"}
+                                                                        {level === 'high' && "Severe/catastrophic adverse effect"}
+                                                                    </p>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                        <Textarea
+                                                            placeholder="Justification for Confidentiality impact level..."
+                                                            value={sectionData['overview']?.rationaleConfidentiality || ''}
+                                                            onChange={(e) => updateField('overview', 'rationaleConfidentiality', e.target.value)}
+                                                            className="min-h-[80px] border-slate-200 focus:ring-blue-500 text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Integrity */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                                                    <div className="md:col-span-1">
+                                                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                                            <Shield className="h-4 w-4 text-green-600" />
+                                                            Integrity
+                                                        </h4>
+                                                        <p className="text-sm text-slate-500 mt-1">Guarding against improper information modification or destruction.</p>
+                                                    </div>
+                                                    <div className="md:col-span-2 space-y-3">
+                                                        <div className="flex gap-4">
+                                                            {['low', 'moderate', 'high'].map((level) => (
+                                                                <label key={level} className={`flex-1 border rounded-lg p-3 cursor-pointer transition-all ${sectionData['overview']?.securityObjectiveIntegrity === level ? 'bg-green-50 border-green-500 ring-1 ring-green-500' : 'hover:bg-slate-50 border-slate-200'}`}>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name="integrity"
+                                                                            value={level}
+                                                                            checked={sectionData['overview']?.securityObjectiveIntegrity === level}
+                                                                            onChange={(e) => updateField('overview', 'securityObjectiveIntegrity', e.target.value)}
+                                                                            className="h-4 w-4 text-green-600 focus:ring-green-500"
+                                                                        />
+                                                                        <span className="font-bold text-slate-900 capitalize">{level}</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-500">
+                                                                        {level === 'low' && "Limited adverse effect"}
+                                                                        {level === 'moderate' && "Serious adverse effect"}
+                                                                        {level === 'high' && "Severe/catastrophic adverse effect"}
+                                                                    </p>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                        <Textarea
+                                                            placeholder="Justification for Integrity impact level..."
+                                                            value={sectionData['overview']?.rationaleIntegrity || ''}
+                                                            onChange={(e) => updateField('overview', 'rationaleIntegrity', e.target.value)}
+                                                            className="min-h-[80px] border-slate-200 focus:ring-green-500 text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Availability */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start pb-6 border-b border-slate-100 last:border-0 last:pb-0">
+                                                    <div className="md:col-span-1">
+                                                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                                                            <Clock className="h-4 w-4 text-orange-600" />
+                                                            Availability
+                                                        </h4>
+                                                        <p className="text-sm text-slate-500 mt-1">Ensuring timely and reliable access to and use of information.</p>
+                                                    </div>
+                                                    <div className="md:col-span-2 space-y-3">
+                                                        <div className="flex gap-4">
+                                                            {['low', 'moderate', 'high'].map((level) => (
+                                                                <label key={level} className={`flex-1 border rounded-lg p-3 cursor-pointer transition-all ${sectionData['overview']?.securityObjectiveAvailability === level ? 'bg-orange-50 border-orange-500 ring-1 ring-orange-500' : 'hover:bg-slate-50 border-slate-200'}`}>
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <input
+                                                                            type="radio"
+                                                                            name="availability"
+                                                                            value={level}
+                                                                            checked={sectionData['overview']?.securityObjectiveAvailability === level}
+                                                                            onChange={(e) => updateField('overview', 'securityObjectiveAvailability', e.target.value)}
+                                                                            className="h-4 w-4 text-orange-600 focus:ring-orange-500"
+                                                                        />
+                                                                        <span className="font-bold text-slate-900 capitalize">{level}</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-500">
+                                                                        {level === 'low' && "Limited adverse effect"}
+                                                                        {level === 'moderate' && "Serious adverse effect"}
+                                                                        {level === 'high' && "Severe/catastrophic adverse effect"}
+                                                                    </p>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                        <Textarea
+                                                            placeholder="Justification for Availability impact level..."
+                                                            value={sectionData['overview']?.rationaleAvailability || ''}
+                                                            onChange={(e) => updateField('overview', 'rationaleAvailability', e.target.value)}
+                                                            className="min-h-[80px] border-slate-200 focus:ring-orange-500 text-sm"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -881,6 +1122,67 @@ export default function SSPEditor() {
                                                                                     className="border-slate-200 focus:ring-blue-500"
                                                                                 />
                                                                             </div>
+
+                                                                            {/* Evidence Section */}
+                                                                            <div className="space-y-2 pt-2 border-t border-slate-100">
+                                                                                <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                                                    <LinkIcon className="h-4 w-4 text-slate-500" />
+                                                                                    Evidence & Artifacts
+                                                                                </label>
+
+                                                                                {/* Existing Evidence List */}
+                                                                                {sspControl?.evidenceLinks && (sspControl.evidenceLinks as any[]).length > 0 && (
+                                                                                    <div className="space-y-2 mb-3">
+                                                                                        {(sspControl.evidenceLinks as any[]).map((evidence: any) => (
+                                                                                            <div key={evidence.id} className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded text-sm group">
+                                                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                                                    <ExternalLink className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                                                                                    <a href={evidence.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate">
+                                                                                                        {evidence.name}
+                                                                                                    </a>
+                                                                                                </div>
+                                                                                                <button
+                                                                                                    onClick={() => handleRemoveEvidence(control.controlId, evidence.id)}
+                                                                                                    className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                                                >
+                                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {/* Add New Evidence */}
+                                                                                <div className="flex gap-2">
+                                                                                    <Input
+                                                                                        id={`evidence-name-${control.controlId}`}
+                                                                                        placeholder="Description (e.g. Policy Doc)"
+                                                                                        className="flex-1 h-8 text-sm"
+                                                                                    />
+                                                                                    <Input
+                                                                                        id={`evidence-url-${control.controlId}`}
+                                                                                        placeholder="URL"
+                                                                                        className="flex-1 h-8 text-sm"
+                                                                                    />
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        variant="outline"
+                                                                                        onClick={() => {
+                                                                                            const nameInput = document.getElementById(`evidence-name-${control.controlId}`) as HTMLInputElement;
+                                                                                            const urlInput = document.getElementById(`evidence-url-${control.controlId}`) as HTMLInputElement;
+                                                                                            if (nameInput.value && urlInput.value) {
+                                                                                                handleAddEvidence(control.controlId, nameInput.value, urlInput.value);
+                                                                                                nameInput.value = '';
+                                                                                                urlInput.value = '';
+                                                                                            } else {
+                                                                                                toast.error("Please provide both description and URL");
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        Add Link
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1007,8 +1309,8 @@ export default function SSPEditor() {
                             </Tabs>
                         </div>
                     </div>
-                </div>
-            </div>
-        </DashboardLayout>
+                </div >
+            </div >
+        </DashboardLayout >
     );
 }

@@ -11,6 +11,7 @@ import { trpc } from "@/lib/trpc";
 import { useClientContext } from "@/contexts/ClientContext";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function CyberIncidentsPage() {
     const { selectedClientId } = useClientContext();
@@ -43,13 +44,17 @@ export default function CyberIncidentsPage() {
     return (
         <CyberLayout>
             <div className="space-y-6 w-full max-w-none">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Incident Management</h1>
-                        <p className="text-muted-foreground mt-1">
-                            Track and manage cyber security incidents reported under NIS2.
-                        </p>
-                    </div>
+                <div className="flex justify-between items-start animate-slide-down">
+                    <PageGuide
+                        title="Incident Management"
+                        description="Track and manage cyber security incidents reported under NIS2."
+                        rationale="Centralized incident tracking ensures timely reporting (24h/72h) and effective response."
+                        howToUse={[
+                            { step: "Report", description: "Log new incidents immediately upon detection." },
+                            { step: "Monitor", description: "Track status and severity of open incidents." },
+                            { step: "Resolve", description: "Document mitigation steps and close incidents." }
+                        ]}
+                    />
                     <Button onClick={() => setLocation(`/cyber/incidents/new`)} className="bg-red-600 hover:bg-red-700 text-white">
                         <Plus className="mr-2 h-4 w-4" /> Report New Incident
                     </Button>

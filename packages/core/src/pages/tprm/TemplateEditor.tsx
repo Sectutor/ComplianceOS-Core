@@ -10,6 +10,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionTable, Section } from "./QuestionTable";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function TemplateEditor() {
     const { id, templateId } = useParams(); // id is clientId, templateId is template ID or 'new'
@@ -48,8 +49,8 @@ export default function TemplateEditor() {
             setTemplateData({
                 name: existingTemplate.name,
                 description: existingTemplate.description || "",
-                content: typeof existingTemplate.content === 'string' 
-                    ? JSON.parse(existingTemplate.content) 
+                content: typeof existingTemplate.content === 'string'
+                    ? JSON.parse(existingTemplate.content)
                     : existingTemplate.content as any
             });
         }
@@ -103,14 +104,16 @@ export default function TemplateEditor() {
                     <Button variant="ghost" size="icon" onClick={() => setLocation(`/clients/${clientId}/vendors/templates`)}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            {isNew ? "Create Assessment Template" : "Edit Assessment Template"}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {isNew ? "Design a new questionnaire from scratch." : `Editing "${existingTemplate?.name || '...'}"`}
-                        </p>
-                    </div>
+                    <PageGuide
+                        title={isNew ? "Create Assessment Template" : "Edit Assessment Template"}
+                        description={isNew ? "Design a new questionnaire from scratch." : `Editing "${existingTemplate?.name || '...'}"`}
+                        rationale="Tailor assessments to your specific risk appetite and compliance requirements."
+                        howToUse={[
+                            { step: "Structure", description: "Organize questions into logical sections." },
+                            { step: "Configure", description: "Set question types (Text, Yes/No, File Upload)." },
+                            { step: "Save", description: "Publish the template for immediate use." }
+                        ]}
+                    />
                 </div>
                 <Button onClick={handleSave} disabled={createMutation.isLoading || updateMutation.isLoading}>
                     <Save className="mr-2 h-4 w-4" />
@@ -144,15 +147,15 @@ export default function TemplateEditor() {
 
             {/* Questions Editor */}
             <div className="space-y-4">
-               <div className="flex items-center justify-between">
-                   <h2 className="text-lg font-semibold">Questionnaire Content</h2>
-               </div>
-               <div className="bg-white rounded-lg border shadow-sm p-6 min-h-[500px]">
-                    <QuestionTable 
-                        sections={templateData.content.sections} 
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">Questionnaire Content</h2>
+                </div>
+                <div className="bg-white rounded-lg border shadow-sm p-6 min-h-[500px]">
+                    <QuestionTable
+                        sections={templateData.content.sections}
                         onChange={(sections) => setTemplateData({ ...templateData, content: { sections } })}
                     />
-               </div>
+                </div>
             </div>
         </div>
     );

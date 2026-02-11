@@ -17,6 +17,7 @@ interface WizardLayoutProps {
     isNextDisabled?: boolean;
     isLoading?: boolean;
     clientId: number;
+    pageGuide?: React.ReactNode;
 }
 
 const STEPS = [
@@ -41,7 +42,8 @@ export function WizardLayout({
     isNextDisabled,
     isLoading,
     clientId,
-    standardName = "ISO 27001" // Default for backward compatibility
+    standardName = "ISO 27001", // Default for backward compatibility
+    pageGuide
 }: WizardLayoutProps & { standardName?: string }) {
     const progress = (currentStep / totalSteps) * 100;
 
@@ -78,6 +80,7 @@ export function WizardLayout({
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {pageGuide}
                     {isLoading && (
                         <div className="flex items-center gap-2 text-xs font-medium text-indigo-600 animate-pulse">
                             <Save className="h-3.5 w-3.5" />

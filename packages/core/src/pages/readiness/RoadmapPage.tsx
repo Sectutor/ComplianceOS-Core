@@ -21,6 +21,7 @@ import { ScrollArea } from "@complianceos/ui/ui/scroll-area";
 import { Separator } from "@complianceos/ui/ui/separator";
 import StrategicDashboard from "@/components/roadmap/RoadmapDashboard";
 import ExecutionDashboard from "@/components/roadmap/ExecutionDashboard";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RoadmapPage() {
     const params = useParams();
@@ -96,14 +97,62 @@ export default function RoadmapPage() {
                                     Strategic planning and execution oversight.
                                 </p>
                             </div>
-                            <TabsList>
-                                <TabsTrigger value="strategic" className="gap-2">
-                                    <TrendingUp className="h-4 w-4" /> Strategic
-                                </TabsTrigger>
-                                <TabsTrigger value="execution" className="gap-2">
-                                    <Kanban className="h-4 w-4" /> Execution
-                                </TabsTrigger>
-                            </TabsList>
+                            <div className="flex items-center gap-4">
+                                <PageGuide
+                                    {...React.useMemo(() => {
+                                        if (activeTab === 'execution') return {
+                                            title: "Execution Dashboard",
+                                            description: "Track task completion and team velocity.",
+                                            rationale: "Operational view for getting things done.",
+                                            howToUse: [
+                                                { step: "Kanban Board", description: "Drag and drop tasks to update status." },
+                                                { step: "My Tasks", description: "Filter to see only your assigned items." }
+                                            ]
+                                        };
+                                        if (roadmapView === 'create') return {
+                                            title: "Create Roadmap",
+                                            description: "Wizard to initialize a new strategic plan.",
+                                            rationale: "Sets the baseline timeline and goals.",
+                                            howToUse: [
+                                                { step: "General Info", description: "Name your roadmap (e.g., 'FY24 Compliance')." },
+                                                { step: "Timeline", description: "Set start and end dates." },
+                                                { step: "Drivers", description: "Select business objectives." }
+                                            ]
+                                        };
+                                        if (roadmapView === 'templates') return {
+                                            title: "Roadmap Templates",
+                                            description: "Pre-configured plans for standard frameworks.",
+                                            rationale: "Save time by starting with industry best practices.",
+                                            howToUse: [
+                                                { step: "Browse", description: "Filter templates by framework (ISO, SOC2, etc.)." },
+                                                { step: "Preview", description: "View the Gantt chart preview." },
+                                                { step: "Apply", description: "Clone the template to your client." }
+                                            ]
+                                        };
+                                        return {
+                                            title: "Roadmap Strategy",
+                                            description: "High-level overview of compliance initiatives.",
+                                            rationale: "Aligns compliance activities with business milestones.",
+                                            howToUse: [
+                                                { step: "Timeline View", description: "Visualize dependencies and critical path." },
+                                                { step: "Milestones", description: "Track major audit dates and deliverables." },
+                                                { step: "Scenario Planning", description: "Create alternative roadmaps." }
+                                            ],
+                                            integrations: [
+                                                { name: "Executive Reporting", description: "Feeds into board reports." }
+                                            ]
+                                        };
+                                    }, [activeTab, roadmapView])}
+                                />
+                                <TabsList>
+                                    <TabsTrigger value="strategic" className="gap-2">
+                                        <TrendingUp className="h-4 w-4" /> Strategic
+                                    </TabsTrigger>
+                                    <TabsTrigger value="execution" className="gap-2">
+                                        <Kanban className="h-4 w-4" /> Execution
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
                         </div>
 
                         <TabsContent value="strategic" className="border-none p-0 outline-none">

@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@complianceos/ui/ui/too
 
 import { useParams, useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageGuide } from '@/components/PageGuide';
 
 export default function RiskVulnerabilitiesPage() {
     const params = useParams();
@@ -142,10 +143,26 @@ export default function RiskVulnerabilitiesPage() {
                         <h1 className="text-2xl font-bold tracking-tight">Vulnerability Management</h1>
                         <p className="text-muted-foreground mt-1">Track and manage vulnerabilities across your assets.</p>
                     </div>
-                    <Button onClick={handleOpenAddDialog} className="bg-blue-600 hover:bg-blue-700">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Record Vulnerability
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button onClick={handleOpenAddDialog} className="bg-blue-600 hover:bg-blue-700">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Record Vulnerability
+                        </Button>
+                        <PageGuide
+                            title="Vulnerability Management"
+                            description="Centrally track, prioritize, and remediate technical security flaws."
+                            rationale="Unpatched vulnerabilities are a leading cause of data breaches. Systematic tracking ensures critical issues aren't ignored."
+                            howToUse={[
+                                { step: "Review Live Threats", description: "Check for the flame icon to see vulnerabilities actively being exploited in the wild." },
+                                { step: "Search & Filter", description: "Use the search bar to find specific CVEs or filter by asset name." },
+                                { step: "Prioritize", description: "Sort by 'Severity' or 'Due Date' to focus on the most urgent fixes first." }
+                            ]}
+                            integrations={[
+                                { name: "Threat Intelligence", description: "Automatically flags vulnerabilities associated with active malware campaigns." },
+                                { name: "Risk Assessments", description: "Vulnerabilities listed here serve as inputs for detailed risk scenarios." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 {/* Legend / Explanation for Live Threats */}

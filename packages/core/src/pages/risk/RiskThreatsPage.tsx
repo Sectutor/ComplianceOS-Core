@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@complianceos/ui/ui/card';
 import { Badge } from '@complianceos/ui/ui/badge';
+import { PageGuide } from "@/components/PageGuide";
 
 
 export default function RiskThreatsPage() {
@@ -145,10 +146,26 @@ export default function RiskThreatsPage() {
                         <h1 className="text-2xl font-bold tracking-tight">Threat Library</h1>
                         <p className="text-muted-foreground mt-1">Manage standard threat scenarios and categories.</p>
                     </div>
-                    <Button onClick={handleOpenAddDialog} className="bg-orange-600 hover:bg-orange-700 text-white">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Record Threat
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button onClick={handleOpenAddDialog} className="bg-orange-600 hover:bg-orange-700 text-white">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Record Threat
+                        </Button>
+                        <PageGuide
+                            title="Threat Library"
+                            description="A comprehensive database of potential threat scenarios relevant to your organization."
+                            rationale="Threats are the 'cause' in the risk equation (Risk = Asset x Threat x Vulnerability). Maintaining a library helps standardize risk assessments and ensures no major attack vectors are overlooked."
+                            howToUse={[
+                                { step: "Browse Library", description: "Use the table to view potential threats like Ransomware, Insider Threats, or Floods." },
+                                { step: "Record Threats", description: "Add new custom threats or specific scenarios faced by your industry." },
+                                { step: "Analyze Trends", description: "The top cards show real-world trending attacks from global intelligence feeds." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Assessment", description: "You will select from this library when creating new risk scenarios." },
+                                { name: "MITRE ATT&CK", description: "Threats are mapped to MITRE TTPs (Tactics, Techniques, and Procedures) for standardized classification." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 {/* Global Threat Landscape Summary */}

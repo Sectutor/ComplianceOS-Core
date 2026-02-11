@@ -1,7 +1,7 @@
 import { getDb } from '../../db';
 import { clients, policyTemplates, Client } from '../../schema';
 import { eq } from 'drizzle-orm';
-// import { LLMService } from '../llm/service';
+import { LLMService } from '../llm/service';
 
 // Language names for prompts
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -21,10 +21,10 @@ interface GenerationOptions {
 }
 
 export class PolicyGenerator {
-    // private llmService: LLMService;
+    private llmService: LLMService;
 
     constructor() {
-        // this.llmService = new LLMService();
+        this.llmService = new LLMService();
     }
 
     /**
@@ -286,22 +286,98 @@ ${content}
         return { userPrompt, systemPrompt };
     }
 
+    async incorporateMissingSections(clientId: number, currentContent: string, missingSections: { id: string; title: string }[]): Promise<string> {
+        const db = await getDb();
+        if (!db) throw new Error("Database connection failed");
+
+        const client = await db.query.clients.findFirst({
+            where: eq(clients.id, clientId),
+        });
+        if (!client) throw new Error(`Client with ID ${clientId} not found`);
+
+        const language = client.policyLanguage || 'en';
+        const languageName = LANGUAGE_NAMES[language] || 'English';
+
+        const sectionsList = missingSections.map(s => `- ${s.title}`).join('\n');
+
+        const systemPrompt = `You are a specialized compliance policy writer. You MUST write all content in ${languageName}.`;
+        const userPrompt = `
+You are an expert CISO and Compliance Officer assisting ${client.name}.
+The following policy content is missing some recommended sections.
+Your task is to:
+1. INCORPORATE the missing sections into the existing content in their most logical and standard positions.
+2. IMPROVE the overall policy by refining the language for clarity, professionalism, and industry standards (${client.industry || 'general'}).
+3. ENSURE a cohesive flow between existing and new sections.
+
+MISSING SECTIONS TO ADD:
+${sectionsList}
+
+EXISTING CONTENT:
+${currentContent}
+
+Directives:
+1. Draft logical, professional content for each missing section.
+2. Refine existing content to match the tone and quality of the new sections.
+3. Use Markdown formatting (## for headers).
+4. CRITICAL: Scan the ENTIRE document for placeholders like [Company Name], TBD, [Date], {{company_name}}, [Insert Role], etc., and replace them with specific details for "${client.name}" or other plausible values.
+5. Write EVERYTHING in ${languageName}.
+6. Return ONLY the complete, improved policy text in Markdown format.
+`;
+
+        try {
+            const response = await this.llmService.generate({
+                systemPrompt,
+                userPrompt,
+                feature: 'policy_generation'
+            }, { clientId, endpoint: 'incorporate_linter_sections' });
+
+            return response.text;
+        } catch (error) {
+            console.error("Failed to incorporate missing sections:", error);
+            // Append missing sections if AI fails as fallback
+            let updatedContent = currentContent;
+            for (const s of missingSections) {
+                updatedContent += `\n\n## ${s.title}\n\n[Content to be drafted]`;
+            }
+            return updatedContent;
+        }
+    }
+
     private async tailorContentWithLLM(content: string, client: Client, policyName: string, customInstruction?: string, language: string = 'en'): Promise<string> {
-        return content;
-        /*
         const languageName = LANGUAGE_NAMES[language] || 'English';
 
         try {
-            const prompt = `...`;
+            const systemPrompt = `You are a specialized compliance policy writer. You MUST write all content in ${languageName}.`;
+            const userPrompt = `
+You are an expert CISO and Compliance Officer specializing in the ${client.industry || 'general'} industry.
+Please review and refine the following policy text for "${policyName}".
+The goal is to make it specifically relevant to a ${client.size || 'mid-sized'} ${client.industry} company.
 
-            const response = await this.llmService.generate({ ... });
+IMPORTANT: Write the ENTIRE refined policy in ${languageName}. All text must be in ${languageName}.
+
+${customInstruction ? `USER INSTRUCTION: ${customInstruction}` : ''}
+
+Directives:
+1. Maintain the professional tone and structure.
+2. Inject specific security concerns or regulatory references relevant to ${client.industry} (e.g., HIPAA for Health, PCI for Retail, SOC2/ISO for Tech).
+3. Do not remove core requirements, only enhance them.
+4. Return ONLY the updated policy text in Markdown format.
+
+Original Policy:
+${content}
+`;
+
+            const response = await this.llmService.generate({
+                systemPrompt,
+                userPrompt,
+                feature: 'policy_generation'
+            }, { clientId: client.id, endpoint: 'tailor_policy' });
 
             return response.text;
         } catch (error) {
             console.error("LLM Tailoring failed:", error);
             return content; // Fallback to untailored content
         }
-        */
     }
 }
 

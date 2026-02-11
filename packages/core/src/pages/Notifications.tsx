@@ -163,7 +163,7 @@ export default function Notifications() {
     );
   }
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin';
 
   const formDisabled = !settings || updateSettings.isPending;
   return (

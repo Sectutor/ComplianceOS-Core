@@ -13,6 +13,7 @@ import { calculateResidualScore, scoreToRiskLevel, getMatrixScoreLevel } from ".
 import { logActivity } from "../../lib/audit";
 import { llmService } from "../../lib/llm/service";
 import { generateRiskReportDocx } from "../../riskExportProfessional";
+import { recalculateRiskScore } from "../services/riskService";
 
 
 export const createRisksRouter = (t: any, procedure: any, premiumClientProcedure: any) => {
@@ -24,15 +25,26 @@ export const createRisksRouter = (t: any, procedure: any, premiumClientProcedure
             .input(z.object({ clientId: z.number() }))
             .query(async ({ input }: any) => {
                 const db = await getDb();
-                return await db
+
+                // Fetch assets with risk counts
+                const rawAssets = await db
                     .select({
                         ...schema.assets,
-                        riskCount: sql<number>`count(${schema.riskScenarios.id})`.mapWith(Number)
+                        riskCount: sql<number>`count(DISTINCT ${schema.riskScenarios.id})`.mapWith(Number),
+                        suggestionCount: sql<number>`count(DISTINCT ${schema.assetCveMatches.id}) FILTER (WHERE ${schema.assetCveMatches.status} = 'suggested')`.mapWith(Number),
+                        vulnerabilityCount: sql<number>`count(DISTINCT ${schema.vulnerabilities.id})`.mapWith(Number)
                     })
                     .from(schema.assets)
                     .leftJoin(schema.riskScenarios, eq(schema.riskScenarios.assetId, schema.assets.id))
+                    .leftJoin(schema.assetCveMatches, eq(schema.assetCveMatches.assetId, schema.assets.id))
+                    // Vulnerabilities join is tricky because it's a JSON array. 
+                    // For now, we'll join on the JSON array if possible or use a subquery if needed.
+                    // Actually, let's keep it simple for now and do the complex joins separately if performance is an issue.
+                    .leftJoin(schema.vulnerabilities, sql`${schema.vulnerabilities.affectedAssets}::jsonb @> (('["' || ${schema.assets.id} || '"]')::jsonb)`)
                     .where(eq(schema.assets.clientId, input.clientId))
                     .groupBy(schema.assets.id);
+
+                return rawAssets;
             }),
 
         createAsset: procedure
@@ -438,13 +450,15 @@ ${reportData.conclusion}
         // List Risks with Filtering and Pagination
         list: procedure
             .input(z.object({
-                clientId: z.number(),
+                clientId: z.coerce.number(),
                 page: z.number().default(1),
                 limit: z.number().default(20),
                 status: z.enum(["draft", "approved", "reviewed"]).optional(),
                 search: z.string().optional(),
                 sortBy: z.enum(["inherentScore", "residualScore", "createdAt", "updatedAt"]).default("updatedAt"),
-                sortOrder: z.enum(["asc", "desc"]).default("desc")
+                sortOrder: z.enum(["asc", "desc"]).default("desc"),
+                projectId: z.coerce.number().optional(),
+                category: z.string().optional(),
             }))
             .query(async ({ input, ctx }: any) => {
                 const db = await getDb();
@@ -456,7 +470,9 @@ ${reportData.conclusion}
                     input.search ? or(
                         ilike(riskAssessments.title, `%${input.search}%`),
                         ilike(riskAssessments.assessmentId, `%${input.search}%`)
-                    ) : undefined
+                    ) : undefined,
+                    input.projectId ? eq(riskAssessments.projectId, input.projectId) : undefined,
+                    input.category ? eq(riskAssessments.category, input.category) : undefined
                 ].filter(Boolean);
 
                 const [total] = await db.select({ count: sql<number>`count(*)` })
@@ -521,13 +537,13 @@ ${reportData.conclusion}
         // Create or Update Risk Assessment
         upsert: procedure
             .input(z.object({
-                id: z.number().optional(),
-                clientId: z.number(),
+                id: z.coerce.number().optional(),
+                clientId: z.coerce.number(),
                 title: z.string(),
-                threatId: z.number().optional(),
-                vulnerabilityId: z.number().optional(),
-                likelihood: z.number().min(1).max(5),
-                impact: z.number().min(1).max(5),
+                threatId: z.coerce.number().optional(),
+                vulnerabilityId: z.coerce.number().optional(),
+                likelihood: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
+                impact: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
                 status: z.enum(["draft", "approved", "reviewed"]).default("draft"),
                 contextSnapshot: z.any().optional(),
                 riskOwner: z.string().optional(),
@@ -538,6 +554,23 @@ ${reportData.conclusion}
                 existingControls: z.string().optional(),
                 controlEffectiveness: z.string().optional(),
                 threatDescription: z.string().optional(),
+                projectId: z.number().optional(),
+                category: z.string().optional(),
+                owaspCategory: z.string().optional(),
+                csfFunction: z.string().optional(),
+                privacyImpact: z.boolean().optional(),
+                assessor: z.string().optional(),
+                method: z.string().optional(),
+                vulnerabilityDescription: z.string().optional(),
+                affectedAssets: z.array(z.string()).optional(),
+                recommendedActions: z.string().optional(),
+                targetResidualRisk: z.string().optional(),
+                notes: z.string().optional(),
+                assessmentDate: z.string().optional(),
+                reviewDueDate: z.string().optional(),
+                nextReviewDate: z.string().optional(),
+                controlIds: z.array(z.number()).optional(),
+                aiRmfCategory: z.string().optional(),
             }))
             .mutation(async ({ input, ctx }: any) => {
                 // MICRO-RBAC: Only Owners/Editors can edit
@@ -547,7 +580,7 @@ ${reportData.conclusion}
 
                 const db = await getDb();
 
-                return await db.transaction(async (tx) => {
+                return await db.transaction(async (tx: any) => {
                     const inherentScore = input.likelihood * input.impact;
                     const inherentRisk = getMatrixScoreLevel(inherentScore);
 
@@ -570,6 +603,23 @@ ${reportData.conclusion}
                         existingControls: input.existingControls,
                         controlEffectiveness: input.controlEffectiveness,
                         threatDescription: input.threatDescription, // Map description if passed
+                        projectId: input.projectId,
+                        category: input.category,
+                        owaspCategory: input.owaspCategory,
+                        csfFunction: input.csfFunction,
+                        privacyImpact: input.privacyImpact,
+                        assessor: input.assessor,
+                        method: input.method,
+                        vulnerabilityDescription: input.vulnerabilityDescription,
+                        affectedAssets: input.affectedAssets,
+                        recommendedActions: input.recommendedActions,
+                        targetResidualRisk: input.targetResidualRisk,
+                        notes: input.notes,
+                        controlIds: input.controlIds,
+                        aiRmfCategory: input.aiRmfCategory,
+                        assessmentDate: input.assessmentDate ? new Date(input.assessmentDate) : undefined,
+                        reviewDueDate: input.reviewDueDate ? new Date(input.reviewDueDate) : undefined,
+                        nextReviewDate: input.nextReviewDate ? new Date(input.nextReviewDate) : undefined,
                         updatedAt: new Date()
                     };
 
@@ -643,7 +693,7 @@ ${reportData.conclusion}
                 }
 
                 const db = await getDb();
-                return await db.transaction(async (tx) => {
+                return await db.transaction(async (tx: any) => {
                     // Check existence
                     const existing = await tx.select().from(treatmentControls)
                         .where(and(
@@ -779,7 +829,7 @@ ${reportData.conclusion}
 
         // Get KRI Statistics
         getKRIStats: procedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({ clientId: z.coerce.number() }))
             .query(async ({ input }: any) => {
                 const db = await getDb();
 
@@ -981,7 +1031,7 @@ ${reportData.conclusion}
 
         // Risk Assessments (alias for list)
         getRiskAssessments: procedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({ clientId: z.coerce.number() }))
             .query(async ({ input }: any) => {
                 const db = await getDb();
                 return await db.select()
@@ -992,12 +1042,12 @@ ${reportData.conclusion}
 
         createRiskAssessment: procedure
             .input(z.object({
-                clientId: z.number(),
+                clientId: z.coerce.number(),
                 title: z.string(),
-                threatId: z.number().optional(),
-                vulnerabilityId: z.number().optional(),
-                likelihood: z.number().min(1).max(5),
-                impact: z.number().min(1).max(5),
+                threatId: z.coerce.number().optional(),
+                vulnerabilityId: z.coerce.number().optional(),
+                likelihood: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
+                impact: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
                 status: z.enum(["draft", "approved", "reviewed"]).default("draft"),
                 contextSnapshot: z.any().optional(),
             }))
@@ -1027,13 +1077,13 @@ ${reportData.conclusion}
 
         updateRiskAssessment: procedure
             .input(z.object({
-                id: z.number(),
-                clientId: z.number(),
+                id: z.coerce.number(),
+                clientId: z.coerce.number(),
                 title: z.string().optional(),
-                threatId: z.number().optional(),
-                vulnerabilityId: z.number().optional(),
-                likelihood: z.number().min(1).max(5).optional(),
-                impact: z.number().min(1).max(5).optional(),
+                threatId: z.coerce.number().optional(),
+                vulnerabilityId: z.coerce.number().optional(),
+                likelihood: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v).optional(),
+                impact: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v).optional(),
                 status: z.enum(["draft", "approved", "reviewed"]).optional(),
                 contextSnapshot: z.any().optional(),
             }))
@@ -1062,6 +1112,12 @@ ${reportData.conclusion}
                     .returning();
 
                 await logActivity({ userId: ctx.user.id, clientId, action: "update", entityType: "risk", entityId: id, details: { changes: data } });
+
+                // Recalculate residual score if likelihood or impact changed
+                if (data.likelihood !== undefined || data.impact !== undefined) {
+                    await recalculateRiskScore(db, id);
+                }
+
                 return assessment;
             }),
 
@@ -1198,6 +1254,16 @@ ${reportData.conclusion}
                         })
                         .where(eq(treatmentControls.id, existing[0].id))
                         .returning();
+
+                    // Get treatment to find risk
+                    const [treatment] = await db.select().from(riskTreatments)
+                        .innerJoin(riskAssessments, eq(riskTreatments.riskAssessmentId, riskAssessments.id))
+                        .where(eq(riskTreatments.id, input.treatmentId));
+
+                    if (treatment && treatment.risk_assessments) {
+                        await recalculateRiskScore(db, treatment.risk_assessments.id);
+                    }
+
                     return updated;
                 }
 
@@ -1216,6 +1282,12 @@ ${reportData.conclusion}
                     effectiveness: input.effectiveness,
                     implementationNotes: input.implementationNotes
                 }).returning();
+
+                // Auto-recalculate risk score
+                if (treatment.risk_assessments) {
+                    await recalculateRiskScore(db, treatment.risk_assessments.id);
+                }
+
                 return linked;
             }),
 

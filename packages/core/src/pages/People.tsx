@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
+import { PageGuide } from "@/components/PageGuide";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@complianceos/ui/ui/button";
 import { Breadcrumb } from "@/components/Breadcrumb";
@@ -350,6 +351,22 @@ export function PeoplePage() {
               <HelpCircle className="w-4 h-4" />
               {isHelpOpen ? "Hide Help" : "What's the difference?"}
             </Button>
+            <PageGuide
+              title="People & Organization Management"
+              description="Manage your team structure, roles, and employee records."
+              rationale="Compliance requires clear lines of authority and responsibility. This module separates 'Who works here' (Employees) from 'What they do' (Roles) to ensure continuity even when staff changes."
+              howToUse={[
+                { step: "Define Structure", description: "Use the 'Org Structure' tab to create standard roles (e.g. 'CISO') and reporting lines." },
+                { step: "Add Team", description: "Add employees in the 'Team Members' tab and assign them to the roles you defined." },
+                { step: "Visualize", description: "View the 'Visual Chart' to audit your reporting hierarchy and identify gaps." },
+                { step: "Assign Assets", description: "Use the laptop icon to assign devices to employees." }
+              ]}
+              integrations={[
+                { name: "Access Control", description: "Roles defined here determine access levels in connected systems." },
+                { name: "Training", description: "Training assignments are linked to specific job roles." },
+                { name: "Offboarding", description: "Terminating an employee here triggers the offboarding workflow." }
+              ]}
+            />
           </div>
         </div>
 

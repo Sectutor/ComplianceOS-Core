@@ -33,6 +33,7 @@ import {
 import { toast } from "sonner";
 
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function KnowledgeBase() {
   const params = useParams();
@@ -130,9 +131,25 @@ export default function KnowledgeBase() {
                 Manage standard answers for compliance questionnaires.
               </p>
             </div>
-            <Button onClick={() => setIsAddOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add entries
-            </Button>
+            <div className="flex items-center gap-2">
+              <PageGuide
+                title="Knowledge Base"
+                description="Answer library for security questionnaires."
+                rationale="Speeds up vendor reviews by storing standard security responses."
+                howToUse={[
+                  { step: "Search Answers", description: "Find approved responses for common security questions." },
+                  { step: "Add Entries", description: "Document new security controls and procedures." },
+                  { step: "Manage Access", description: "Control internal vs. external visibility." }
+                ]}
+                integrations={[
+                  { name: "AI Questionnaires", description: "Auto-fill source." },
+                  { name: "Sales Enablement", description: "Shareable security facts." }
+                ]}
+              />
+              <Button onClick={() => setIsAddOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Add entries
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center gap-4">

@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { useClientContext } from "@/contexts/ClientContext";
 import { useState } from "react";
+import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
 import {
     Dialog,
@@ -59,13 +60,17 @@ export default function DSARManager() {
                 ]}
             />
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">DSAR Manager</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Track and fulfill Data Subject Access Requests
-                    </p>
-                </div>
+            <div className="flex items-center justify-between animate-slide-down">
+                <PageGuide
+                    title="DSAR Manager"
+                    description="Handle Data Subject Access Requests within statutory timelines."
+                    rationale="Fulfil individual rights (access, deletion) under GDPR/CCPA."
+                    howToUse={[
+                        { step: "Log", description: "Record new requests from emails or portals." },
+                        { step: "Verify", description: "Confirm identity to prevent data leakage." },
+                        { step: "Respond", description: "Gather data and generate response packages." }
+                    ]}
+                />
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
                         <Button>
@@ -217,7 +222,7 @@ function NewDsarForm({ onSubmit, loading }: any) {
             <Button
                 className="w-full mt-2"
                 onClick={() => {
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!formData.subjectEmail || !emailRegex.test(formData.subjectEmail)) {
                         toast.error("Valid Subject Email is required");
                         return;

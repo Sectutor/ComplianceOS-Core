@@ -13,8 +13,9 @@ import { Checkbox } from "@complianceos/ui/ui/checkbox";
 import { Alert, AlertDescription } from "@complianceos/ui/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@complianceos/ui/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock, AlertTriangle, Target, TrendingUp, Calendar, Download, FileText, Rocket } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock, AlertTriangle, Target, TrendingUp, Calendar, Download, FileText, Rocket, HelpCircle } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
 
 interface ReadinessAssessment {
   id: string;
@@ -109,7 +110,7 @@ const frameworkConfig = {
 export default function ReadinessWizardPage() {
   const { clientId } = useParams();
   const [location, setLocation] = useLocation();
-  
+
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedFramework, setSelectedFramework] = useState<string>('');
   const [assessment, setAssessment] = useState<ReadinessAssessment | null>(null);
@@ -181,7 +182,7 @@ export default function ReadinessWizardPage() {
     const totalQuestions = Object.keys(answers).length;
     if (totalQuestions === 0) return 0;
 
-    const positiveAnswers = Object.values(answers).filter(answer => 
+    const positiveAnswers = Object.values(answers).filter(answer =>
       answer === 'yes' || answer === 'implemented'
     ).length;
 
@@ -190,7 +191,7 @@ export default function ReadinessWizardPage() {
 
   const generateGapAnalysis = () => {
     const gaps: GapItem[] = [];
-    
+
     Object.entries(answers).forEach(([questionIndex, answer], index) => {
       const question = questions[index];
       if (!question) return;
@@ -216,15 +217,15 @@ export default function ReadinessWizardPage() {
   const generateRoadmap = (gaps: GapItem[]) => {
     const milestones: Milestone[] = [];
     const currentDate = new Date();
-    
+
     // Group gaps by domain and create milestones
     const domains = [...new Set(gaps.map(gap => gap.domain))];
-    
+
     domains.forEach((domain, index) => {
       const domainGaps = gaps.filter(gap => gap.domain === domain);
       const targetDate = new Date(currentDate);
       targetDate.setMonth(currentDate.getMonth() + (index + 1) * 2);
-      
+
       milestones.push({
         id: `milestone_${index}`,
         title: `${domain} Implementation`,
@@ -247,7 +248,7 @@ export default function ReadinessWizardPage() {
       const gaps = generateGapAnalysis();
       const score = calculateReadinessScore();
       const roadmap = generateRoadmap(gaps);
-      
+
       setAssessment({
         id: `assessment_${Date.now()}`,
         framework: selectedFramework as any,
@@ -259,7 +260,7 @@ export default function ReadinessWizardPage() {
         roadmap,
         recommendations: generateRecommendations(gaps, score)
       });
-      
+
       setGapItems(gaps);
       setShowResults(true);
     }
@@ -273,7 +274,7 @@ export default function ReadinessWizardPage() {
 
   const generateRecommendations = (gaps: GapItem[], score: number): string[] => {
     const recommendations = [];
-    
+
     if (score < 60) {
       recommendations.push('Focus on implementing critical controls in high-risk domains first');
       recommendations.push('Consider engaging external consultants for guidance');
@@ -287,7 +288,7 @@ export default function ReadinessWizardPage() {
       recommendations.push('Implement continuous monitoring processes');
       recommendations.push('Develop incident response testing procedures');
     }
-    
+
     return recommendations;
   };
 
@@ -308,16 +309,15 @@ export default function ReadinessWizardPage() {
                 Choose the framework you want to assess your readiness for
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(frameworkConfig).map(([key, config]) => (
-                <Card 
+                <Card
                   key={key}
-                  className={`cursor-pointer transition-all ${
-                    selectedFramework === key 
-                      ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                  className={`cursor-pointer transition-all ${selectedFramework === key
+                      ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20'
                       : 'hover:shadow-md'
-                  }`}
+                    }`}
                   onClick={() => setSelectedFramework(key)}
                 >
                   <CardContent className="p-6">
@@ -348,7 +348,7 @@ export default function ReadinessWizardPage() {
                 Answer the following questions to assess your current compliance status
               </p>
             </div>
-            
+
             <div className="space-y-6">
               {questions.map((question, index) => (
                 <Card key={index}>
@@ -365,7 +365,7 @@ export default function ReadinessWizardPage() {
                           <p className="font-medium mb-4">{question.question}</p>
                         </div>
                       </div>
-                      
+
                       <RadioGroup
                         value={answers[index] || ''}
                         onValueChange={(value) => setAnswers(prev => ({ ...prev, [index]: value }))}
@@ -383,7 +383,7 @@ export default function ReadinessWizardPage() {
                           <Label htmlFor={`no-${index}`}>No / Not Implemented</Label>
                         </div>
                       </RadioGroup>
-                      
+
                       {answers[index] && answers[index] !== 'yes' && (
                         <div className="mt-4">
                           <Label htmlFor={`evidence-${index}`}>Evidence Notes</Label>
@@ -415,7 +415,7 @@ export default function ReadinessWizardPage() {
                 Identified gaps between current state and compliance requirements
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card>
                 <CardContent className="p-4">
@@ -457,7 +457,7 @@ export default function ReadinessWizardPage() {
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="space-y-4">
               {gaps.map((gap) => (
                 <Card key={gap.id}>
@@ -498,7 +498,7 @@ export default function ReadinessWizardPage() {
                 Overall readiness score for {frameworkConfig[selectedFramework as keyof typeof frameworkConfig]?.name}
               </p>
             </div>
-            
+
             <div className="text-center space-y-6">
               <div className="relative inline-flex items-center justify-center">
                 <div className="text-6xl font-bold">{score}%</div>
@@ -506,7 +506,7 @@ export default function ReadinessWizardPage() {
                   {statusInfo.status}
                 </div>
               </div>
-              
+
               <div className="w-full max-w-md mx-auto">
                 <Progress value={score} className="h-3" />
                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -515,20 +515,20 @@ export default function ReadinessWizardPage() {
                   <span>100%</span>
                 </div>
               </div>
-              
+
               <Alert>
                 <Target className="h-4 w-4" />
                 <AlertDescription>
-                  {score >= 80 ? 
+                  {score >= 80 ?
                     "Congratulations! You're ready for certification. Focus on maintaining controls and preparing for the audit." :
                     score >= 60 ?
-                    "Good progress! Implement the remaining controls to reach your target readiness score." :
-                    "Significant work needed. Focus on high-priority gaps first to improve readiness."
+                      "Good progress! Implement the remaining controls to reach your target readiness score." :
+                      "Significant work needed. Focus on high-priority gaps first to improve readiness."
                   }
                 </AlertDescription>
               </Alert>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader>
@@ -548,7 +548,7 @@ export default function ReadinessWizardPage() {
                   </ul>
                 </CardContent>
               </Card>
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Areas for Improvement</CardTitle>
@@ -577,7 +577,7 @@ export default function ReadinessWizardPage() {
                 Generated roadmap to achieve certification readiness
               </p>
             </div>
-            
+
             <div className="space-y-4">
               {generateRoadmap(gapItems).map((milestone, index) => (
                 <Card key={milestone.id}>
@@ -603,16 +603,16 @@ export default function ReadinessWizardPage() {
                 </Card>
               ))}
             </div>
-            
+
             <div className="flex justify-center space-x-4">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setShowRoadmapDialog(true)}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export Roadmap
               </Button>
-              <Button 
+              <Button
                 onClick={() => {
                   toast.success("Assessment completed successfully!");
                   setLocation(`/clients/${clientId}/dashboard`);
@@ -645,13 +645,31 @@ export default function ReadinessWizardPage() {
                 <ArrowLeft className="h-4 w-4" />
                 <span>Back to Dashboard</span>
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Readiness Assessment Wizard
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Assess your compliance readiness and create implementation roadmap
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Readiness Assessment Wizard
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Assess your compliance readiness and create implementation roadmap
+                  </p>
+                </div>
+                <PageGuide
+                  title="Readiness Assessment Wizard"
+                  description="Automated guidance for evaluating compliance gaps."
+                  rationale="Readiness assessments are the starting point for any compliance project. They provide an honest look at where you stand today versus where you need to be for certification."
+                  howToUse={[
+                    { step: "Questionnaire", description: "Answer domain-specific questions about your current security controls." },
+                    { step: "Gap Identification", description: "Review areas where requirements are not met or evidence is missing." },
+                    { step: "Scoring", description: "Receive an objective readiness score based on your responses." },
+                    { step: "Roadmap", description: "Get a prioritized action plan tailored to your organization's gaps." }
+                  ]}
+                  integrations={[
+                    { name: "Risk Management", description: "High-risk gaps are automatically flagged for risk assessment." },
+                    { name: "Projects", description: "Start Implementation converts roadmap items into project tasks." },
+                    { name: "Policy Hub", description: "Links relevant policy templates to identified control gaps." }
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -663,23 +681,20 @@ export default function ReadinessWizardPage() {
                 {steps.map((step, index) => (
                   <div key={index} className="flex items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                        index <= currentStep 
-                          ? 'bg-blue-600 text-white' 
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index <= currentStep
+                          ? 'bg-blue-600 text-white'
                           : 'bg-gray-200 text-gray-600'
-                      }`}
+                        }`}
                     >
                       {index < currentStep ? '✓' : index + 1}
                     </div>
-                    <span className={`ml-2 text-sm ${
-                      index <= currentStep ? 'text-blue-600' : 'text-gray-500'
-                    }`}>
+                    <span className={`ml-2 text-sm ${index <= currentStep ? 'text-blue-600' : 'text-gray-500'
+                      }`}>
                       {step}
                     </span>
                     {index < steps.length - 1 && (
-                      <div className={`w-8 h-0.5 mx-2 ${
-                        index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
-                      }`} />
+                      <div className={`w-8 h-0.5 mx-2 ${index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                        }`} />
                     )}
                   </div>
                 ))}
@@ -743,7 +758,7 @@ export default function ReadinessWizardPage() {
             </div>
             <Alert>
               <AlertDescription>
-                The export will include detailed gap analysis, implementation timeline, 
+                The export will include detailed gap analysis, implementation timeline,
                 resource requirements, and success metrics.
               </AlertDescription>
             </Alert>

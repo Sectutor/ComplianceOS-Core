@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import RoadmapCreateForm from '@/components/roadmap/RoadmapCreateForm';
 import { Button } from '@complianceos/ui/ui/button';
 import { trpc } from '@/lib/trpc';
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RoadmapEditPageFixed() {
     const params = useParams();
@@ -65,17 +66,17 @@ export default function RoadmapEditPageFixed() {
     }
 
     // Parse the JSON description to extract the data
-    let roadmapData: any = { 
-        id: roadmapId, 
+    let roadmapData: any = {
+        id: roadmapId,
         title: roadmap.title,
         description: roadmap.description
     };
-    
+
     try {
         if (roadmap.description && typeof roadmap.description === 'string' && roadmap.description.trim().length > 0 && roadmap.description.startsWith('{')) {
             try {
                 const parsedData = JSON.parse(roadmap.description);
-                
+
                 // Map the JSON fields to what RoadmapCreateForm expects
                 roadmapData = {
                     ...roadmapData,
@@ -132,11 +133,26 @@ export default function RoadmapEditPageFixed() {
                 <div className="flex-1 pb-8">
                     {/* Full width header */}
                     <div className="mb-8">
-                        <div className="px-8">
-                            <h1 className="text-2xl font-bold text-slate-900">Edit Roadmap: {roadmap.title}</h1>
-                            <p className="text-slate-600 mt-2">
-                                Update your roadmap configuration and details
-                            </p>
+                        <div className="px-8 flex justify-between items-start">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-900">Edit Roadmap: {roadmap.title}</h1>
+                                <p className="text-slate-600 mt-2">
+                                    Update your roadmap configuration and details
+                                </p>
+                            </div>
+                            <PageGuide
+                                title="Edit Roadmap Configuration"
+                                description="Modify roadmap metadata and initial setup."
+                                rationale="Keep roadmap parameters aligned with changing business needs."
+                                howToUse={[
+                                    { step: "Update Info", description: "Change title, description, and vision." },
+                                    { step: "Adjust Timeline", description: "Modify target dates and milestones." },
+                                    { step: "Drivers", description: "Update business drivers and objectives." }
+                                ]}
+                                integrations={[
+                                    { name: "Roadmap Engine", description: "Updates recalculate project timelines." }
+                                ]}
+                            />
                         </div>
                     </div>
 

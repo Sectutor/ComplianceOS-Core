@@ -505,6 +505,12 @@ export const createFederalRouter = (t: any, clientProcedure: any) => t.router({
             implementationStatus: z.string().optional(),
             implementationDescription: z.string().optional(),
             responsibleRole: z.string().optional(),
+            evidenceLinks: z.array(z.object({
+                id: z.string().optional(),
+                url: z.string().optional(),
+                name: z.string(),
+                type: z.enum(['link', 'file']).optional()
+            })).optional(),
         }))
         .mutation(async ({ input }: any) => {
             const dbConn = await getDb();
@@ -519,6 +525,7 @@ export const createFederalRouter = (t: any, clientProcedure: any) => t.router({
                         implementationStatus: input.implementationStatus,
                         implementationDescription: input.implementationDescription,
                         responsibleRole: input.responsibleRole,
+                        evidenceLinks: input.evidenceLinks,
                         updatedAt: new Date()
                     })
                     .where(eq(schema.federalSspControls.id, existing[0].id));
@@ -526,6 +533,56 @@ export const createFederalRouter = (t: any, clientProcedure: any) => t.router({
             } else {
                 const [ctrl] = await dbConn.insert(schema.federalSspControls).values(input).returning();
                 return ctrl;
+            }
+        }),
+
+    // FIPS Categorization
+    getFipsCategorization: clientProcedure
+        .input(z.object({
+            clientId: z.number(),
+            sspId: z.number()
+        }))
+        .query(async ({ input }: any) => {
+            const dbConn = await getDb();
+            const [cat] = await dbConn.select().from(schema.federalFipsCategorizations)
+                .where(eq(schema.federalFipsCategorizations.sspId, input.sspId));
+            return cat || null;
+        }),
+
+    saveFipsCategorization: clientProcedure
+        .input(z.object({
+            clientId: z.number(),
+            sspId: z.number(),
+            securityObjectiveConfidentiality: z.string().optional(),
+            securityObjectiveIntegrity: z.string().optional(),
+            securityObjectiveAvailability: z.string().optional(),
+            rationaleConfidentiality: z.string().optional(),
+            rationaleIntegrity: z.string().optional(),
+            rationaleAvailability: z.string().optional(),
+            informationTypes: z.array(z.object({
+                type: z.string(),
+                impact: z.enum(['low', 'moderate', 'high']),
+                description: z.string().optional()
+            })).optional()
+        }))
+        .mutation(async ({ input }: any) => {
+            const dbConn = await getDb();
+            const existing = await dbConn.select().from(schema.federalFipsCategorizations)
+                .where(eq(schema.federalFipsCategorizations.sspId, input.sspId));
+
+            if (existing.length > 0) {
+                await dbConn.update(schema.federalFipsCategorizations)
+                    .set({
+                        ...input,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(schema.federalFipsCategorizations.id, existing[0].id));
+                return existing[0];
+            } else {
+                const [cat] = await dbConn.insert(schema.federalFipsCategorizations)
+                    .values(input)
+                    .returning();
+                return cat;
             }
         }),
 

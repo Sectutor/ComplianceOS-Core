@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { getDb } from "../../db";
 import * as schema from "../../schema";
-import { eq, desc, and, like } from "drizzle-orm";
+import { eq, desc, and, like, sql } from "drizzle-orm";
 import * as crypto from 'crypto';
 import { sendEmail } from "../../lib/email/transporter";
 
@@ -151,15 +151,42 @@ export const createAuditRouter = (t: any, protectedProcedure: any) => {
             const [plan] = await db.select().from(schema.implementationPlans)
                 .where(eq(schema.implementationPlans.id, input.planId));
 
+            if (!plan) return { scopeDefined: false, riskAssessment: false, evidencePercentage: 0, internalAudit: false };
+
             // 2. Risk Assessment
             const riskAssessments = await db.select().from(schema.riskAssessments)
                 .where(eq(schema.riskAssessments.clientId, plan.clientId));
 
-            // 3. Evidence
-            // Get controls for this plan
-            // Complex join needed, for now use simpler heuristic or distinct evidence count
-            const evidenceCount = await db.select().from(schema.evidence)
-                .where(eq(schema.evidence.clientId, plan.clientId)); // simplified
+            // 3. Evidence Percentage (Calculated accurately)
+            // First, identify the framework name
+            const [framework] = await db.select().from(schema.complianceFrameworks)
+                .where(eq(schema.complianceFrameworks.id, input.frameworkId));
+            
+            let evidencePercentage = 0;
+
+            if (framework) {
+                // Get Total Controls for this framework
+                const [totalControlsResult] = await db.select({ count: sql<number>`count(*)` })
+                    .from(schema.controls)
+                    .where(eq(schema.controls.framework, framework.name));
+                
+                const totalControls = Number(totalControlsResult?.count || 0);
+
+                if (totalControls > 0) {
+                    // Get Implemented Controls for this client & framework
+                    const [implementedResult] = await db.select({ count: sql<number>`count(*)` })
+                        .from(schema.clientControls)
+                        .innerJoin(schema.controls, eq(schema.clientControls.controlId, schema.controls.id))
+                        .where(and(
+                            eq(schema.clientControls.clientId, plan.clientId),
+                            eq(schema.controls.framework, framework.name),
+                            eq(schema.clientControls.status, 'implemented')
+                        ));
+                    
+                    const implementedCount = Number(implementedResult?.count || 0);
+                    evidencePercentage = Math.round((implementedCount / totalControls) * 100);
+                }
+            }
 
             // 4. Internal Audit (Check for tasks)
             const auditTasks = await db.select().from(schema.implementationTasks)
@@ -172,8 +199,8 @@ export const createAuditRouter = (t: any, protectedProcedure: any) => {
             return {
                 scopeDefined: !!plan,
                 riskAssessment: riskAssessments.length > 0,
-                evidencePercentage: Math.min(100, Math.round((evidenceCount.length / 50) * 100)), // Mock denominator
-                internalAudit: auditTasks.length > 0 || false // rudimentary check
+                evidencePercentage: Math.min(100, evidencePercentage),
+                internalAudit: auditTasks.length > 0
             };
         })
     });

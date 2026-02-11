@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PageGuide } from '@/components/PageGuide';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@complianceos/ui/ui/card';
 import { Badge } from '@complianceos/ui/ui/badge';
@@ -171,7 +172,24 @@ export default function GovernanceAlignmentPage() {
 
     return (
         <DashboardLayout>
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 lg:p-10">
+            <div className="relative min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6 lg:p-10">
+                <div className="absolute top-6 right-6">
+                    <PageGuide
+                        title="Governance Alignment"
+                        description="Align your security program with global standards like ISO 27001 and NIST CSF."
+                        rationale="Ensures comprehensive coverage of governance requirements and demonstrates due diligence."
+                        howToUse={[
+                            { step: "Select Framework", description: "Toggle between ISO 27001 and NIST CSF to see relevant requirements." },
+                            { step: "Review Areas", description: "Explore specific governance domains like Leadership and Policy." },
+                            { step: "Track Implementation", description: "See which platform features map to specific standard requirements." }
+                        ]}
+                        integrations={[
+                            { name: "People Registry", description: "Manage stakeholders." },
+                            { name: "Policies", description: "Draft and approve policies." },
+                            { name: "Risk Register", description: "Assess risks." }
+                        ]}
+                    />
+                </div>
                 <div className="max-w-7xl mx-auto space-y-8">
                     {/* Header */}
                     <div className="text-center space-y-6">

@@ -23,6 +23,8 @@ export const SlotNames = {
     // Policy
     POLICY_RISK_SUGGESTION: 'policy-risk-suggestion',
     POLICY_CONTROL_SUGGESTION: 'policy-control-suggestion',
+    POLICY_SECTION_DRAFT: 'policy-section-draft',
+    POLICY_REWRITE_BUTTON: 'policy-rewrite-button',
 
     // Risk
     RISK_CONTROL_SUGGESTION: 'risk-control-suggestion',

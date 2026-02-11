@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@comp
 import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
-import { Loader2, Calendar as CalendarIcon, FileText, ExternalLink, ShieldAlert, CheckCircle, AlertTriangle, User, Phone, Mail, Plus, Trash2, Edit2, Info, Zap, AlertOctagon, History, Send, ScrollText, ChevronDown, Shield, Brain } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, FileText, ExternalLink, ShieldAlert, CheckCircle, AlertTriangle, User, Phone, Mail, Plus, Trash2, Edit2, Info, Zap, AlertOctagon, History, Send, ScrollText, ChevronDown, Shield } from "lucide-react";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import {
     AlertDialog,
@@ -41,7 +41,7 @@ export default function VendorDetails() {
 
     // Optimized consolidated vendor data endpoint
     const { data: vendorData, isLoading } = trpc.vendorAssessments.getVendorDetails.useQuery(
-        { vendorId: vId, clientId },
+        { vendorId: vId, clientId }, 
         { enabled: !!vId && !!clientId }
     );
 
@@ -144,6 +144,19 @@ export default function VendorDetails() {
             refetchAssessments();
         },
         onError: (err) => toast.error("Failed to send: " + err.message)
+    });
+
+    // Vendor Threat Intelligence: suggestions and scan
+    const { data: vendorSuggestions, refetch: refetchVendorSuggestions } = trpc.threatIntel.getVendorSuggestions.useQuery(
+        { vendorId: vId },
+        { enabled: !!vId }
+    );
+    const scanVendorMutation = trpc.threatIntel.scanVendor.useMutation({
+        onSuccess: () => {
+            toast.success("Vendor threat scan completed");
+            refetchVendorSuggestions();
+        },
+        onError: (err) => toast.error("Vendor scan failed: " + err.message)
     });
 
     const handleSendConsolidated = (data: any) => {
@@ -447,10 +460,7 @@ export default function VendorDetails() {
         serviceDescription: "",
         additionalNotes: "",
         isSubprocessor: false,
-        trustCenterUrl: "",
-        usesAi: false,
-        isAiService: false,
-        aiDataUsage: ""
+        trustCenterUrl: ""
     });
 
     const updateVendorMutation = trpc.vendors.update.useMutation({
@@ -545,10 +555,7 @@ export default function VendorDetails() {
                 serviceDescription: vendor.serviceDescription || "",
                 additionalNotes: vendor.additionalNotes || "",
                 isSubprocessor: vendor.isSubprocessor || false,
-                trustCenterUrl: vendor.trustCenterUrl || "",
-                usesAi: vendor.usesAi || false,
-                isAiService: vendor.isAiService || false,
-                aiDataUsage: vendor.aiDataUsage || ""
+                trustCenterUrl: vendor.trustCenterUrl || ""
             });
             setIsEditOpen(true);
         }
@@ -666,7 +673,7 @@ export default function VendorDetails() {
             </div>
 
 
-
+// Force Reload: debug-marker-v1
             <div className="bg-indigo-600 text-white p-2 rounded text-xs font-bold text-center mb-4">
                 DPA SYSTEM ACTIVE
             </div>
@@ -683,11 +690,6 @@ export default function VendorDetails() {
                     <TabsTrigger value="risk-scan">Risk Scan</TabsTrigger>
                     <TabsTrigger value="contacts">Contacts</TabsTrigger>
                     <TabsTrigger value="contracts">Contracts</TabsTrigger>
-                    {vendor.usesAi && (
-                        <TabsTrigger value="ai-governance" className="bg-primary/5 text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                            <Brain className="h-4 w-4 mr-2" /> AI Governance
-                        </TabsTrigger>
-                    )}
                 </TabsList>
 
                 <TabsContent value="legal" className="pt-4 space-y-4">
@@ -782,56 +784,6 @@ export default function VendorDetails() {
                             </CardContent>
                         </Card>
                     </div>
-
-                    {vendor.usesAi && (
-                        <Card className="border-primary/20 bg-primary/5">
-                            <CardHeader className="flex flex-row items-center gap-2 pb-2">
-                                <Brain className="h-5 w-5 text-primary" />
-                                <div>
-                                    <CardTitle className="text-primary font-bold">AI Governance Profile</CardTitle>
-                                    <CardDescription>This vendor has been flagged as having AI-enabled services (MAP 1.5).</CardDescription>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="grid md:grid-cols-2 gap-6">
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-slate-500 uppercase">Service Type</p>
-                                            <Badge variant="outline" className="bg-white">{vendor.isAiService ? "Core AI Provider" : "AI-Augmented Service"}</Badge>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-slate-500 uppercase">Data Usage</p>
-                                            <p className="text-sm text-slate-800 italic">{vendor.aiDataUsage || "No policy documented"}</p>
-                                        </div>
-                                    </div>
-                                    <div className="p-3 bg-white rounded-lg border border-primary/10">
-                                        <p className="text-xs font-bold text-primary uppercase mb-2">Policy Alignment</p>
-                                        <div className="flex items-center gap-2 text-xs text-emerald-700">
-                                            <CheckCircle className="h-3 w-3" />
-                                            <span>Aligned with AI Acceptable Use Policy</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Risk Context (NIST MEASURE)</p>
-                                    <div className="p-4 bg-white rounded-lg border space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium">Safety Impact</span>
-                                            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] h-4">LOW</Badge>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium">Bias Vulnerability</span>
-                                            <Badge className="bg-amber-100 text-amber-800 text-[10px] h-4">MEDIUM</Badge>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xs font-medium">Explainability</span>
-                                            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] h-4">HIGH</Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
                 </TabsContent>
 
                 <TabsContent value="documents" className="space-y-4 pt-4">
@@ -1068,6 +1020,53 @@ export default function VendorDetails() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-md flex items-center gap-2">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600" /> Vendor CVE Suggestions
+                                        </CardTitle>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs h-7"
+                                            onClick={() => scanVendorMutation.mutate({ clientId, vendorId: vId })}
+                                            disabled={scanVendorMutation.isPending}
+                                        >
+                                            <Zap className="h-3 w-3 mr-1" />
+                                            {scanVendorMutation.isPending ? "Scanning..." : "Scan Vendor"}
+                                        </Button>
+                                    </div>
+                                    <CardDescription>Direct suggestions from NVD keyed to this vendor name.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {vendorSuggestions && vendorSuggestions.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {vendorSuggestions.map((s: any, idx: number) => (
+                                                <div key={idx} className="flex items-start justify-between p-2 rounded border hover:bg-slate-50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge variant="outline">{s.cveId}</Badge>
+                                                        <div>
+                                                            <div className="text-sm font-medium line-clamp-1">{s.description}</div>
+                                                            <div className="text-xs text-muted-foreground">
+                                                                CVSS: {s.cvssScore || 'N/A'} • {s.matchReason || 'Keyword match'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <a href={`https://nvd.nist.gov/vuln/detail/${s.cveId}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline p-1">
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-muted-foreground text-center py-2">
+                                            No vendor suggestions yet. Run Scan Vendor to fetch CVEs.
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* Scan History */}
                             {scanResult?.scans && scanResult.scans.length > 0 && (
@@ -1368,87 +1367,6 @@ export default function VendorDetails() {
                         )}
                     </div>
                 </TabsContent>
-
-                <TabsContent value="ai-governance" className="space-y-6 pt-4">
-                    <div className="grid md:grid-cols-3 gap-6">
-                        <Card className="col-span-2">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Brain className="h-5 w-5 text-primary" />
-                                    AI Impact Assessment Summary (NIST MEASURE)
-                                </CardTitle>
-                                <CardDescription>Summary of results from the latest AI risk evaluation.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Safety Score</p>
-                                        <p className="text-2xl font-bold text-emerald-600">92/100</p>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Bias Risk</p>
-                                        <p className="text-2xl font-bold text-amber-600">Low</p>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Privacy</p>
-                                        <p className="text-2xl font-bold text-emerald-600">High</p>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-lg border text-center">
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Explainability</p>
-                                        <p className="text-2xl font-bold text-slate-400">N/A</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h4 className="font-bold text-sm">Key Findings & Remediation</h4>
-                                    <div className="space-y-2">
-                                        <div className="p-3 border rounded-lg bg-amber-50 border-amber-200 flex gap-3">
-                                            <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0" />
-                                            <div>
-                                                <p className="text-sm font-bold text-amber-900">Incomplete Model Card</p>
-                                                <p className="text-xs text-amber-800">The vendor has not provided a complete model card for the specific version used in our tenant. Requested on 2024-05-15.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-sm">Control Coverage</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs">
-                                        <span>NIST AI RMF (MAP)</span>
-                                        <span className="font-bold">85%</span>
-                                    </div>
-                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500 w-[85%]" />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs">
-                                        <span>NIST AI RMF (GOVERN)</span>
-                                        <span className="font-bold">60%</span>
-                                    </div>
-                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-amber-500 w-[60%]" />
-                                    </div>
-                                </div>
-                                <div className="pt-4 border-t space-y-2">
-                                    <Button variant="outline" className="w-full text-xs h-8" onClick={() => setLocation(`/clients/${clientId}/ai-governance`)}>
-                                        View Full NIST Map
-                                    </Button>
-                                    <Button className="w-full text-xs h-8">
-                                        Download AI Report
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
             </Tabs>
 
             <EnhancedDialog
@@ -1674,43 +1592,6 @@ export default function VendorDetails() {
                             value={editForm.description}
                             onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                         />
-                    </div>
-
-                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Brain className="h-5 w-5 text-primary" />
-                            <h4 className="font-bold text-primary">AI Governance (MAP 1.5)</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={editForm.usesAi}
-                                    onChange={e => setEditForm({ ...editForm, usesAi: e.target.checked })}
-                                    className="rounded border-slate-300"
-                                />
-                                <span className="text-sm font-medium">Uses AI in Service</span>
-                            </label>
-                            <label className="flex items-center space-x-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={editForm.isAiService}
-                                    onChange={e => setEditForm({ ...editForm, isAiService: e.target.checked })}
-                                    className="rounded border-slate-300"
-                                />
-                                <span className="text-sm font-medium">Core AI Service Provider</span>
-                            </label>
-                        </div>
-                        {(editForm.usesAi || editForm.isAiService) && (
-                            <div className="space-y-2">
-                                <Label>AI Data Usage Policy</Label>
-                                <Input
-                                    value={editForm.aiDataUsage}
-                                    onChange={e => setEditForm({ ...editForm, aiDataUsage: e.target.value })}
-                                    placeholder="e.g. Inputs used for training, Zero retention, etc."
-                                />
-                            </div>
-                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -13,6 +13,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function CyberIncidentReporting() {
     const [step, setStep] = useState(1);
@@ -68,14 +69,20 @@ export default function CyberIncidentReporting() {
     return (
         <CyberLayout>
             <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => setLocation("/cyber/incidents")}>
+                <div className="flex items-start gap-4 animate-slide-down">
+                    <Button variant="ghost" size="icon" onClick={() => setLocation("/cyber/incidents")} className="mt-1">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Report New Incident</h1>
-                        <p className="text-muted-foreground mt-1">NIS2 requires reporting significant incidents within strict timelines.</p>
-                    </div>
+                    <PageGuide
+                        title="Report New Incident"
+                        description="Step-by-step wizard for reporting significant incidents."
+                        rationale="NIS2 mandates strict reporting timelines (24h/72h) for significant incidents."
+                        howToUse={[
+                            { step: "24h Warning", description: " Submit early warning within 24 hours of detection." },
+                            { step: "72h Details", description: "Provide detailed assessment within 72 hours." },
+                            { step: "Final Report", description: "Submit full analysis within 1 month." }
+                        ]}
+                    />
                 </div>
 
                 <Alert variant="destructive" className="bg-red-50 text-red-900 border-red-200">

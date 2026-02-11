@@ -6,6 +6,7 @@ interface AuthContextType {
     session: Session | null;
     user: User | null;
     loading: boolean;
+    aal?: 'aal1' | 'aal2' | null;
     signIn: (email?: string, password?: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
@@ -16,6 +17,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [aal, setAal] = useState<'aal1' | 'aal2' | null>(null);
 
     useEffect(() => {
         // Check active sessions and sets the user
@@ -30,6 +32,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
+            supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => {
+                setAal((data?.currentLevel as any) || null);
+            });
         });
 
         return () => subscription.unsubscribe();
@@ -62,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         user,
         loading,
+        aal,
         signIn,
         signOut,
     };

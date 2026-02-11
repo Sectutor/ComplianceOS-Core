@@ -12,6 +12,7 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { useLocation } from "wouter";
+import { PageGuide } from "@/components/PageGuide";
 
 // Define the linked evidence sources
 const linkedEvidenceSources = [
@@ -85,9 +86,17 @@ export default function CyberDocumentation() {
     return (
         <CyberLayout>
             <div className="space-y-8">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Documentation & Evidence</h1>
-                    <p className="text-muted-foreground mt-1">Repository for NIS2 required policies and linked evidence from across your compliance program.</p>
+                <div className="animate-slide-down">
+                    <PageGuide
+                        title="Documentation & Evidence"
+                        description="Repository for NIS2 required policies and linked evidence."
+                        rationale="Demonstrable compliance requires organized, accessible documentation of policies and evidence."
+                        howToUse={[
+                            { step: "Create", description: "Draft and approve NIS2-specific policies." },
+                            { step: "Link", description: "Connect evidence from other modules (Risks, BCP, Controls)." },
+                            { step: "Review", description: "Ensure all documentation is up-to-date and approved." }
+                        ]}
+                    />
                 </div>
 
                 {/* Linked Evidence Sources */}

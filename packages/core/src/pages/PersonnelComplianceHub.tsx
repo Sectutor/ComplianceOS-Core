@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 import { useClientContext } from "@/contexts/ClientContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
@@ -9,21 +11,37 @@ import { Input } from "@complianceos/ui/ui/input";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Button } from "@complianceos/ui/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
-import { Users, GraduationCap, ClipboardList, Search, Loader2, FileCheck, Package } from "lucide-react";
+import { Users, GraduationCap, ClipboardList, Search, Loader2, FileCheck, Package, ArrowLeft, AlertOctagon } from "lucide-react";
 import TrainingManagement from "./TrainingManagement";
 import OnboardingSettings from "./settings/OnboardingSettings";
 import ClientPoliciesPage from "./ClientPoliciesPage";
 import EquipmentAssignmentTab from "@/components/compliance/EquipmentAssignmentTab";
+import PolicyExceptionsTab from "@/components/compliance/PolicyExceptionsTab";
 
 export default function PersonnelComplianceHub() {
     const { id: idParam } = useParams();
     const context = useClientContext();
     const clientId = parseInt(idParam || "0") || context.selectedClientId || 0;
     const [activeTab, setActiveTab] = useState("training");
+    const { data: client } = trpc.clients.get.useQuery({ id: clientId }, { enabled: !!clientId });
 
     return (
         <DashboardLayout>
             <div className="p-8 max-w-7xl mx-auto space-y-8">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => window.history.back()}>
+                        <ArrowLeft className="h-4 w-4" />
+                        Back
+                    </Button>
+                    <Breadcrumb
+                        items={[
+                            { label: "Dashboard", href: "/dashboard" },
+                            { label: "Clients", href: "/clients" },
+                            { label: client?.name || "Client", href: `/clients/${clientId}` },
+                            { label: "Personnel Compliance" },
+                        ]}
+                    />
+                </div>
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Personnel Compliance</h1>
@@ -31,10 +49,24 @@ export default function PersonnelComplianceHub() {
                             Manage training modules, onboarding documents, and track company-wide compliance status.
                         </p>
                     </div>
+                    <PageGuide
+                        title="Personnel Compliance"
+                        description="360-degree view of employee security status."
+                        rationale="Centralizes tracking of background checks, training, and policy acceptance."
+                        howToUse={[
+                            { step: "Onboard Employees", description: "Manage document signing workflows." },
+                            { step: "Monitor Status", description: "Identify non-compliant staff at a glance." },
+                            { step: "Asset Management", description: "Track assigned devices and access." }
+                        ]}
+                        integrations={[
+                            { name: "Training", description: "Links to Training Management." },
+                            { name: "Policies", description: "Tracks policy acceptance." }
+                        ]}
+                    />
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="grid w-full max-w-3xl grid-cols-5">
+                    <TabsList className="grid w-full max-w-4xl grid-cols-6">
                         <TabsTrigger value="training" className="gap-2">
                             <GraduationCap className="h-4 w-4" />
                             Training
@@ -46,6 +78,10 @@ export default function PersonnelComplianceHub() {
                         <TabsTrigger value="policies" className="gap-2">
                             <FileCheck className="h-4 w-4" />
                             Policies
+                        </TabsTrigger>
+                        <TabsTrigger value="exceptions" className="gap-2">
+                            <AlertOctagon className="h-4 w-4" />
+                            Exceptions
                         </TabsTrigger>
                         <TabsTrigger value="assets" className="gap-2">
                             <Package className="h-4 w-4" />
@@ -67,6 +103,10 @@ export default function PersonnelComplianceHub() {
 
                     <TabsContent value="policies" className="space-y-6">
                         <ClientPoliciesPage hideLayout={true} clientId={clientId} />
+                    </TabsContent>
+
+                    <TabsContent value="exceptions" className="space-y-6">
+                        <PolicyExceptionsTab clientId={clientId} />
                     </TabsContent>
 
                     <TabsContent value="assets" className="space-y-6">

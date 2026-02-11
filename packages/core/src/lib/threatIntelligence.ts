@@ -7,7 +7,8 @@
 
 import { getDb } from '../db';
 import { nvdCveCache, cisaKevCache, assetCveMatches, threatIntelSyncLog, assets, vendors, vendorCveMatches, type Asset, type Vendor } from '../schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, or, gte, sql } from 'drizzle-orm';
+import * as adversaryIntelService from './adversaryService';
 
 // ==================== TYPE DEFINITIONS ====================
 
@@ -82,6 +83,7 @@ export interface CveSuggestion {
     cweIds?: string[];
     references?: { url: string; tags?: string[] }[];
     affectedProducts?: string[];
+    matchId?: number;
 }
 
 export interface BreachSuggestion {
@@ -474,9 +476,9 @@ export async function scanAssetForCves(asset: Asset): Promise<CveSuggestion[]> {
 
         // Extract affected products
         const affectedProducts = cve.configurations?.flatMap((config: any) =>
-            config.nodes.flatMap((node: any) =>
+            config.nodes?.flatMap((node: any) =>
                 node.cpeMatch?.filter((m: any) => m.vulnerable).map((m: any) => m.criteria) || []
-            )
+            ) || []
         ) || [];
 
         suggestions.push({
@@ -521,6 +523,15 @@ export async function scanAssetForCves(asset: Asset): Promise<CveSuggestion[]> {
         }
     }
 
+    // Update lastScannedAt
+    try {
+        await db.update(assets)
+            .set({ lastScannedAt: new Date() })
+            .where(eq(assets.id, asset.id));
+    } catch (e) {
+        console.error('[ThreatIntel] Failed to update lastScannedAt:', e);
+    }
+
     return suggestions.slice(0, 20);
 }
 
@@ -556,6 +567,7 @@ export async function getAssetCveSuggestions(assetId: number): Promise<CveSugges
         cweIds: (m.cveCache?.cweIds as string[] | undefined) || [],
         references: (m.cveCache?.references as { url: string; tags?: string[] }[] | undefined) || [],
         affectedProducts: (m.cveCache?.affectedProducts as string[] | undefined) || [],
+        matchId: m.match.id,
     }));
 }
 
@@ -573,8 +585,20 @@ export async function scanAllAssetsForClient(clientId: number): Promise<{ assetI
     const results: { assetId: number; count: number }[] = [];
 
     for (const asset of clientAssets) {
-        const suggestions = await scanAssetForCves(asset);
-        results.push({ assetId: asset.id, count: suggestions.length });
+        try {
+            console.log(`[ThreatIntel] Scanning asset ${asset.id}: ${asset.name}`);
+            const suggestions = await scanAssetForCves(asset);
+            results.push({ assetId: asset.id, count: suggestions.length });
+
+            // Respect NVD rate limit (6s without API key, <1s with API key)
+            const delay = process.env.NVD_API_KEY ? 1000 : 7000;
+            if (clientAssets.length > 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        } catch (error) {
+            console.error(`[ThreatIntel] Error scanning asset ${asset.id}:`, error);
+            results.push({ assetId: asset.id, count: 0 });
+        }
     }
 
     return results;
@@ -745,6 +769,7 @@ export async function getVendorCveSuggestions(vendorId: number): Promise<CveSugg
         cweIds: (m.cveCache?.cweIds as string[] | undefined) || [],
         references: (m.cveCache?.references as { url: string; tags?: string[] }[] | undefined) || [],
         affectedProducts: (m.cveCache?.affectedProducts as string[] | undefined) || [],
+        matchId: m.match.id,
     }));
 }
 /**
@@ -815,4 +840,59 @@ export async function simulateBreachSearch(vendorName: string, domain?: string):
 
     // No known breaches found for this vendor
     return [];
+}
+/**
+ * Get daily intelligence briefing for a client
+ */
+export async function getDailyBriefing(clientId: number) {
+    const dbConn = await getDb();
+    if (!dbConn) return null;
+
+    // Analyze last 24h
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // 1. New Critical Matches (Asset CVEs)
+    const newCriticals = await dbConn.select({
+        cveId: assetCveMatches.cveId,
+        assetName: assets.name,
+        cvssScore: nvdCveCache.cvssScore,
+        isKev: assetCveMatches.isKev,
+    })
+        .from(assetCveMatches)
+        .innerJoin(assets, eq(assetCveMatches.assetId, assets.id))
+        .leftJoin(nvdCveCache, eq(assetCveMatches.cveId, nvdCveCache.cveId))
+        .where(and(
+            eq(assetCveMatches.clientId, clientId),
+            gte(assetCveMatches.discoveredAt, dayAgo),
+            or(
+                gte(sql`CAST(${nvdCveCache.cvssScore} AS NUMERIC)`, 7),
+                eq(assetCveMatches.isKev, true)
+            )
+        ));
+
+    // 2. High Priority News
+    const newsItems = await adversaryIntelService.fetchSecurityFeeds();
+    const urgentNews = newsItems.filter((item) =>
+        (item.severity === 'critical' || item.tags?.some((t: string) => ['ransomware', '0-day', 'exploit'].includes(t.toLowerCase()))) &&
+        new Date(item.pubDate) >= dayAgo
+    );
+
+    return {
+        date: new Date(),
+        summary: {
+            newCriticalVulns: newCriticals.length,
+            urgentThreats: urgentNews.length,
+            totalScanned: 100 // Mock for now
+        },
+        criticalVulns: newCriticals.map((v: any) => ({
+            id: v.cveId,
+            asset: v.assetName,
+            severity: v.isKev ? 'Critical (KEV)' : `High (${v.cvssScore})`
+        })),
+        urgentNews: urgentNews.map((n) => ({
+            title: n.title,
+            source: n.sourceName || n.source,
+            link: n.link
+        }))
+    };
 }

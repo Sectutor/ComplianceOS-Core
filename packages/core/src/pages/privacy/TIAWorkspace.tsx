@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Shield, ArrowLeft, Save, CheckCircle, AlertTriangle, Globe, Lock, Scale, Info } from "lucide-react";
 import { useParams, useLocation } from "wouter";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/PageGuide";
 
 const STEPS = [
     { id: 'mapping', title: '1. Transfer Mapping', icon: Globe },
@@ -102,8 +103,8 @@ export default function TIAWorkspace() {
                                 key={step.id}
                                 onClick={() => setActiveStep(idx)}
                                 className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm font-medium transition-colors ${activeStep === idx
-                                        ? 'bg-white shadow-sm text-blue-600 border'
-                                        : 'text-slate-600 hover:bg-slate-100'
+                                    ? 'bg-white shadow-sm text-blue-600 border'
+                                    : 'text-slate-600 hover:bg-slate-100'
                                     }`}
                             >
                                 <step.icon className={`w-4 h-4 ${activeStep === idx ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -132,6 +133,18 @@ export default function TIAWorkspace() {
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto bg-slate-100 p-8">
+                    <div className="max-w-4xl mx-auto mb-6 animate-slide-down">
+                        <PageGuide
+                            title="Transfer Impact Assessment (TIA)"
+                            description=" Assess validity of transfer tools for third-country data flows."
+                            rationale="Schrems II requires verifying if local laws impinge on SCC effectiveness."
+                            howToUse={[
+                                { step: "Map", description: "Detail exporter, importer, and data flows." },
+                                { step: "Assess", description: "Evaluate third-country laws and surveillance risks." },
+                                { step: "Mitigate", description: "Implement supplementary measures if necessary." }
+                            ]}
+                        />
+                    </div>
                     <Card className="max-w-4xl mx-auto shadow-sm">
                         <CardHeader>
                             <CardTitle>{STEPS[activeStep].title}</CardTitle>

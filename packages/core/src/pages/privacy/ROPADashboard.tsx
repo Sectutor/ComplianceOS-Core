@@ -22,6 +22,7 @@ import {
 import { FileText, Plus, Search, AlertCircle, Globe, Shield, Clock, Edit, Trash2 } from "lucide-react";
 import { useParams } from "wouter";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ROPADashboard() {
     const { id } = useParams<{ id: string }>();
@@ -185,11 +186,17 @@ export default function ROPADashboard() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold">Records of Processing Activities (ROPA)</h1>
-                    <p className="text-muted-foreground">GDPR Article 30 Compliance</p>
-                </div>
+            <div className="flex justify-between items-center animate-slide-down">
+                <PageGuide
+                    title="Records of Processing Activities (ROPA)"
+                    description="GDPR Article 30 documentation of data processing."
+                    rationale="Mandatory regulatory record of how personal data is handled."
+                    howToUse={[
+                        { step: "Document", description: "Record purpose, legal basis, and retention." },
+                        { step: "Identify", description: "Map data categories and subject types." },
+                        { step: "Maintain", description: "Regularly review and update activities." }
+                    ]}
+                />
                 <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> New Processing Activity
                 </Button>

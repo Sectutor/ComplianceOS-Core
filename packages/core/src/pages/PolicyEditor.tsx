@@ -10,21 +10,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowLeft, Save, Eye, FileText, Loader2, History, RotateCcw, HelpCircle, ChevronDown, ChevronUp, Sparkles, Send, Users } from "lucide-react";
+import { ArrowLeft, Check, Copy, Eye, History, Loader2, Save, Sparkles, Trash2, Shield, AlertTriangle, Clock, Target, CheckCircle2, FileText, Users, Wand2, ShieldAlert, Link as LinkIcon, Unlink, TrendingDown, TrendingUp, ExternalLink, BarChart3, X, Send, RotateCcw } from "lucide-react";
+import { marked } from "marked";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@complianceos/ui/ui/dialog";
 import RichTextEditor from "@/components/RichTextEditor";
-import { marked } from "marked";
 import TurndownService from "turndown";
 
-// @ts-ignore
+// @ts-expect-error - html-docx-js-typescript types are missing
 import { asBlob } from "html-docx-js-typescript";
 import { saveAs } from "file-saver";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@complianceos/ui/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@complianceos/ui/ui/popover";
-import { Check, X, ShieldAlert, Link as LinkIcon, Unlink, Shield, TrendingDown, TrendingUp, AlertTriangle, ExternalLink, CheckCircle2, Clock, Target, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ControlDetailsDialog from "@/components/ControlDetailsDialog";
 import { RiskDetailsDialog } from "@/components/risk/RiskDetailsDialog";
@@ -32,11 +31,74 @@ import { CommentsSection } from "@/components/CommentsSection";
 import { Slot } from "@/registry";
 import { SlotNames } from "@/registry/slotNames";
 import { DistributionDialog } from "@/components/policy/DistributionDialog";
+import { PageGuide } from "@/components/PageGuide";
+import PolicyLinter from "@/components/policy/PolicyLinter";
 
-export default function PolicyEditor() {
+// Helper logic for Policy Analysis
+
+
+
+function decodeEntities(str: string) {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = str;
+    return txt.value;
+}
+
+function cleanGeneratedHtml(input: string) {
+    let s = input || "";
+    // Strip fenced code blocks
+    s = s.replace(/```html([\s\S]*?)```/gi, "$1").replace(/```([\s\S]*?)```/gi, "$1");
+    // Extract <pre><code>...</code></pre>
+    s = s.replace(/<pre[\s\S]*?>[\s\S]*?<code[^>]*>([\s\S]*?)<\/code>[\s\S]*?<\/pre>/gi, "$1");
+    // Decode entities if HTML was serialized as text
+    if (s.includes("&lt;") || s.includes("&gt;")) s = decodeEntities(s);
+    // Remove outer html/head/body wrappers
+    const bodyMatch = s.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) s = bodyMatch[1];
+    // Drop style/script tags
+    s = s.replace(/<\/?(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "");
+    // Convert <section> to <div>
+    s = s.replace(/<section([^>]*)>/gi, "<div$1>").replace(/<\/section>/gi, "</div>");
+    return s.trim();
+}
+
+function ensureTitleHeading(html: string, title: string) {
+    try {
+        const container = document.createElement("div");
+        container.innerHTML = html || "";
+        let h1 = container.querySelector("h1");
+        const t = (title || "Information Security Policy").trim();
+        if (!h1) {
+            h1 = document.createElement("h1");
+            h1.textContent = t;
+            container.insertBefore(h1, container.firstChild);
+        } else if (t && (h1.textContent || "").trim() !== t) {
+            h1.textContent = t;
+        }
+        return container.innerHTML;
+    } catch {
+        return html;
+    }
+}
+
+export default function PolicyEditor(props: { id?: string; policyId?: string }) {
+    console.log("[PolicyEditor] Rendering...");
     const params = useParams();
-    const clientId = Number(params.id);
-    const policyId = Number(params.policyId);
+    // Prioritize props passed from Route
+    const rawClientId = props.id || params.id;
+    const rawPolicyId = props.policyId || params.policyId;
+
+    const clientId = Number(rawClientId);
+    const policyId = Number(rawPolicyId);
+
+    console.log("[PolicyEditor] Resolved IDs:", {
+        props,
+        params,
+        rawClientId,
+        rawPolicyId,
+        clientId,
+        policyId
+    });
     const [location, setLocation] = useLocation();
 
     const { data: policyData, isLoading: loadingPolicy, refetch: refetchPolicy } = trpc.clientPolicies.get.useQuery(
@@ -48,16 +110,18 @@ export default function PolicyEditor() {
     const deletePolicyMutation = trpc.clientPolicies.delete.useMutation();
     const publishVersionMutation = trpc.clientPolicies.publish.useMutation();
     const restoreVersionMutation = trpc.clientPolicies.restore.useMutation();
+    const refineMutation = trpc.clientPolicies.refine.useMutation();
     const { data: versionHistory, refetch: refetchHistory } = trpc.clientPolicies.history.useQuery(
-        { policyId },
-        { enabled: !!policyId }
+        { policyId, clientId },
+        { enabled: !!policyId && !!clientId }
     );
 
     // Integations Data
-    const { data: linkedRisks, refetch: refetchLinkedRisks } = trpc.clientPolicies.getLinkedRisks.useQuery({ policyId }, { enabled: !!policyId });
-    const { data: linkedControls, refetch: refetchLinkedControls } = trpc.clientPolicies.getLinkedControls.useQuery({ policyId }, { enabled: !!policyId });
+    const { data: linkedRisks, refetch: refetchLinkedRisks } = trpc.clientPolicies.getLinkedRisks.useQuery({ policyId, clientId }, { enabled: !!policyId && !!clientId });
+    const { data: linkedControls, refetch: refetchLinkedControls } = trpc.clientPolicies.getLinkedControls.useQuery({ policyId, clientId }, { enabled: !!policyId && !!clientId });
     const { data: availableRisks } = trpc.risks.getAll.useQuery({ clientId }, { enabled: !!clientId });
     const { data: availableControls } = trpc.clientControls.list.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: clientData } = trpc.clients.get.useQuery({ id: clientId }, { enabled: !!clientId });
 
     const { data: assignments, isLoading: loadingAssignments } = trpc.policyManagement.getAssignments.useQuery(
         { policyId },
@@ -68,6 +132,8 @@ export default function PolicyEditor() {
     const unlinkRiskMutation = trpc.clientPolicies.unlinkRisk.useMutation();
     const linkControlMutation = trpc.clientPolicies.linkControl.useMutation();
     const unlinkControlMutation = trpc.clientPolicies.unlinkControl.useMutation();
+
+
 
     const sendToIntakeMutation = trpc.intake.createFromPolicy.useMutation({
         onSuccess: () => {
@@ -260,11 +326,9 @@ export default function PolicyEditor() {
 
                     // NEW: Smart Loading Logic
                     // 1. Strip wrappers
-                    let cleanContent = policy.content;
-                    if (cleanContent.trim().startsWith("```markdown")) {
-                        cleanContent = cleanContent.replace(/^```markdown\s*/, '').replace(/\s*```$/, '');
-                    } else if (cleanContent.trim().startsWith("```")) {
-                        cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                    let cleanContent = policy.content.trim();
+                    if (cleanContent.startsWith("```")) {
+                        cleanContent = cleanContent.replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/, '');
                     }
 
                     // 2. Detect if it's already HTML
@@ -291,6 +355,14 @@ export default function PolicyEditor() {
             }
         }
     }, [policyData]);
+
+    useEffect(() => {
+        if (!isContentReady) return;
+        const updated = ensureTitleHeading(content, name || "Information Security Policy");
+        if (updated !== content) {
+            setContent(updated);
+        }
+    }, [isContentReady, name]);
 
     const handleSave = async () => {
         if (!clientId || !policyId) {
@@ -344,6 +416,7 @@ export default function PolicyEditor() {
         try {
             await publishVersionMutation.mutateAsync({
                 id: policyId,
+                clientId,
                 version: publishVersion || undefined,
                 notes: publishNotes
             });
@@ -368,7 +441,8 @@ export default function PolicyEditor() {
         try {
             await restoreVersionMutation.mutateAsync({
                 policyId,
-                versionId
+                versionId,
+                clientId
             });
             toast.success("Version restored to draft");
             refetchPolicy();
@@ -376,6 +450,73 @@ export default function PolicyEditor() {
         } catch (error: any) {
             console.error("Error restoring version:", error);
             toast.error(error.message || "Failed to restore version");
+        }
+    };
+
+    const handleAiRewrite = async () => {
+        if (!content || !clientId) return;
+        try {
+            toast.info("Rewriting policy with AI...");
+            const res = await refineMutation.mutateAsync({
+                clientId,
+                content,
+                instruction: "Improve clarity, tone, and formatting.",
+                mode: 'refine',
+                context: {
+                    clientName: policyData?.clientName || clientData?.name || "the Organization",
+                }
+            });
+
+            const text = res.content || "";
+            const cleaned = cleanGeneratedHtml(text);
+            const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
+
+            setContent(html);
+            toast.success("Policy rewritten successfully");
+        } catch (error: any) {
+            console.error("AI Rewrite failed:", error);
+            toast.error("Failed to rewrite policy");
+        }
+    };
+
+    const handleAiFix = async () => {
+        if (!content || !clientId) return;
+
+        let clientName = clientData?.name || policyData?.clientName || "the Organization";
+        let industry = clientData?.industry || (policyData as any)?.industry || "General";
+
+        // Context from policyData (now enriched by backend)
+        if (policyData) {
+            if ((policyData as any).clientName) {
+                clientName = (policyData as any).clientName;
+            }
+            if ((policyData as any).industry) {
+                industry = (policyData as any).industry;
+            }
+        }
+
+        try {
+            toast.info(`Fixing placeholders for ${clientName}...`);
+            const res = await refineMutation.mutateAsync({
+                clientId,
+                content,
+                instruction: "Identify and fix placeholders.",
+                mode: 'fix_placeholders',
+                context: {
+                    clientName: clientName,
+                    industry: industry
+                }
+            });
+
+            const text = res.content || "";
+            const cleaned = cleanGeneratedHtml(text);
+            const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
+
+            setContent(html);
+            toast.success("Placeholders fixed successfully");
+        } catch (error: any) {
+            console.error("AI Fix failed:", error);
+            toast.error("Failed to fix placeholders");
         }
     };
 
@@ -626,62 +767,21 @@ export default function PolicyEditor() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Quick Guide Card */}
-                        <Card className="border-blue-100 bg-blue-50/30 overflow-hidden transition-all duration-300">
-                            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between cursor-pointer hover:bg-blue-50/50" onClick={() => setShowGuide(!showGuide)}>
-                                <div className="flex items-center gap-2">
-                                    <div className="p-1.5 bg-blue-100 rounded-lg text-blue-600">
-                                        <HelpCircle className="h-4 w-4" />
-                                    </div>
-                                    <CardTitle className="text-base font-semibold text-blue-900">How to use Policy Editor</CardTitle>
-                                </div>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-100/50">
-                                    {showGuide ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </Button>
-                            </CardHeader>
-                            <div className={showGuide ? "block" : "hidden"}>
-                                <CardContent className="px-4 pb-4 pt-0">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-blue-800 font-medium text-sm">
-                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">1</span>
-                                                Structured Formatting
-                                            </div>
-                                            <p className="text-xs text-blue-700/80 leading-relaxed">
-                                                Use the editor to build <strong>well-structured policies</strong>. Proper headings, bullet points, and tables are not just for layout—they ensure your policy is readable and legally sound for auditors.
-                                            </p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-blue-800 font-medium text-sm">
-                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">2</span>
-                                                Audit-Ready History
-                                            </div>
-                                            <p className="text-xs text-blue-700/80 leading-relaxed">
-                                                Compliance requires a <strong>clear trail of changes</strong>. Use the <strong>"History"</strong> tab to demonstrate evolution over time. Restoring a version allows you to safely experiment with new drafts.
-                                            </p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-blue-800 font-medium text-sm">
-                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">3</span>
-                                                Targeted Exporting
-                                            </div>
-                                            <p className="text-xs text-blue-700/80 leading-relaxed">
-                                                Export as <strong>PDF</strong> for final, tamper-proof submissions to auditors. Use the <strong>Word</strong> export if you need to perform external legal reviews or share with third parties.
-                                            </p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2 text-blue-800 font-medium text-sm">
-                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">4</span>
-                                                Official Publication
-                                            </div>
-                                            <p className="text-xs text-blue-700/80 leading-relaxed">
-                                                Publishing creates a <strong>locked timestamped record</strong> of your policy. This is the "Gold Version" that stakeholders should follow and that auditors will evaluate during your assessment.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </div>
-                        </Card>
+                        <PageGuide
+                            title="Policy Management Guide"
+                            description="Build, manage, and distribute your organizational policies."
+                            rationale="Policies are the foundation of compliance. This editor ensures they are not just text files, but integrated living documents connected to your risks and controls."
+                            howToUse={[
+                                { step: "Structure Policy", description: "Use the Rich Text Editor to build well-formatted, readable policies." },
+                                { step: "Link Integrations", description: "Connect your policy to the Risks it mitigates and Controls it enforces." },
+                                { step: "Publish Version", description: "Create a locked, timestamped record of the policy for auditors." },
+                                { step: "Track Attestation", description: "Monitor employee acknowledgment in the Employees tab." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Register", description: "Link to source risks." },
+                                { name: "Audit Hub", description: "Export results as evidence." }
+                            ]}
+                        />
 
                         <Card>
                             <CardHeader>
@@ -724,6 +824,8 @@ export default function PolicyEditor() {
                                                     value={content}
                                                     onChange={setContent}
                                                     className="min-h-[400px]"
+                                                    onAiRewrite={handleAiRewrite}
+                                                    onAiFix={handleAiFix}
                                                 />
                                             ) : (
                                                 <div className="min-h-[400px] flex items-center justify-center bg-slate-50 rounded-lg border">
@@ -731,6 +833,18 @@ export default function PolicyEditor() {
                                                 </div>
                                             )}
                                         </div>
+                                        <PolicyLinter
+                                            content={content}
+                                            onInsertSection={(html) => {
+                                                setContent((prev) => `${prev || ""}\n${html}`);
+                                            }}
+                                            onReplaceContent={(html) => {
+                                                setContent(html);
+                                            }}
+                                            clientId={clientId}
+                                            policyId={policyId}
+                                            orgName={clientData?.name}
+                                        />
                                     </TabsContent>
                                     <TabsContent value="preview" className="m-0">
                                         <div className="prose prose-sm max-w-none">
@@ -1638,6 +1752,21 @@ export default function PolicyEditor() {
                                     <FileText className="mr-2 h-4 w-4" />
                                     Export as Word
                                 </Button>
+                                <Slot
+                                    name={SlotNames.POLICY_REWRITE_BUTTON}
+                                    props={{
+                                        content,
+                                        name,
+                                        clientId,
+                                        policyId,
+                                        onRewrite: (html: string) => setContent(html),
+                                    }}
+                                />
+                                {import.meta.env.VITE_ENABLE_PREMIUM !== 'true' && (
+                                    <div className="text-xs text-muted-foreground px-2 py-1">
+                                        Enable Premium (VITE_ENABLE_PREMIUM=true) to use AI rewrite
+                                    </div>
+                                )}
                                 <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" className="w-full justify-start">

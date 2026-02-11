@@ -7,7 +7,6 @@ import { Button } from "@complianceos/ui/ui/button";
 import { trpc } from '../../lib/trpc';
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@complianceos/ui/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@complianceos/ui/ui/popover";
 import { X, Bold, Italic, Underline, List, ListOrdered, Link as LinkIcon, X as CloseIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import DOMPurify from 'dompurify';
@@ -160,74 +159,97 @@ export function ComposeDialog({ clientId, isOpen, onClose }: ComposeDialogProps)
                                     </Badge>
                                 ))}
 
-                                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                                    <PopoverTrigger asChild>
-                                        <input
-                                            ref={inputRef}
-                                            className="flex-1 bg-transparent min-w-[120px] outline-none text-sm text-slate-800 placeholder:text-slate-400"
-                                            placeholder={selectedRecipients.length === 0 ? "Search users or teams..." : ""}
-                                            value={recipientQuery}
-                                            onChange={(e) => {
-                                                setRecipientQuery(e.target.value);
+                                {/* Input field - separate from Popover to allow typing */}
+                                <div className="flex-1 relative">
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        className="w-full bg-transparent min-w-[150px] outline-none text-sm text-slate-800 placeholder:text-slate-400"
+                                        placeholder={selectedRecipients.length === 0 ? "Type email or search contacts..." : "Add more..."}
+                                        value={recipientQuery}
+                                        onChange={(e) => {
+                                            setRecipientQuery(e.target.value);
+                                            if (e.target.value.length > 0) {
                                                 setOpenCombobox(true);
-                                            }}
-                                            onFocus={() => {
-                                                if (recipientQuery.length > 0 || suggestions.length > 0) setOpenCombobox(true);
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && recipientQuery) {
-                                                    e.preventDefault();
-                                                    if (recipientQuery.includes('@')) {
-                                                        addRecipient({ name: recipientQuery, email: recipientQuery, type: 'contact' });
-                                                    }
+                                            }
+                                        }}
+                                        onFocus={() => {
+                                            if (recipientQuery.length > 0 || suggestions.length > 0) setOpenCombobox(true);
+                                        }}
+                                        onBlur={() => {
+                                            // Delay closing to allow clicking on suggestions
+                                            setTimeout(() => setOpenCombobox(false), 200);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if ((e.key === 'Enter' || e.key === ',') && recipientQuery.trim()) {
+                                                e.preventDefault();
+                                                const email = recipientQuery.trim().replace(/,$/, ''); // Remove trailing comma
+                                                // Accept any email-like string (contains @)
+                                                if (email.includes('@')) {
+                                                    addRecipient({ name: email, email: email, type: 'contact' });
+                                                } else if (email.length > 0) {
+                                                    // Show a hint to enter a valid email
+                                                    alert('Please enter a valid email address (e.g., user@example.com)');
                                                 }
-                                                if (e.key === 'Backspace' && !recipientQuery && selectedRecipients.length > 0) {
-                                                    removeRecipient(selectedRecipients[selectedRecipients.length - 1].email);
-                                                }
-                                            }}
-                                            autoComplete="off"
-                                        />
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                        className="p-0 w-[400px] z-50 max-h-[300px] overflow-auto shadow-xl border-slate-200"
-                                        align="start"
-                                        onOpenAutoFocus={(e) => e.preventDefault()}
-                                    >
-                                        <Command shouldFilter={false}>
-                                            <CommandList>
-                                                {suggestions.length === 0 && recipientQuery.length > 0 ? (
-                                                    <CommandEmpty className="py-3 px-4 text-sm text-slate-500 text-center">
-                                                        No results found. Press Enter to add "{recipientQuery}"
-                                                    </CommandEmpty>
-                                                ) : null}
+                                            }
+                                            if (e.key === 'Backspace' && !recipientQuery && selectedRecipients.length > 0) {
+                                                removeRecipient(selectedRecipients[selectedRecipients.length - 1].email);
+                                            }
+                                            if (e.key === 'Escape') {
+                                                setOpenCombobox(false);
+                                            }
+                                        }}
+                                        autoComplete="off"
+                                    />
 
-                                                {suggestions.length > 0 && (
-                                                    <CommandGroup heading="Suggestions">
-                                                        {suggestions.map((suggestion) => (
-                                                            <CommandItem
-                                                                key={suggestion.email}
-                                                                onSelect={() => addRecipient({
-                                                                    name: suggestion.name,
-                                                                    email: suggestion.email,
-                                                                    type: suggestion.type as any
-                                                                })}
-                                                                className="flex flex-col items-start gap-1 py-2 px-3 cursor-pointer aria-selected:bg-blue-50"
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-medium text-slate-900">{suggestion.name}</span>
-                                                                    <Badge variant="outline" className="text-[10px] h-4 px-1 rounded bg-slate-50 text-slate-500 border-slate-200">{suggestion.type}</Badge>
-                                                                </div>
-                                                                <span className="text-xs text-slate-500">{suggestion.email}</span>
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                )}
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
+                                    {/* Dropdown for suggestions - positioned absolutely */}
+                                    {openCombobox && (recipientQuery.length > 0 || suggestions.length > 0) && (
+                                        <div className="absolute top-full left-0 mt-1 w-[400px] z-50 max-h-[300px] overflow-auto shadow-xl border border-slate-200 bg-white rounded-md">
+                                            <Command shouldFilter={false}>
+                                                <CommandList>
+                                                    {suggestions.length === 0 && recipientQuery.length > 0 && recipientQuery.includes('@') ? (
+                                                        <div
+                                                            className="py-3 px-4 text-sm text-slate-600 cursor-pointer hover:bg-slate-50"
+                                                            onClick={() => {
+                                                                addRecipient({ name: recipientQuery, email: recipientQuery, type: 'contact' });
+                                                            }}
+                                                        >
+                                                            Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-mono text-xs">Enter</kbd> to add <strong>{recipientQuery}</strong>
+                                                        </div>
+                                                    ) : suggestions.length === 0 && recipientQuery.length > 0 ? (
+                                                        <div className="py-3 px-4 text-sm text-slate-500 text-center">
+                                                            No contacts found. Type a full email address to add.
+                                                        </div>
+                                                    ) : null}
+
+                                                    {suggestions.length > 0 && (
+                                                        <CommandGroup heading="Suggestions">
+                                                            {suggestions.map((suggestion) => (
+                                                                <CommandItem
+                                                                    key={suggestion.email}
+                                                                    onSelect={() => addRecipient({
+                                                                        name: suggestion.name,
+                                                                        email: suggestion.email,
+                                                                        type: suggestion.type as any
+                                                                    })}
+                                                                    className="flex flex-col items-start gap-1 py-2 px-3 cursor-pointer aria-selected:bg-blue-50"
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-medium text-slate-900">{suggestion.name}</span>
+                                                                        <Badge variant="outline" className="text-[10px] h-4 px-1 rounded bg-slate-50 text-slate-500 border-slate-200">{suggestion.type}</Badge>
+                                                                    </div>
+                                                                    <span className="text-xs text-slate-500">{suggestion.email}</span>
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    )}
+                                                </CommandList>
+                                            </Command>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <div className="text-xs text-slate-500 mt-1.5 ml-1">Type to search internal contacts</div>
+                            <div className="text-xs text-slate-500 mt-1.5 ml-1">Type any email address and press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">Enter</kbd> to add</div>
                         </div>
 
                         {/* Subject Field */}

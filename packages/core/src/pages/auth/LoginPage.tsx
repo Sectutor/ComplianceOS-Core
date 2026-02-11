@@ -9,57 +9,160 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 import { Loader2 } from 'lucide-react';
+import MFAChallengeModal from '@/components/auth/MFAChallengeModal';
 
 export default function LoginPage() {
+    const utils = trpc.useUtils();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [, setLocation] = useLocation();
     const { user, signIn, signOut } = useAuth();
+    const [showMFAModal, setShowMFAModal] = useState(false);
+    const [factorId, setFactorId] = useState<string | undefined>(undefined);
+    const [mfaRequired, setMfaRequired] = useState(false);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+    // Pre-fill email from query params if available
+    useEffect(() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        const emailParam = searchParams.get('email');
+        if (emailParam) {
+            setEmail(decodeURIComponent(emailParam));
+        }
+    }, []);
 
     // Check if user has seen tour
-    const { 
-        data: userProfile, 
-        isLoading: isProfileLoading, 
-        isError, 
-        error: profileError 
+    const {
+        data: userProfile,
+        isLoading: isProfileLoading,
+        isError,
+        error: profileError
     } = trpc.users.me.useQuery(undefined, {
         enabled: !!user,
         retry: false
     });
 
     useEffect(() => {
-        if (user && !isProfileLoading) {
+        const checkMfaStatus = async () => {
+            if (user && !mfaRequired && !isLoggingIn) {
+                const { data: aalInfo } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                console.log("[MFA Login] Auto-check AAL:", aalInfo);
+
+                if (aalInfo?.currentLevel === 'aal1' && aalInfo?.nextLevel === 'aal2') {
+                    // User has factors but hasn't verified one yet
+                    const { data: lf } = await supabase.auth.mfa.listFactors();
+                    const factors = lf?.factors || [];
+                    const totp = factors.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+
+                    if (totp?.id) {
+                        setFactorId(totp.id);
+                        setMfaRequired(true);
+                        setShowMFAModal(true);
+                        return;
+                    }
+                }
+            }
+        };
+
+        checkMfaStatus();
+    }, [user, mfaRequired, isLoggingIn]);
+
+    useEffect(() => {
+        // Only redirect if user exists, profile is loaded, we're not actively logging in, and MFA is not pending
+        if (user && !isProfileLoading && !mfaRequired && !isLoggingIn) {
             if (isError) {
                 console.error("Profile fetch failed:", profileError);
                 return;
             }
 
+            const searchParams = new URLSearchParams(window.location.search);
+            const inviteToken = searchParams.get('invite');
+
             if (userProfile && !userProfile.hasSeenTour) {
-                setLocation('/start-here');
+                setLocation(inviteToken ? `/auth/redeem-link?token=${inviteToken}` : '/start-here');
             } else {
-                setLocation('/dashboard');
+                setLocation(inviteToken ? `/auth/redeem-link?token=${inviteToken}` : '/dashboard');
             }
         }
-    }, [user, userProfile, isProfileLoading, setLocation, isError, profileError]);
+    }, [user, userProfile, isProfileLoading, setLocation, isError, profileError, mfaRequired, isLoggingIn]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setIsLoggingIn(true);
+        // Pre-emptively set this to block any redirect effects during the async gap
+        setMfaRequired(true);
 
         try {
-            // Use the signIn method from context to ensure it works with Mock Auth
+            // Step 1: Login with password
             await signIn(email, password);
 
-            toast.success('Logged in successfully');
-            // Redirect logic handled by useEffect
+            // Step 2: Immediate check for MFA
+            const { data: aalInfo } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+            if (aalInfo?.currentLevel === 'aal2') {
+                console.log("[MFA Login] Already AAL2, proceeding.");
+                toast.success('Logged in successfully');
+                setMfaRequired(false);
+                setIsLoggingIn(false);
+                setLoading(false);
+            } else if (aalInfo?.nextLevel === 'aal2') {
+                // User has verified factors, MUST verify one
+                console.log("[MFA Login] AAL2 verification required (nextLevel is aal2)");
+                const { data: lf } = await supabase.auth.mfa.listFactors();
+                const factors = lf?.factors || [];
+                const totp = factors.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+
+                if (totp?.id) {
+                    console.log("[MFA Login] TOTP factor found, showing modal:", totp.id);
+                    setFactorId(totp.id);
+                    setShowMFAModal(true);
+                    toast.message('Security verification required');
+                    setLoading(false);
+                    // DO NOT clear isLoggingIn or mfaRequired here
+                } else {
+                    console.warn("[MFA Login] nextLevel is aal2 but no verified totp found. Checking profile as fallback.");
+                    const profile = userProfile || await utils.users.me.fetch();
+                    if (profile?.client?.requireMfa) {
+                        toast.message('MFA enrollment required');
+                        setLocation('/settings/security?mfa=enroll');
+                    } else {
+                        toast.success('Logged in successfully');
+                    }
+                    setMfaRequired(false);
+                    setIsLoggingIn(false);
+                    setLoading(false);
+                }
+            } else {
+                // No factors enrolled yet, check Organizational requirement
+                console.log("[MFA Login] No factors enrolled. Checking if MFA is mandatory for this client...");
+                const profile = userProfile || await utils.users.me.fetch();
+
+                if (profile?.client?.requireMfa) {
+                    console.log("[MFA Login] MFA is mandatory. Redirecting to enrollment.");
+                    toast.message('Multi-factor authentication is required by your organization');
+                    setLocation('/settings/security?mfa=enroll');
+                    setMfaRequired(false);
+                    setIsLoggingIn(false);
+                    setLoading(false);
+                } else {
+                    console.log("[MFA Login] MFA not required. Normal login success.");
+                    toast.success('Logged in successfully');
+                    setMfaRequired(false);
+                    setIsLoggingIn(false);
+                    setLoading(false);
+                }
+            }
         } catch (error: any) {
             toast.error(error.message || 'Failed to login');
             setLoading(false);
+            setMfaRequired(false);
+            setIsLoggingIn(false);
         }
     };
 
-    if (user && isProfileLoading) {
+    if (user && isProfileLoading && !mfaRequired && !showMFAModal) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-[#002a40]">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
@@ -83,12 +186,12 @@ export default function LoginPage() {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button 
+                        <Button
                             onClick={() => {
                                 signOut();
                                 setLoading(false);
-                            }} 
-                            variant="destructive" 
+                            }}
+                            variant="destructive"
                             className="w-full"
                         >
                             Sign Out & Try Again
@@ -169,6 +272,27 @@ export default function LoginPage() {
                     </CardFooter>
                 </form>
             </Card>
+            {showMFAModal && (
+                <MFAChallengeModal
+                    open={showMFAModal}
+                    onOpenChange={(o) => {
+                        setShowMFAModal(o);
+                        if (!o) {
+                            (async () => {
+                                const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                                if (data?.currentLevel === 'aal2') {
+                                    setMfaRequired(false);
+                                    setIsLoggingIn(false);
+                                } else {
+                                    setShowMFAModal(true);
+                                    setMfaRequired(true);
+                                }
+                            })();
+                        }
+                    }}
+                    factorId={factorId}
+                />
+            )}
         </div>
     );
 }

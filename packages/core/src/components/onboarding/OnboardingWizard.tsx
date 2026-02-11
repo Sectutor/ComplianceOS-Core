@@ -26,29 +26,35 @@ import { useAuth } from "@/contexts/AuthContext";
 export function OnboardingWizard() {
     const { user } = useAuth();
     const { data: clients, isLoading: clientsLoading } = trpc.clients.list.useQuery();
+    const { data: allFrameworks, isLoading: frameworksLoading } = trpc.frameworks.getOnboardingFrameworks.useQuery();
     const { data: stats } = trpc.dashboard.enhanced.useQuery();
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState(1);
     const [, setLocation] = useLocation();
     const utils = trpc.useUtils();
 
-    const isAdmin = user?.role === 'admin' || user?.role === 'owner';
+    const isAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin';
 
     const [formData, setFormData] = useState({
         name: "",
         industry: "Technology",
-        frameworks: ["ISO 27001"],
+        frameworks: [],
         generatePolicies: true,
         useSampleData: false
     });
 
     const setupMutation = trpc.clients.autoSetup.useMutation({
-        onSuccess: (client) => {
+        onSuccess: async (client) => {
             toast.success("Workspace configured successfully!");
-            utils.clients.list.invalidate();
-            utils.dashboard.enhanced.invalidate();
+            // Ensure queries are invalidated and wait for completion
+            await Promise.all([
+                utils.clients.list.invalidate(),
+                utils.dashboard.enhanced.invalidate()
+            ]);
+            // Small delay to ensure data is refreshed
+            await new Promise(resolve => setTimeout(resolve, 300));
             setOpen(false);
-            setLocation(`/clients/${client.id}`);
+            setLocation(`/clients/${client.id}?onboarding=complete`);
         },
         onError: (error) => {
             toast.error(`Auto-setup failed: ${error.message}`);
@@ -56,12 +62,17 @@ export function OnboardingWizard() {
     });
 
     const sampleMutation = trpc.clients.createSampleData.useMutation({
-        onSuccess: (client) => {
+        onSuccess: async (client) => {
             toast.success("Magic Sample Data workspace created!");
-            utils.clients.list.invalidate();
-            utils.dashboard.enhanced.invalidate();
+            // Ensure queries are invalidated and wait for completion
+            await Promise.all([
+                utils.clients.list.invalidate(),
+                utils.dashboard.enhanced.invalidate()
+            ]);
+            // Small delay to ensure data is refreshed
+            await new Promise(resolve => setTimeout(resolve, 300));
             setOpen(false);
-            setLocation(`/clients/${client.id}`);
+            setLocation(`/clients/${client.id}?onboarding=complete`);
         },
         onError: (error) => {
             toast.error(`Sample data creation failed: ${error.message}`);
@@ -106,6 +117,11 @@ export function OnboardingWizard() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Welcome to GRCompliance</DialogTitle>
+                    <DialogDescription>Configure your security foundation and compliance frameworks.</DialogDescription>
+                </DialogHeader>
+
                 <div className="bg-gradient-to-br from-blue-600 via-primary to-indigo-800 p-8 text-white relative">
                     <Wand2 className="absolute top-4 right-4 h-24 w-24 text-white/10 rotate-12" />
                     <div className="relative z-10">
@@ -117,6 +133,7 @@ export function OnboardingWizard() {
                         <p className="text-white/70 mt-2">Let's build your security foundation in 60 seconds.</p>
                     </div>
                 </div>
+
 
                 <div className="p-8 space-y-6">
                     {step === 1 && (
@@ -156,35 +173,48 @@ export function OnboardingWizard() {
 
                     {step === 2 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                            <Label className="text-base font-semibold">Which standards are you targeting?</Label>
-                            <div className="grid gap-3">
-                                {[
-                                    { id: "ISO 27001", title: "ISO 27001:2022", desc: "Global ISMS Standard" },
-                                    { id: "SOC 2", title: "SOC 2 Type II", desc: "Trust Services Criteria" }
-                                ].map((fw) => (
-                                    <Card
-                                        key={fw.id}
-                                        className={`cursor-pointer transition-all border-2 ${formData.frameworks.includes(fw.id)
-                                            ? "border-primary bg-primary/5 shadow-md"
-                                            : "border-slate-100 hover:border-slate-300"
-                                            }`}
-                                        onClick={() => handleFrameworkToggle(fw.id)}
-                                    >
-                                        <CardContent className="p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-lg ${formData.frameworks.includes(fw.id) ? "bg-primary/20 text-primary" : "bg-slate-100 text-slate-500"
-                                                    }`}>
-                                                    <Shield className="h-5 w-5" />
+                            <div>
+                                <Label className="text-base font-semibold">Which standards are you targeting?</Label>
+                                <p className="text-sm text-muted-foreground mt-1">Select all that apply to your organization. (Total: {allFrameworks?.length || 0})</p>
+                            </div>
+                            <div className="grid gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {frameworksLoading ? (
+                                    <div className="space-y-3">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="h-20 w-full bg-slate-50 animate-pulse rounded-xl" />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    allFrameworks?.map((fw: any) => (
+                                        <Card
+                                            key={fw.id}
+                                            className={`cursor-pointer transition-all border-2 ${formData.frameworks.includes(fw.shortCode)
+                                                ? "border-primary bg-primary/5 shadow-md"
+                                                : "border-slate-100 hover:border-slate-300"
+                                                }`}
+                                            onClick={() => handleFrameworkToggle(fw.shortCode)}
+                                        >
+                                            <CardContent className="p-4 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2 rounded-lg ${formData.frameworks.includes(fw.shortCode) ? "bg-primary/20 text-primary" : "bg-slate-100 text-slate-500"
+                                                        }`}>
+                                                        <Shield className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold">{fw.name}</p>
+                                                        <p className="text-xs text-muted-foreground line-clamp-1">{fw.description || fw.shortCode}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-bold">{fw.title}</p>
-                                                    <p className="text-xs text-muted-foreground">{fw.desc}</p>
-                                                </div>
-                                            </div>
-                                            <Checkbox checked={formData.frameworks.includes(fw.id)} />
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                                <Checkbox checked={formData.frameworks.includes(fw.shortCode)} />
+                                            </CardContent>
+                                        </Card>
+                                    ))
+                                )}
+                                {!frameworksLoading && (!allFrameworks || allFrameworks.length === 0) && (
+                                    <div className="py-8 text-center border-2 border-dashed rounded-xl">
+                                        <p className="text-muted-foreground text-sm">No standards found in database.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

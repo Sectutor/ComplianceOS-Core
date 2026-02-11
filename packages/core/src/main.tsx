@@ -6,6 +6,8 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
+import MFAChallengeModal from "@/components/auth/MFAChallengeModal";
+import { useEffect, useState } from "react";
 import { getLoginUrl } from "./const";
 import { registerDefaults } from "@/registry/defaults";
 import { registerPremium } from "@/registry/premium";
@@ -58,6 +60,9 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
+    if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('require-mfa'));
+    }
     if (error instanceof TRPCClientError && error.message === "NOT_FOUND") return;
     console.error("[API Query Error]", error);
   }
@@ -67,6 +72,9 @@ queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     redirectToLoginIfUnauthorized(error);
+    if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('require-mfa'));
+    }
     console.error("[API Mutation Error]", error);
   }
 });
@@ -125,38 +133,17 @@ const trpcClient = trpc.createClient({
           ...options,
           credentials: 'include',
         }).then(async (response) => {
-          const contentType = response.headers.get('content-type');
-
           if (!response.ok) {
-            const text = await response.text();
-            console.error('[TRPC] HTTP Error:', {
-              status: response.status,
-              statusText: response.statusText,
-              url,
-              responseText: text.substring(0, 500)
-            });
-
-            if (contentType?.includes('application/json')) {
-              try {
-                const errorData = JSON.parse(text);
-                const error = new Error(errorData.message || 'Request failed');
-                (error as any).data = errorData;
-                (error as any).code = errorData.code || 'INTERNAL_SERVER_ERROR';
-                throw error;
-              } catch {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              }
+            // Log for debugging but do NOT throw. Let TRPC handle the error response
+            // throwing here breaks TRPC's ability to parse batched errors and metadata.
+            const clone = response.clone();
+            try {
+              const text = await clone.text();
+              console.warn('[TRPC] HTTP Error:', response.status, response.statusText, text.substring(0, 200));
+            } catch (e) {
+              console.warn('[TRPC] HTTP Error:', response.status, response.statusText);
             }
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-
-          if (response.status === 204 || response.status === 204) {
-            return new Response(JSON.stringify({}), {
-              status: 200,
-              headers: { 'content-type': 'application/json' }
-            });
-          }
-
           return response;
         });
       },
@@ -164,10 +151,90 @@ const trpcClient = trpc.createClient({
   ],
 });
 
+function AppWithMFA() {
+  const [readyToShow, setReadyToShow] = useState(false);
+  const [showMFAScreen, setShowMFAScreen] = useState(false);
+  const [factorId, setFactorId] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const checkAAL = async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (error) {
+          console.warn("[MFA] AAL check error:", error.message);
+          return;
+        }
+
+        // If user is at AAL1 but has factors (nextLevel is AAL2), show modal
+        if (data?.nextLevel === 'aal2' && data?.nextLevel !== data?.currentLevel) {
+          console.log("[MFA App Guard] Session requires AAL2. Showing modal.");
+          setShowMFAScreen(true);
+
+          // Background fetch factors for better UX
+          supabase.auth.mfa.listFactors().then(({ data: lf }) => {
+            const totp = lf?.factors?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+            if (totp?.id) setFactorId(totp.id);
+          });
+        } else {
+          setShowMFAScreen(false);
+        }
+      } finally {
+        setReadyToShow(true);
+      }
+    };
+
+    // Initial check
+    checkAAL();
+
+    // Listen for auth changes (including sign in)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'MFA_CHALLENGE_VERIFIED') {
+        console.log("[MFA App Guard] Auth Event:", event);
+        checkAAL();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = async (e: CustomEvent) => {
+      console.log("[MFA App Guard] require-mfa event intercepted");
+      // If we already have factor info in the event, use it
+      if (e.detail?.factorId) {
+        setFactorId(e.detail.factorId);
+      }
+      setShowMFAScreen(true);
+    };
+    window.addEventListener('require-mfa', handler as EventListener);
+    return () => {
+      window.removeEventListener('require-mfa', handler as EventListener);
+    };
+  }, []);
+
+  if (!readyToShow) return null;
+
+  if (showMFAScreen) {
+    return (
+      <MFAChallengeModal
+        open={true}
+        onOpenChange={(o) => {
+          setShowMFAScreen(o);
+          // If they close it without verifying, we might want to re-check AAL 
+          // to ensure they aren't bypassing it if it's mandatory.
+        }}
+        factorId={factorId}
+      />
+    );
+  }
+  return <App />;
+}
+
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <AppWithMFA />
     </QueryClientProvider>
   </trpc.Provider>
 );

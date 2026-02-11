@@ -13,6 +13,7 @@ import { RiskReductionROI } from '@/components/risk/RiskCharts';
 // import { GapAnalysis } from '@/components/risk/GapAnalysis';
 import { KRITrendCards } from '@/components/risk/KRITrendCards';
 import { Button } from '@complianceos/ui/ui/button';
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RiskDashboard() {
     const params = useParams();
@@ -83,6 +84,24 @@ export default function RiskDashboard() {
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Risk Dashboard</h1>
                         <p className="text-muted-foreground mt-1">Overview of your risk posture and asset coverage.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <PageGuide
+                            title="Risk Dashboard"
+                            description="Real-time overview of your organizational risk posture."
+                            rationale="This dashboard provides executives and risk managers with an immediate view of high-priority risks, upcoming deadlines, and overall risk reduction progress."
+                            howToUse={[
+                                { step: "Monitor Stats", description: "Track key metrics like 'Critical Risks' and 'Overdue Actions' at a glance." },
+                                { step: "Analyze Heatmaps", description: "Visualize inherent vs. residual risk distribution." },
+                                { step: "Track Remediation", description: "Use the 'Risk Reduction' chart to see progress over time." },
+                                { step: "Action Items", description: "Address items in the 'Overdue' and 'Upcoming' lanes immediately." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Register", description: "Aggregates data from all individual risk assessments." },
+                                { name: "Gap Analysis", description: "Displays compliance gaps alongside operational risks." },
+                                { name: "KRIs", description: "Trends for Key Risk Indicators are visualized here." }
+                            ]}
+                        />
                     </div>
                 </div>
 
@@ -257,7 +276,7 @@ export default function RiskDashboard() {
                                 Conduct comprehensive gap assessments against major security frameworks like ISO 27001, SOC 2, HIPAA, and NIST. Identify missing controls and track remediation.
                             </p>
                         </div>
-                        <Button 
+                        <Button
                             onClick={() => setLocation(`/clients/${clientId}/gap-analysis`)}
                             className="bg-white text-blue-900 hover:bg-blue-50"
                         >

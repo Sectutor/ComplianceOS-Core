@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { Plus, FileText, Search, Trash2, Edit, Filter, Eye, LayoutGrid, List, HelpCircle, ChevronDown, ChevronUp, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Plus, FileText, Search, Trash2, Edit, Filter, Eye, LayoutGrid, List, HelpCircle, ChevronDown, ChevronUp, ArrowRight, CheckCircle2, Sparkles, Loader2, Wand2 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -48,8 +48,85 @@ const DEFAULT_SECTIONS = [
   "Review & Approval"
 ];
 
+const defaultSectionTitles = [
+  "Purpose", "Scope", "Roles and Responsibilities", "Policy Statements",
+  "Procedures", "Exceptions", "Enforcement", "Definitions", "References", "Revision History"
+];
+
+const sanitizeHtml = (html: string, title: string) => {
+  let s = html || "";
+  s = s.replace(/```html([\s\S]*?)```/gi, "$1").replace(/```([\s\S]*?)```/gi, "$1");
+  s = s.replace(/<pre[\s\S]*?>[\s\S]*?<code[^>]*>([\s\S]*?)<\/code>[\s\S]*?<\/pre>/gi, "$1");
+  s = s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  s = s.replace(/\[object Object\]/g, "");
+  const bodyMatch = s.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) s = bodyMatch[1];
+  s = s.replace(/<\/?(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "");
+  s = s.replace(/<section([^>]*)>/gi, "<div$1>").replace(/<\/section>/gi, "</div>");
+  if (!/\<h1[\s\S]*?\>/.test(s)) {
+    s = `<h1>${title || "Information Security Policy"}</h1>\n${s}`;
+  }
+  return s.trim();
+};
+
+const baselineText = (title: string) => {
+  const t = (title || "").toLowerCase();
+  if (t.includes("purpose")) return "This policy establishes objectives and guiding principles to protect information assets and support regulatory compliance across the organization.";
+  if (t.includes("scope")) return "This policy applies to all employees, contractors, systems, facilities, and data owned or managed by the organization, regardless of location.";
+  if (t.includes("roles")) return "The organization assigns clear responsibilities for policy ownership, approval, implementation, monitoring, and exception handling.";
+  if (t.includes("statement")) return "The organization commits to maintaining confidentiality, integrity, and availability of information through documented controls and continuous improvement.";
+  if (t.includes("procedures")) return "Procedures define required actions for access control, change management, incident response, backup, and other operational controls.";
+  if (t.includes("exceptions")) return "Exceptions must be documented, risk-assessed, time-bound, and approved by an authorized owner with compensating controls.";
+  if (t.includes("enforcement")) return "Violations may lead to corrective actions up to and including disciplinary measures, subject to HR and legal review.";
+  if (t.includes("definitions")) return "Key terms are defined to ensure consistent understanding across stakeholders and auditors.";
+  if (t.includes("references")) return "This policy references applicable standards, regulations, and internal procedures to support implementation and audits.";
+  if (t.includes("revision")) return "Version history records authorship, approval dates, and change summaries to maintain traceability.";
+  return "This section provides the structured content necessary to implement and audit this policy.";
+};
+
+const buildSkeleton = (title: string, sectionTitles?: string[], enhanceBaseline: boolean = true) => {
+  const t = (title || "Information Security Policy").trim();
+  const secs = (sectionTitles && sectionTitles.length > 0 ? sectionTitles : defaultSectionTitles);
+  const parts = secs.map(st => `<h2>${st}</h2>\n<p>${enhanceBaseline ? baselineText(st) : "[Content]"}</p>`);
+  return [`<h1>${t}</h1>`, ...parts].join("\n\n");
+};
+
+const improveContentFallback = (content: string, template?: any, enhanceBaseline: boolean = true) => {
+  const title = template?.name || "Information Security Policy";
+  let s = content || "";
+  const isHtml = /<[a-z][\s\S]*>/i.test(s);
+  if (!isHtml) {
+    try {
+      s = marked.parse(s, { async: false }) as string;
+    } catch { }
+  }
+  s = s
+    .replace(/\bTBD\b/gi, "")
+    .replace(/\bLOREM IPSUM\b/gi, "")
+    .replace(/\[insert.*?\]/gi, "")
+    .replace(/\{\{\s*company(_name)?\s*\}\}/gi, "")
+    .replace(/\[\s*Company\s+Name\s*\]/gi, "");
+  s = sanitizeHtml(s, title);
+  const plain = s.replace(/<[^>]+>/g, " ").trim();
+  const sectionTitles = Array.isArray(template?.sections)
+    ? (template.sections as any[]).map((x: any) => (typeof x === "object" ? (x.title || "Section") : String(x))).filter(Boolean)
+    : undefined;
+  if (!plain || plain.length < 300) {
+    s = buildSkeleton(title, sectionTitles, enhanceBaseline);
+  } else {
+    defaultSectionTitles.forEach((st) => {
+      const has = new RegExp(`<h2[^>]*>${st}</h2>`, "i").test(s);
+      if (!has) {
+        s += `\n\n<h2>${st}</h2>\n<p>${baselineText(st)}</p>`;
+      }
+    });
+    s = sanitizeHtml(s, title);
+  }
+  return s;
+};
+
 export default function PolicyTemplates() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [frameworkFilter, setFrameworkFilter] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -61,11 +138,25 @@ export default function PolicyTemplates() {
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [templateToGenerate, setTemplateToGenerate] = useState<any>(null);
   const [templateToDelete, setTemplateToDelete] = useState<any>(null);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [upgradeReport, setUpgradeReport] = useState<any>(null);
+  const [enhanceBaseline, setEnhanceBaseline] = useState(true);
+  const [useServerUpgrade, setUseServerUpgrade] = useState(false);
+  const [isImproveOpen, setIsImproveOpen] = useState(false);
+  const [improveTarget, setImproveTarget] = useState<any>(null);
+  const [improveInstruction, setImproveInstruction] = useState("");
+  const [improvedContent, setImprovedContent] = useState("");
+  const [isImproving, setIsImproving] = useState(false);
 
   // State for RTE content in Create Dialog
   const [createContent, setCreateContent] = useState("");
 
-  const { data: templates, isLoading, refetch } = trpc.policyTemplates.list.useQuery({ framework: frameworkFilter });
+  const { selectedClientId } = useClientContext();
+
+  const { data: templates, isLoading, refetch } = trpc.policyTemplates.list.useQuery({
+    framework: frameworkFilter,
+    clientId: selectedClientId || undefined
+  });
 
   const turndownService = useMemo(() => new TurndownService(), []);
 
@@ -96,6 +187,86 @@ export default function PolicyTemplates() {
     },
     onError: (error) => toast.error(error.message),
   });
+
+  const upgradeMutation = trpc.policyTemplates.upgradeAll.useMutation({
+    onSuccess: (data: any) => setUpgradeReport(data),
+    onError: (error) => {
+      const msg = error?.message || "";
+      if (msg.includes("No procedure found") || msg.includes("NOT_FOUND")) {
+        // Fallback to policyManagement router if policyTemplates.upgradeAll isn't available
+        fallbackUpgradeMutation.mutate({ dryRun: true });
+      } else {
+        toast.error(msg);
+      }
+    },
+  });
+  const fallbackUpgradeMutation = (trpc.policyManagement as any).upgradeTemplates?.useMutation({
+    onSuccess: (data: any) => setUpgradeReport(data),
+    onError: async (error: any) => {
+      const msg = error?.message || "";
+      await clientSideUpgrade(true);
+    },
+  });
+
+  // Utility functions moved to top level
+  // (globalThis as any).PolicyTemplates_improveContentFallback = improveContentFallback;
+
+  const clientSideUpgrade = async (dryRun: boolean) => {
+    const list = templates || [];
+    const results: Array<{ id: number; updated: boolean; changes: string[] }> = [];
+    for (const tpl of list) {
+      const changes: string[] = [];
+      let content = tpl.content || "";
+      const before = content;
+      const title = tpl.name || "Information Security Policy";
+      if (!content || content.trim().length === 0) {
+        const sectionTitles = Array.isArray(tpl.sections)
+          ? (tpl.sections as any[]).map((s: any) => (typeof s === 'object' ? (s.title || 'Section') : String(s))).filter(Boolean)
+          : undefined;
+        content = buildSkeleton(title, sectionTitles, enhanceBaseline);
+        changes.push("skeleton_built_for_empty_template");
+      }
+      const after = sanitizeHtml(content, title);
+      if (after !== before) {
+        changes.push("sanitized_html_and_title");
+      }
+      let updatedSections = tpl.sections;
+      if (Array.isArray(updatedSections)) {
+        const newSections = updatedSections.map((s: any) => {
+          if (s && typeof s === 'object') {
+            const body = s.content || s.text || "";
+            let nextBody = body;
+            if (enhanceBaseline) {
+              const isEmpty = !nextBody || nextBody.trim().length < 60 || /\[Content\]/i.test(nextBody);
+              if (isEmpty) nextBody = baselineText(s.title || "Section");
+            }
+            const cleanBody = sanitizeHtml(nextBody, title);
+            if (cleanBody !== body) changes.push(`section_${s.id || s.title}_sanitized`);
+            return { ...s, content: cleanBody };
+          }
+          return s;
+        });
+        updatedSections = newSections as any;
+      }
+      const updated = changes.length > 0;
+      results.push({ id: tpl.id, updated, changes });
+      if (updated && !dryRun) {
+        await updateMutation.mutateAsync({
+          id: tpl.id,
+          content: after,
+          sections: updatedSections
+        } as any);
+      }
+    }
+    const report = {
+      templatesProcessed: list.length,
+      templatesChanged: results.filter(r => r.updated).length,
+      dryRun,
+      results
+    };
+    setUpgradeReport(report);
+    if (!dryRun) toast.success("Templates upgraded");
+  };
 
   const filteredTemplates = templates?.filter(template =>
     template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,6 +301,7 @@ export default function PolicyTemplates() {
       framework: selectedFramework,
       sections: sections,
       content: contentToSave,
+      clientId: selectedClientId || undefined
     });
   };
 
@@ -267,6 +439,9 @@ export default function PolicyTemplates() {
               </div>
             </form>
           </EnhancedDialog>
+          <Button variant="outline" onClick={() => { setIsUpgradeOpen(true); setUpgradeReport(null); }}>
+            Upgrade Templates
+          </Button>
         </div>
 
         {/* Quick Guide Card */}
@@ -329,6 +504,107 @@ export default function PolicyTemplates() {
             </CardContent>
           </div>
         </Card>
+
+        <EnhancedDialog
+          open={isUpgradeOpen}
+          onOpenChange={setIsUpgradeOpen}
+          title="Upgrade Policy Templates"
+          description="Sanitize HTML, enforce titles, fill empty templates, and optionally enhance content."
+          size="md"
+          footer={
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsUpgradeOpen(false)}>Close</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (upgradeMutation.isPending || fallbackUpgradeMutation?.isPending) return;
+                  if (useServerUpgrade) {
+                    upgradeMutation.mutate({ dryRun: true });
+                  } else {
+                    clientSideUpgrade(true);
+                  }
+                }}
+                disabled={upgradeMutation.isPending || fallbackUpgradeMutation?.isPending}
+              >
+                {(upgradeMutation.isPending || fallbackUpgradeMutation?.isPending) ? "Running..." : "Dry‑run"}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (upgradeMutation.isPending || fallbackUpgradeMutation?.isPending) return;
+                  if (useServerUpgrade) {
+                    upgradeMutation.mutate({ dryRun: false });
+                    setTimeout(async () => {
+                      if (!upgradeReport) {
+                        await clientSideUpgrade(false);
+                      }
+                    }, 800);
+                  } else {
+                    clientSideUpgrade(false);
+                  }
+                }}
+                disabled={upgradeMutation.isPending || fallbackUpgradeMutation?.isPending}
+              >
+                {(upgradeMutation.isPending || fallbackUpgradeMutation?.isPending) ? "Applying..." : "Apply Upgrades"}
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="enhanceBaseline"
+                checked={enhanceBaseline}
+                onChange={(e) => setEnhanceBaseline(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <Label htmlFor="enhanceBaseline" className="text-sm font-normal">
+                Enhance content with baseline boilerplate
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="useServerUpgrade"
+                checked={useServerUpgrade}
+                onChange={(e) => setUseServerUpgrade(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <Label htmlFor="useServerUpgrade" className="text-sm font-normal">
+                Use server route (if available)
+              </Label>
+            </div>
+            {!upgradeReport ? (
+              <p className="text-sm text-muted-foreground">Run a dry‑run or apply upgrades.</p>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-sm">
+                  Processed: {upgradeReport.templatesProcessed} • Changed: {upgradeReport.templatesChanged} • Dry‑run: {String(upgradeReport.dryRun)}
+                </div>
+                <div className="border rounded-md max-h-[50vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Updated</TableHead>
+                        <TableHead>Changes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(upgradeReport.results || []).map((r: any) => (
+                        <TableRow key={r.id}>
+                          <TableCell>{r.id}</TableCell>
+                          <TableCell>{r.updated ? "Yes" : "No"}</TableCell>
+                          <TableCell className="text-xs">{(r.changes || []).join(", ") || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        </EnhancedDialog>
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -441,6 +717,21 @@ export default function PolicyTemplates() {
                                 setIsGenerateOpen(true);
                               }}
                             />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Improve with AI"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImproveTarget(template);
+                                setImprovedContent(template.content || "");
+                                setImproveInstruction("");
+                                setIsImproveOpen(true);
+                              }}
+                            >
+                              <Sparkles className="h-4 w-4" />
+                            </Button>
 
                             <Button
                               size="sm"
@@ -519,6 +810,21 @@ export default function PolicyTemplates() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="h-8 w-8"
+                              title="Improve with AI"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImproveTarget(template);
+                                setImprovedContent(template.content || "");
+                                setImproveInstruction("");
+                                setIsImproveOpen(true);
+                              }}
+                            >
+                              <Sparkles className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
                               onClick={() => setTemplateToDelete(template)}
                             >
@@ -541,7 +847,7 @@ export default function PolicyTemplates() {
               <p className="text-muted-foreground mb-4">
                 {searchQuery ? "Try adjusting your search" : "Get started by creating your first template"}
               </p>
-              {user?.role === 'admin' && !searchQuery && (
+              {(user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin') && !searchQuery && (
                 <Button onClick={() => setIsCreateOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create First Template
@@ -585,6 +891,130 @@ export default function PolicyTemplates() {
           </div>
         </EnhancedDialog>
 
+        <EnhancedDialog
+          open={isImproveOpen}
+          onOpenChange={setIsImproveOpen}
+          title={`Improve Template${improveTarget ? `: ${improveTarget.name}` : ""}`}
+          description="Use AI to enhance clarity, structure, and completeness. Review before saving."
+          size="xl"
+          footer={
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsImproveOpen(false)}>Close</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const form = document.getElementById('ai-improve-form') as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+                disabled={isImproving}
+              >
+                {isImproving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Improvements"
+                )}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!improveTarget) return;
+                  updateMutation.mutate({
+                    id: improveTarget.id,
+                    content: improvedContent
+                  });
+                }}
+                disabled={!improvedContent || updateMutation.isPending}
+              >
+                {updateMutation.isPending ? "Saving..." : "Save Template"}
+              </Button>
+            </div>
+          }
+        >
+          <form id="ai-improve-form" onSubmit={(e) => {
+            e.preventDefault();
+            if (isImproving) return;
+            const systemPrompt = "You are an expert compliance policy editor. Improve the provided policy template content: enhance clarity, structure, and completeness; keep headings; avoid placeholders; output clean HTML only.";
+            const userPrompt = improvedContent || improveTarget?.content || "";
+            const run = async () => {
+              setIsImproving(true);
+              try {
+                const { streamAIContent } = await import("../hooks/useStreamingAI");
+                const text = await streamAIContent(
+                  {
+                    systemPrompt,
+                    userPrompt,
+                    instruction: improveInstruction,
+                    temperature: 0.3
+                  },
+                  (t: string) => {
+                    try {
+                      const html = marked.parse(t, { async: false }) as string;
+                      setImprovedContent(html);
+                    } catch {
+                      setImprovedContent(t);
+                    }
+                  },
+                  session?.access_token
+                );
+
+                try {
+                  const html = marked.parse(text, { async: false }) as string;
+                  setImprovedContent(html);
+                } catch {
+                  setImprovedContent(text);
+                }
+              } catch (err: any) {
+                console.error("Improvement failed:", err);
+                toast.error((err && err.message) ? `Improvement failed: ${err.message}. Applied baseline fallback.` : "Improvement failed. Applied baseline fallback.");
+                const fn = improveContentFallback;
+                const fallback = fn(userPrompt, improveTarget, enhanceBaseline);
+                setImprovedContent(fallback);
+              } finally {
+                setIsImproving(false);
+              }
+            };
+            run();
+          }}>
+            <div className="grid gap-4 py-4 max-h-[75vh] overflow-y-auto pr-2">
+              <div className="grid gap-2">
+                <Label htmlFor="instruction">Custom Instructions (optional)</Label>
+                <Textarea
+                  id="instruction"
+                  placeholder="e.g., strengthen access control statements and add exceptions guidance"
+                  value={improveInstruction}
+                  onChange={(e) => setImproveInstruction(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const fn = improveContentFallback;
+                    const fallback = fn(improveTarget?.content || "", improveTarget, enhanceBaseline);
+                    setImprovedContent(fallback);
+                    toast.success("Applied baseline enhancement without AI");
+                  }}
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Enhance without AI
+                </Button>
+              </div>
+              <div className="grid gap-2">
+                <Label>Improved Content Preview</Label>
+                <RichTextEditor
+                  value={improvedContent}
+                  onChange={setImprovedContent}
+                  minHeight="400px"
+                />
+              </div>
+            </div>
+          </form>
+        </EnhancedDialog>
+
         <AlertDialog open={!!templateToDelete} onOpenChange={(open) => !open && setTemplateToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -624,11 +1054,13 @@ export default function PolicyTemplates() {
 
 function GeneratePolicyDialog({ open, onOpenChange, template }: { open: boolean, onOpenChange: (open: boolean) => void, template: any }) {
   const { selectedClientId: contextClientId } = useClientContext();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [_, setLocation] = useLocation();
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [customInstruction, setCustomInstruction] = useState("");
   const [tailorToIndustry, setTailorToIndustry] = useState(true);
+  const [previewContent, setPreviewContent] = useState<string>("");
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   const { data: clients, isLoading: isLoadingClients } = trpc.clients.list.useQuery({}, {
     enabled: open
@@ -645,7 +1077,7 @@ function GeneratePolicyDialog({ open, onOpenChange, template }: { open: boolean,
     }
   }, [open, contextClientId, clients]);
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin';
 
   const generateMutation = trpc.clientPolicies.create.useMutation({
     onSuccess: (data: any) => {
@@ -659,16 +1091,39 @@ function GeneratePolicyDialog({ open, onOpenChange, template }: { open: boolean,
     onError: (error) => toast.error(error.message),
   });
 
+  const previewMutation = trpc.policyTemplates.preview.useMutation({
+    onSuccess: (data: any) => {
+      const title = template?.name || "Information Security Policy";
+      const content = data?.content || "";
+      const isHtml = /<[a-z][\s\S]*>/i.test(content);
+      const html = isHtml ? content : (marked.parse(content, { async: false }) as string);
+      const sanitized = sanitizeHtml(html, title);
+      setPreviewContent(sanitized);
+      setIsGeneratingPreview(false);
+    },
+    onError: () => {
+      const fallback = improveContentFallback(template?.content || "", template);
+      setPreviewContent(fallback);
+      setIsGeneratingPreview(false);
+      toast.warning("Preview unavailable; applied baseline formatting");
+    }
+  });
+
   const handleGenerate = () => {
     if (!selectedClientId) {
       toast.error("Please select a client");
       return;
     }
 
+    const title = template?.name || "Information Security Policy";
+    const fallbackHtml = improveContentFallback(template?.content || "", template);
+    const contentToUse = previewContent || fallbackHtml;
+
     generateMutation.mutate({
       clientId: selectedClientId,
       templateId: template.id,
       name: template.name,
+      content: sanitizeHtml(contentToUse, title),
       tailor: tailorToIndustry,
       instruction: customInstruction || undefined,
       status: 'draft',
@@ -734,6 +1189,36 @@ function GeneratePolicyDialog({ open, onOpenChange, template }: { open: boolean,
           />
         </div>
 
+        <div className="flex">
+          <Button
+            type="button"
+            onClick={() => {
+              if (!selectedClientId) {
+                toast.error("Please select a client");
+                return;
+              }
+              setIsGeneratingPreview(true);
+              previewMutation.mutate({
+                clientId: selectedClientId,
+                templateId: template?.id,
+                tailor: tailorToIndustry,
+                instruction: customInstruction || undefined
+              });
+            }}
+            disabled={isGeneratingPreview}
+            className="w-full"
+          >
+            {isGeneratingPreview ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Preview...
+              </>
+            ) : (
+              "Generate Preview"
+            )}
+          </Button>
+        </div>
+
         <div className="flex items-center space-x-2">
           <input
             type="checkbox"
@@ -747,11 +1232,14 @@ function GeneratePolicyDialog({ open, onOpenChange, template }: { open: boolean,
           </Label>
         </div>
 
-        {generateMutation.isPending && (
-          <div className="p-4 bg-muted rounded-lg animate-pulse text-sm text-center">
-            AI is generating your policy... This may take a few seconds.
-          </div>
-        )}
+        <div className="grid gap-2">
+          <Label>Policy Content Preview</Label>
+          <RichTextEditor
+            value={previewContent || (template?.content || "")}
+            onChange={setPreviewContent}
+            minHeight="400px"
+          />
+        </div>
       </div>
     </EnhancedDialog>
   );

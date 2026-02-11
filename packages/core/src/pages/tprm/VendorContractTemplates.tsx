@@ -10,6 +10,7 @@ import { FileText, Plus, ExternalLink, Sparkles, Edit, Trash2 } from "lucide-rea
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@complianceos/ui/ui/alert-dialog";
 import RichTextEditor from '@/components/RichTextEditor';
+import { PageGuide } from "@/components/PageGuide";
 
 // Helper to convert Markdown to HTML (Basic)
 const convertMarkdownToHtml = (markdown: string) => {
@@ -161,10 +162,16 @@ export default function VendorContractTemplates() {
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold">Vendor Contract Templates</h1>
-                    <p className="text-muted-foreground">Manage standard agreements (NDAs, MSAs, DPAs) for your vendor onboarding.</p>
-                </div>
+                <PageGuide
+                    title="Vendor Contract Templates"
+                    description="Manage standard agreements (NDAs, MSAs, DPAs) for your vendor onboarding."
+                    rationale="Ensure consistent legal terms across your vendor supply chain."
+                    howToUse={[
+                        { step: "Create", description: "Draft new contract templates." },
+                        { step: "AI Draft", description: "Use AI to generate standard legal clauses." },
+                        { step: "Manage", description: "Update, version, and delete templates." }
+                    ]}
+                />
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>
                         <Button><Plus className="mr-2 h-4 w-4" /> New Template</Button>

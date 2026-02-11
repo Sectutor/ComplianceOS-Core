@@ -7,6 +7,7 @@ import ExecutionDashboard from '@/components/roadmap/ExecutionDashboard';
 import StrategicRoadmapDetail from '@/components/roadmap/StrategicRoadmapDetail';
 import { Button } from '@complianceos/ui/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@complianceos/ui/ui/tabs';
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RoadmapDetailsPage() {
     const params = useParams();
@@ -24,12 +25,26 @@ export default function RoadmapDetailsPage() {
     return (
         <DashboardLayout>
             <div className="flex flex-col h-full">
-                <div className="px-8 pt-6 pb-2">
+                <div className="px-8 pt-6 pb-2 flex justify-between items-start">
                     <Link href={`/clients/${clientId}/roadmap/dashboard`}>
                         <Button variant="ghost" size="sm" className="gap-2 mb-4 pl-0 hover:pl-2 transition-all">
                             <ArrowLeft className="h-4 w-4" /> Back to Dashboard
                         </Button>
                     </Link>
+                    <PageGuide
+                        title="Roadmap Details"
+                        description="Deep dive into a specific strategic roadmap."
+                        rationale="Provides focused visibility into a specific compliance initiative's progress and blockers."
+                        howToUse={[
+                            { step: "Strategic Tab", description: "View GANTT charts and high-level milestones." },
+                            { step: "Execution Tab", description: "Manage individual tasks and assignees." },
+                            { step: "Edit Configuration", description: "Adjust roadmap settings via the Edit button." }
+                        ]}
+                        integrations={[
+                            { name: "Task Tracker", description: "Updates task status in real-time." },
+                            { name: "Timeline View", description: "Visualizes dependencies." }
+                        ]}
+                    />
                 </div>
 
                 <div className="flex-1 px-8">

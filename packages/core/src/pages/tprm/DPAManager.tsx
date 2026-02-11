@@ -10,6 +10,7 @@ import { Textarea } from "@complianceos/ui/ui/textarea";
 import { FileText, Plus, Search, ExternalLink, Sparkles, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@complianceos/ui/ui/alert-dialog";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function DPAManager() {
     const { data: templates, refetch } = trpc.dpaTemplates.list.useQuery();
@@ -71,10 +72,17 @@ export default function DPAManager() {
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold">DPA Templates</h1>
-                    <p className="text-muted-foreground">Manage standard Data Processing Agreements.</p>
-                </div>
+
+                <PageGuide
+                    title="DPA Templates"
+                    description="Manage standard Data Processing Agreements."
+                    rationale="Mandatory for GDPR compliance when sharing personal data with processors."
+                    howToUse={[
+                        { step: "Create", description: "Draft new DPA templates for different regions." },
+                        { step: "Customize", description: "Set jurisdictions (EU, UK, CA) and clauses." },
+                        { step: "Deploy", description: "Use templates for vendor contract negotiation." }
+                    ]}
+                />
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>
                         <Button><Plus className="mr-2 h-4 w-4" /> New Template</Button>

@@ -18,6 +18,7 @@ interface UserEditorProps {
         name: string | null;
         email: string | null;
         role: string;
+        maxClients: number | null;
         memberships?: Array<{
             clientId: number;
             clientName: string;
@@ -36,6 +37,7 @@ export function UserEditor({ user }: UserEditorProps) {
 
     // Permissions State
     const [role, setRole] = useState(user.role || "user");
+    const [maxClients, setMaxClients] = useState(user.maxClients || 2);
 
     // Organizations State
     const { data: clients } = trpc.clients.list.useQuery();
@@ -93,7 +95,8 @@ export function UserEditor({ user }: UserEditorProps) {
         updateProfileMutation.mutate({
             id: user.id,
             name,
-            email
+            email,
+            maxClients
         });
     };
 
@@ -182,6 +185,20 @@ export function UserEditor({ user }: UserEditorProps) {
                                         type="email"
                                     />
                                 </div>
+                                <div className="space-y-2">
+                                    <Label>Organization Limit (Admin Tier)</Label>
+                                    <Select value={maxClients.toString()} onValueChange={(val) => setMaxClients(parseInt(val))}>
+                                        <SelectTrigger className="w-full bg-white">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="2">2 Organizations (Default)</SelectItem>
+                                            <SelectItem value="10">10 Organizations</SelectItem>
+                                            <SelectItem value="999999">Unlimited Organizations</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground italic">Limits how many organizations this user can create/manage as an owner.</p>
+                                </div>
                                 <div className="pt-2">
                                     <Button type="submit" disabled={updateProfileMutation.isPending}>
                                         {updateProfileMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
@@ -240,6 +257,12 @@ export function UserEditor({ user }: UserEditorProps) {
                                                 <div className="flex flex-col text-left">
                                                     <span className="font-medium">Global Admin</span>
                                                     <span className="text-xs text-muted-foreground">Full system access (Danger)</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="super_admin">
+                                                <div className="flex flex-col text-left">
+                                                    <span className="font-medium">Super Admin</span>
+                                                    <span className="text-xs text-muted-foreground">Highest clearance, bypasses all limits</span>
                                                 </div>
                                             </SelectItem>
                                         </SelectContent>

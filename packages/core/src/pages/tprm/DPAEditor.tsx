@@ -12,6 +12,7 @@ import { FileText, Save, ArrowLeft, Download, CheckCircle, Clock, Trash2, Loader
 import { toast } from "sonner";
 import RichTextEditor from "@/components/RichTextEditor";
 import { format } from 'date-fns';
+import { PageGuide } from "@/components/PageGuide";
 
 export default function DPAEditor() {
     const [, params] = useRoute("/tprm/dpa-editor/:dpaId");
@@ -78,7 +79,17 @@ export default function DPAEditor() {
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-lg border shadow-sm sticky top-0 z-10">
+            <PageGuide
+                title="DPA Editor"
+                description="Draft and customize Data Processing Agreements."
+                rationale="Tailor legal terms to specific data categories and processing activities."
+                howToUse={[
+                    { step: "Draft", description: "Edit clauses using the rich text editor." },
+                    { step: "Review", description: "Collaborate on terms and version control." },
+                    { step: "Finalize", description: "Mark as signed and export PDF for records." }
+                ]}
+            />
+            <div className="flex justify-between items-center bg-white p-4 rounded-lg border shadow-sm sticky top-0 z-10 transition-all">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
                         <ArrowLeft className="h-5 w-5" />

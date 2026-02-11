@@ -9,6 +9,7 @@ import React from 'react';
 import { useParams, Link } from 'wouter';
 import DashboardLayout from '@/components/DashboardLayout';
 import { AdversaryIntelPanel } from '@/components/risk/AdversaryIntelPanel';
+import { PageGuide } from '@/components/PageGuide';
 import { Button } from '@complianceos/ui/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@complianceos/ui/ui/card';
 import { Badge } from '@complianceos/ui/ui/badge';
@@ -56,10 +57,26 @@ export function AdversaryIntelPage() {
                             </Button>
                         </Link>
                     </div>
-                    <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-4 py-1.5 text-sm">
-                        <Zap className="w-4 h-4 mr-1.5" />
-                        Premium Feature
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-4 py-1.5 text-sm">
+                            <Zap className="w-4 h-4 mr-1.5" />
+                            Premium Feature
+                        </Badge>
+                        <PageGuide
+                            title="Adversary Intelligence"
+                            description="Live threat feeds and MITRE ATT&CK integration."
+                            rationale="Proactive risk management requires knowing what adversaries are doing now."
+                            howToUse={[
+                                { step: "Browse Feeds", description: "Review the latest CISA and news items daily." },
+                                { step: "Create Risks", description: "Click 'Create Risk' on any feed item to instantly start an assessment." },
+                                { step: "Explore MITRE", description: "Use the matrix to understand specific tactics (e.g., Phishing) and their mitigations." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Register", description: "One-click conversion of intelligence into tracked risks." },
+                                { name: "Vulnerabilities", description: "Cross-reference CISA KEVs with your asset inventory." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 {/* Hero Section */}

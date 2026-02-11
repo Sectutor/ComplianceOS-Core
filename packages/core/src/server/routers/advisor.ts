@@ -8,14 +8,86 @@ import {
     askQuestion,
     generateVendorMitigationPlan,
     analyzeRisk,
-    reindexKnowledgeBase
+    reindexKnowledgeBase,
+    generateRiskMitigationPlan
 } from '../../lib/advisor/service';
 import { eq, sql, and } from "drizzle-orm";
 import { getDb } from '../../db';
 import * as schema from '../../schema';
 
+// Helper to get guidance
+async function getGuidance(input: { clientId: number, controlTitle: string, controlDescription: string, controlId: string }) {
+    const dbConn = await getDb();
+    const client = await dbConn.query.clients.findFirst({
+        where: eq(schema.clients.id, input.clientId)
+    });
+
+    const contextPrompt = `
+    You are an expert security engineer helping a startup implement compliance controls.
+    
+    Organization Context:
+    - Name: ${client?.name}
+    - Industry: ${client?.industry}
+    - Description: ${client?.description || "Not provided"}
+    - Size: ${client?.size || "Not provided"}
+    
+    The user needs to implement this control:
+    - Control: ${input.controlTitle} (${input.controlId})
+    - Requirement: ${input.controlDescription}
+    
+    Provide a concrete, real-world implementation guide.
+    Structure your response in Markdown:
+    
+    ### Why this matters
+    (2 sentences on the security/business value for a ${client?.industry} company)
+    
+    ### Implementation Steps
+    (3-5 concrete steps. Be specific. If they are a software company, assume standard tools like GitHub, AWS, Vercel, etc. unless specified otherwise)
+    
+    ### Real-World Example
+    (A concrete example of what "good" looks like. e.g., a screenshot description, a config snippet, or a process description)
+    `;
+
+    // Use the existing askQuestion logic but force the prompt
+    // We import LLM service directly here to bypass the conversation history logic of askQuestion if needed,
+    // or just reuse askQuestion if it's easier. Reusing askQuestion logic via direct service call is cleaner.
+    const { LLMService } = await import('../../lib/llm/service');
+    const llm = new LLMService();
+    
+    try {
+        const response = await llm.generate({
+            userPrompt: contextPrompt,
+            temperature: 0.3,
+        });
+
+        return { guidance: response.text };
+    } catch (error: any) {
+        console.error("LLM Generation Failed:", error);
+        // Fallback or rethrow with more detail
+        throw new Error(`LLM Error: ${error.message || 'Unknown error'}`);
+    }
+}
+
 export function createAdvisorRouter(t: any, protectedProcedure: any) {
     return t.router({
+        getImplementationGuidance: protectedProcedure
+            .input(z.object({
+                clientId: z.number(),
+                controlId: z.string(),
+                controlTitle: z.string(),
+                controlDescription: z.string()
+            }))
+            .mutation(async ({ input }: any) => {
+                try {
+                    return await getGuidance(input);
+                } catch (error: any) {
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Failed to generate guidance: ${error.message}`,
+                    });
+                }
+            }),
+            
         analyzeRisk: protectedProcedure
             .input(z.object({
                 clientId: z.number(),
@@ -151,6 +223,32 @@ export function createAdvisorRouter(t: any, protectedProcedure: any) {
                     throw new TRPCError({
                         code: 'INTERNAL_SERVER_ERROR',
                         message: `Failed to generate vendor mitigation plan: ${error.message}`,
+                    });
+                }
+            }),
+
+        generateRiskMitigationPlan: protectedProcedure
+            .input(z.object({
+                clientId: z.number(),
+                riskTitle: z.string(),
+                riskDescription: z.string(),
+                riskContext: z.string().optional(),
+                currentMitigations: z.array(z.string()).optional()
+            }))
+            .mutation(async ({ input }: any) => {
+                try {
+                    const result = await generateRiskMitigationPlan({
+                        clientId: input.clientId,
+                        riskTitle: input.riskTitle,
+                        riskDescription: input.riskDescription,
+                        riskContext: input.riskContext,
+                        currentMitigations: input.currentMitigations
+                    });
+                    return result;
+                } catch (error: any) {
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Failed to generate risk mitigation plan: ${error.message}`,
                     });
                 }
             }),
@@ -332,6 +430,38 @@ export function createAdvisorRouter(t: any, protectedProcedure: any) {
                 }
 
                 return { success: true, stats };
+            }),
+
+        getOwaspIntelligence: protectedProcedure
+            .input(z.object({
+                tags: z.array(z.string()),
+                limit: z.number().default(10)
+            }))
+            .query(async ({ input }: any) => {
+                const db = await getDb();
+                try {
+                    const requirements = await db.select().from(schema.frameworkRequirements);
+
+                    const filtered = requirements.filter((r: any) => {
+                        const rTags = r.mappingTags as string[] | null;
+                        if (!rTags || !Array.isArray(rTags)) return false;
+                        return input.tags.some((tag: string) => rTags.includes(tag));
+                    });
+
+                    // Sort by how many tags match (simple relevance)
+                    const sorted = filtered.sort((a: any, b: any) => {
+                        const aMatches = (a.mappingTags as string[]).filter((t: string) => input.tags.includes(t)).length;
+                        const bMatches = (b.mappingTags as string[]).filter((t: string) => input.tags.includes(t)).length;
+                        return bMatches - aMatches;
+                    });
+
+                    return sorted.slice(0, input.limit);
+                } catch (error: any) {
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Failed to fetch OWASP intelligence: ${error.message}`,
+                    });
+                }
             }),
 
         // Health check for RAG embeddings

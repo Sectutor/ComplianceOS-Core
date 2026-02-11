@@ -25,15 +25,15 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 
 interface CalendarEvent {
   id: string;
-  type: 'control_review' | 'policy_renewal' | 'evidence_expiration' | 'project_task' | 'remediation' | 'poam';
+  type: 'control_review' | 'policy_renewal' | 'evidence_expiration' | 'project_task' | 'remediation' | 'poam' | 'risk_review' | 'treatment_due';
   title: string;
   description: string;
-  dueDate: string;
+  date: string;
   clientId: number;
   clientName: string;
   status: string;
-  entityId: number;
-  priority: 'high' | 'medium' | 'low';
+  entityId?: number;
+  priority: 'high' | 'medium' | 'low' | 'critical';
 }
 
 export default function Calendar() {
@@ -100,7 +100,7 @@ export default function Calendar() {
   // Get events for a specific day
   const getEventsForDay = (day: Date) => {
     return filteredEvents.filter(event =>
-      isSameDay(new Date(event.dueDate), day)
+      isSameDay(new Date(event.date), day)
     );
   };
 
@@ -264,7 +264,7 @@ export default function Calendar() {
             <CardContent>
               <div className="text-2xl font-bold text-yellow-900">
                 {upcomingEvents?.filter(e => {
-                  const dueDate = new Date(e.dueDate);
+                  const dueDate = new Date(e.date);
                   const weekFromNow = new Date();
                   weekFromNow.setDate(weekFromNow.getDate() + 7);
                   return dueDate <= weekFromNow;
@@ -437,7 +437,7 @@ export default function Calendar() {
                               {event.priority}
                             </Badge>
                             <p className="text-sm mt-1 font-medium">
-                              {format(new Date(event.dueDate), 'MMM d, yyyy')}
+                              {format(new Date(event.date), 'MMM d, yyyy')}
                             </p>
                           </div>
                         </div>
@@ -484,7 +484,7 @@ export default function Calendar() {
                           <div className="text-right">
                             <Badge variant="destructive">OVERDUE</Badge>
                             <p className="text-sm mt-1 font-medium text-red-800">
-                              Was due: {format(new Date(event.dueDate), 'MMM d, yyyy')}
+                              Was due: {format(new Date(event.date), 'MMM d, yyyy')}
                             </p>
                           </div>
                         </div>

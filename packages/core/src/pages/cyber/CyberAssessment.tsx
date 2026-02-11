@@ -17,6 +17,7 @@ import {
 } from "@complianceos/ui/ui/select";
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import CyberLayout from "./CyberLayout";
+import { PageGuide } from "@/components/PageGuide";
 
 const NIS2_CHECKLIST = [
     {
@@ -179,11 +180,18 @@ export default function CyberAssessment() {
         <CyberLayout>
             <div className="space-y-6">
                 {/* Header */}
+                {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">NIS2 Compliance Checklist</h1>
-                        <p className="text-muted-foreground mt-1">Assess your readiness against Article 21 requirements.</p>
-                    </div>
+                    <PageGuide
+                        title="NIS2 Compliance Checklist"
+                        description="Assess your readiness against Article 21 requirements."
+                        rationale="Regular self-assessment is mandatory to ensure ongoing compliance with NIS2 security measures."
+                        howToUse={[
+                            { step: "Assess", description: "Answer questions across all 10 categories." },
+                            { step: "Evidence", description: "Add notes or links to evidence for verification." },
+                            { step: "Track", description: "Monitor your compliance score and progress." }
+                        ]}
+                    />
                     <div className="flex items-center gap-4">
                         <div className="text-right">
                             <div className="text-2xl font-bold">{score}%</div>

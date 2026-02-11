@@ -19,6 +19,7 @@ import {
 import { useLocation, useParams } from "wouter";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 import { useClientContext } from "@/contexts/ClientContext";
 
 
@@ -117,13 +118,18 @@ export default function PrivacyDashboard() {
             />
 
             <div className="flex items-start justify-between animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Privacy Compliance</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Manage GDPR, CCPA, and data privacy operations
-                    </p>
-                </div>
+                <PageGuide
+                    title="Privacy Compliance"
+                    description="Manage GDPR, CCPA, and data privacy operations."
+                    rationale="Central hub for your privacy program to ensure regulatory compliance."
+                    howToUse={[
+                        { step: "Inventory", description: "Map your data assets and processing activities." },
+                        { step: "Requests", description: "Handle Data Subject Access Requests (DSAR)." },
+                        { step: "Assessments", description: "Conduct DPIAs and transfer impact assessments." }
+                    ]}
+                />
             </div>
+
 
             {/* Privacy Masterclass Callout */}
             <Card className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white border-0 shadow-2xl overflow-hidden group cursor-pointer" onClick={() => setLocation(`/clients/${selectedClientId}/privacy/overview`)}>
@@ -228,6 +234,6 @@ export default function PrivacyDashboard() {
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </div >
     );
 }

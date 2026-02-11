@@ -63,6 +63,7 @@ const COUNTRIES = [
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function TransferDashboard() {
     const { id } = useParams<{ id: string }>();
@@ -187,11 +188,17 @@ export default function TransferDashboard() {
                     { label: "International Transfers" },
                 ]}
             />
-            <div className="flex justify-between items-center -mb-2">
-                <div>
-                    <h1 className="text-2xl font-bold">International Data Transfers</h1>
-                    <p className="text-muted-foreground">Manage cross-border data flows and Chapter V compliance</p>
-                </div>
+            <div className="flex justify-between items-center -mb-2 animate-slide-down">
+                <PageGuide
+                    title="International Data Transfers"
+                    description="Map and legitimize cross-border data flows."
+                    rationale="Ensure Chapter V compliance for transfers to non-adequate countries."
+                    howToUse={[
+                        { step: "Map", description: "Identify transfers and destination countries." },
+                        { step: "Legitimize", description: "Select transfer tool (Adequacy, SCCs, BCRs)." },
+                        { step: "Assess", description: "Conduct Transfer Impact Assessment (TIA) for high-risk flows." }
+                    ]}
+                />
                 <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> New Transfer
                 </Button>

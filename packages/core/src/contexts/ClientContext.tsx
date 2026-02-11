@@ -7,6 +7,8 @@ interface ClientContextType {
   clearSelectedClient: () => void;
   planTier: string | null;
   setPlanTier: (tier: string | null) => void;
+  userRole: string | null;
+  setUserRole: (role: string | null) => void;
 }
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
@@ -38,6 +40,7 @@ export function ClientContextProvider({ children }: { children: React.ReactNode 
   };
 
   const [planTier, setPlanTier] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   return (
     <ClientContext.Provider value={{
@@ -45,7 +48,9 @@ export function ClientContextProvider({ children }: { children: React.ReactNode 
       setSelectedClientId,
       clearSelectedClient,
       planTier,
-      setPlanTier
+      setPlanTier,
+      userRole,
+      setUserRole
     }}>
       {children}
     </ClientContext.Provider>

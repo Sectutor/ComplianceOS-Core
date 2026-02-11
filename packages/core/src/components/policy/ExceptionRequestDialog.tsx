@@ -11,13 +11,15 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@complianceos/ui/ui/alert";
 
 interface ExceptionRequestDialogProps {
-    policyId: number;
+    policyId?: number;
+    requirementId?: number;
+    policyType?: 'policy' | 'document';
     employeeId: number; // Current logged-in employee ID (or simulated for now)
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-export function ExceptionRequestDialog({ policyId, employeeId, open, onOpenChange }: ExceptionRequestDialogProps) {
+export function ExceptionRequestDialog({ policyId, requirementId, policyType = 'policy', employeeId, open, onOpenChange }: ExceptionRequestDialogProps) {
     const [reason, setReason] = useState("");
     const [expirationDate, setExpirationDate] = useState("");
     const utils = trpc.useUtils();
@@ -32,8 +34,8 @@ export function ExceptionRequestDialog({ policyId, employeeId, open, onOpenChang
             setReason("");
             setExpirationDate("");
             utils.policyManagement.getMyPolicies.invalidate(); // Refetch my policies if applicable
-            utils.policyManagement.getExceptions.invalidate({ policyId }); // Refetch policy exceptions
-            utils.onboarding.getStatus.invalidate(); // Refetch onboarding status
+            if (policyId) utils.policyManagement.getExceptions.invalidate({ policyId }); // Refetch policy exceptions
+            (utils.onboarding as any).getOnboardingStatus?.invalidate(); // Refetch onboarding status
         },
         onError: (error) => toast.error(error.message)
     });
@@ -42,6 +44,8 @@ export function ExceptionRequestDialog({ policyId, employeeId, open, onOpenChang
         if (!reason.trim()) return;
         requestMutation.mutate({
             policyId,
+            requirementId,
+            policyType,
             employeeId,
             reason,
             expirationDate: expirationDate || undefined

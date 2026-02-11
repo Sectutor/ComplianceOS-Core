@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "npm run dev -w @complianceos/core",
     "dev:core": "npx cross-env VITE_ENABLE_PREMIUM=false npm run dev -w @complianceos/core",
+    "dev:premium": "npx cross-env VITE_ENABLE_PREMIUM=true npm run dev -w @complianceos/core",
     "build": "npm run build -w @complianceos/core",
     "build:core": "npx cross-env VITE_ENABLE_PREMIUM=false npm run build -w @complianceos/core",
+    "build:premium": "npx cross-env VITE_ENABLE_PREMIUM=true npm run build -w @complianceos/core",
     "release": "node scripts/release.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -19,6 +21,7 @@
     "db:studio": "drizzle-kit studio",
     "server": "tsx --watch server_entry.ts",
     "server:core": "npx cross-env VITE_ENABLE_PREMIUM=false tsx --watch server_entry.ts",
+    "server:premium": "npx cross-env VITE_ENABLE_PREMIUM=true tsx --watch server_entry.ts",
     "cli": "tsx scripts/cli.ts",
     "import:csv": "tsx scripts/seed/importCsv.ts",
     "smoke": "tsx scripts/test/smoke.ts",
@@ -27,7 +30,24 @@
     "seed:risk": "tsx scripts/seed/seedRiskData.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "server:enterprise": "tsx server-enterprise.ts",
+    "server:enterprise:dev": "tsx --watch server-enterprise.ts",
+    "server:enterprise:prod": "NODE_ENV=production tsx server-enterprise.ts",
+    "infrastructure:init": "tsx scripts/infrastructure/init.ts",
+    "infrastructure:health": "tsx scripts/infrastructure/health.ts",
+    "infrastructure:metrics": "tsx scripts/infrastructure/metrics.ts",
+    "cache:clear": "tsx scripts/cache/clear.ts",
+    "cache:warm": "tsx scripts/cache/warm.ts",
+    "db:optimize": "tsx scripts/database/optimize.ts",
+    "db:migrate:enterprise": "tsx scripts/database/migrate-enterprise.ts",
+    "performance:test": "tsx scripts/performance/test.ts",
+    "performance:benchmark": "tsx scripts/performance/benchmark.ts",
+    "load:test": "tsx scripts/performance/load-test.ts",
+    "redis:setup": "tsx scripts/redis/setup.ts",
+    "redis:monitor": "tsx scripts/redis/monitor.ts",
+    "scaling:enable": "tsx scripts/scaling/enable.ts",
+    "scaling:disable": "tsx scripts/scaling/disable.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -126,7 +146,8 @@
     "wouter": "^3.1.2",
     "xlsx": "^0.18.5",
     "yaml": "^2.3.4",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "ioredis": "^5.3.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.0.0-alpha.12",

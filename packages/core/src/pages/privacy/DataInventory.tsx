@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { useClientContext } from "@/contexts/ClientContext";
 import { useState } from "react";
+import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
 import {
     AlertDialog,
@@ -96,13 +97,17 @@ export default function DataInventory() {
                 ]}
             />
 
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Data Inventory</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Identify and classify assets containing personal data
-                    </p>
-                </div>
+            <div className="flex items-center justify-between animate-slide-down">
+                <PageGuide
+                    title="Data Inventory"
+                    description="Catalog of all data assets and processing activities."
+                    rationale="Foundation for privacy compliance (RoPA) and security controls."
+                    howToUse={[
+                        { step: "Inventory", description: "Add and categorize data assets." },
+                        { step: "Classify", description: "Set sensitivity (Public, Internal, Confidential)." },
+                        { step: "Link", description: "Associate assets with vendors and processing activities." }
+                    ]}
+                />
             </div>
 
             <Card className="flex-1 flex flex-col">

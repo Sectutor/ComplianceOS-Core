@@ -91,6 +91,72 @@ export const frameworks: Framework[] = [
         description: "NIST AI Risk Management Framework (1.0) for trustworthy and responsible AI.",
         type: "AI & Data",
         logo: "/frameworks/nist.svg"
+    },
+    {
+        id: "owasp-aisvs",
+        name: "OWASP AISVS (AI Security)",
+        description: "OWASP Artificial Intelligence Security Verification Standard (1.0). structured checklist to evaluate AI-driven applications.",
+        type: "AI & Data",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp-asvs",
+        name: "OWASP ASVS (App Security)",
+        description: "OWASP Application Security Verification Standard (4.0.3). Basis for testing technical security controls.",
+        type: "Security",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp_masvs",
+        name: "OWASP MASVS (Mobile Security)",
+        description: "OWASP Mobile Application Security Verification Standard (2.0). The industry standard for mobile app security.",
+        type: "Security",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp_samm",
+        name: "OWASP SAMM (Maturity Model)",
+        description: "OWASP Software Assurance Maturity Model. An effective and measurable way for all types of organizations to analyze and improve their software security posture.",
+        type: "Governance",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp_api_top10",
+        name: "OWASP API Security Top 10",
+        description: "The most critical API security risks. Focuses on strategies and solutions to understand and mitigate the unique vulnerabilities and security risks of APIs.",
+        type: "Security",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp_top10",
+        name: "OWASP Web Top 10",
+        description: "The standard awareness document for developers and web application security (2025 Draft/Pre-release).",
+        version: "2025",
+        type: "Security",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "owasp_top10_2021",
+        name: "OWASP Web Top 10 (2021)",
+        description: "The standard awareness document for developers and web application security (2021).",
+        version: "2021",
+        type: "Security",
+        logo: "/frameworks/owasp.svg"
+    },
+    {
+        id: "essential-eight",
+        name: "Australian Essential Eight",
+        description: "Eight prioritized mitigation strategies for cyber resilience with maturity levels 0–3.",
+        type: "Security",
+        logo: "/frameworks/australia.svg"
+    },
+    {
+        id: "owasp_ml_top10",
+        name: "OWASP ML Security Top 10",
+        description: "Vulnerabilities in machine learning models and systems through the ML lifecycle (0.3).",
+        version: "2023",
+        type: "AI & Data",
+        logo: "/frameworks/owasp.svg"
     }
 ];
 

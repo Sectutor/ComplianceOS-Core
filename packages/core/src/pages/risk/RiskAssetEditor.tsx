@@ -13,6 +13,7 @@ import { Separator } from '@complianceos/ui/ui/separator';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import ThreatIntelPanel from '@/components/risk/ThreatIntelPanel';
+import { PageGuide } from "@/components/PageGuide";
 
 const ASSET_TYPES = [
     'Hardware',
@@ -194,6 +195,21 @@ export default function RiskAssetEditor() {
                             <Save className="w-4 h-4 mr-2" />
                             {isNew ? 'Add Asset' : 'Save Changes'}
                         </Button>
+                        <PageGuide
+                            title={isNew ? "Add New Asset" : "Edit Asset Details"}
+                            description="Document the attributes, ownership, and value of this asset."
+                            rationale="Accurate asset records allow for better threat modeling. Knowing the 'technology stack' (e.g. Apache, Windows) allows us to auto-match known vulnerabilities."
+                            howToUse={[
+                                { step: "Define Basics", description: "Name, owner, and type are mandatory for identification." },
+                                { step: "Set Valuation", description: "Use the CIA Valuation tab to score importance from 1 (Low) to 5 (Critical)." },
+                                { step: "Add Tech Stack", description: "List technologies (e.g., 'nginx', 'postgres') to enable automated threat intelligence scanning." },
+                                { step: "Monitor Lifecycle", description: "Set review dates to ensure the asset record stays current." }
+                            ]}
+                            integrations={[
+                                { name: "NVD Scanning", description: "Vendor and Product fields are used to search the National Vulnerability Database." },
+                                { name: "Business Impact", description: "The CIA score directly influences the Impact calculation in risk assessments." }
+                            ]}
+                        />
                     </div>
                 </div>
 

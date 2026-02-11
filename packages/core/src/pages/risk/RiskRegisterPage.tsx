@@ -19,6 +19,7 @@ import {
     BreadcrumbSeparator,
 } from "@complianceos/ui/ui/breadcrumb";
 import { usePageHelp } from '@/hooks/usePageHelp';
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RiskRegisterPage() {
     usePageHelp({
@@ -201,6 +202,22 @@ export default function RiskRegisterPage() {
                         <Button onClick={() => { setEditingRisk(null); setWizardOpen(true); }}>
                             <Plus className="w-4 h-4 mr-2" /> Add Risk
                         </Button>
+                        <PageGuide
+                            title="Risk Register"
+                            description="Identify, assess, and treat risks to your organization."
+                            rationale="A comprehensive risk register is the foundation of information security. It documents potential threats, their likelihood and impact, and the controls you've put in place to mitigate them."
+                            howToUse={[
+                                { step: "Add Risks", description: "Click 'Add Risk' to use the wizard for documenting new threats." },
+                                { step: "Assess Risk", description: "Score inherent risk (before controls) and residual risk (after controls)." },
+                                { step: "Assign Owners", description: "Designate a risk owner responsible for monitoring and mitigation." },
+                                { step: "Analyze Heatmaps", description: "Use the heatmaps to visualize your highest-priority risks." }
+                            ]}
+                            integrations={[
+                                { name: "Controls", description: "Mitigating controls are linked directly from the Control Library." },
+                                { name: "AI Analysis", description: "Use the 'AI Management Report' to generate executive summaries." },
+                                { name: "Audits", description: "This register serves as primary evidence for risk management standards (e.g., ISO 27001 Clause 6)." }
+                            ]}
+                        />
                     </div>
                 </div>
 

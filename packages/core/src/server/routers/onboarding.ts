@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { employeeTrainingRecords, employeeAcknowledgments, employeeSecuritySetup, employeeAssetReceipts, employees, complianceRequirements } from "../../schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { employeeTrainingRecords, employeeAcknowledgments, employeeSecuritySetup, employeeAssetReceipts, employees, complianceRequirements, policyExceptions, policyAssignments, clientPolicies } from "../../schema";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { getDb } from "../../db";
 import { TRPCError } from "@trpc/server";
 import { logActivity } from "../../lib/audit";
@@ -62,31 +62,77 @@ export const createOnboardingRouter = (t: any, clientProcedure: any, clientEdito
                     .from(employeeAssetReceipts)
                     .where(eq(employeeAssetReceipts.employeeId, employeeId));
 
+                // 5. Fetch policy exceptions
+                const exceptions = await db.select()
+                    .from(policyExceptions)
+                    .where(eq(policyExceptions.employeeId, employeeId))
+                    .orderBy(desc(policyExceptions.createdAt));
+
+                // 6. Fetch assigned policies
+                const assignedPolicies = await db.select({
+                    id: clientPolicies.id,
+                    name: clientPolicies.name,
+                    content: clientPolicies.content,
+                    version: clientPolicies.version,
+                    assignmentId: policyAssignments.id,
+                    status: policyAssignments.status
+                })
+                    .from(policyAssignments)
+                    .innerJoin(clientPolicies, eq(policyAssignments.policyId, clientPolicies.id))
+                    .where(eq(policyAssignments.employeeId, employeeId));
+
+                // Merge assigned policies into requirements
+                // We use a prefix 'policy_' to distinguish them from standard onboarding requirements
+                const policyRequirements = assignedPolicies.map((p: any) => ({
+                    id: p.id,
+                    key: `policy_${p.id}`,
+                    title: p.name,
+                    description: p.content,
+                    isMandatory: true,
+                    isPolicy: true, // Flag to distinguish in frontend
+                    assignmentId: p.assignmentId
+                }));
+
+                const allRequirements = [...requirements, ...policyRequirements];
+
                 // Process acknowledgments against requirements
                 const ackItems: Record<string, boolean> = {};
                 let completedAcks = 0;
 
-                requirements.forEach((req: any) => {
+                allRequirements.forEach((req: any) => {
                     // Find the latest acknowledgment for this requirement
-                    const latestAck = acknowledgments
-                        .filter((a: any) => a.acknowledgmentType === req.key)
-                        .sort((a: any, b: any) => new Date(b.acknowledgedAt).getTime() - new Date(a.acknowledgedAt).getTime())[0];
-
-                    // Check if it exists AND is recent enough (acknowledged AFTER the requirement was last updated)
-                    // If requirement update time is missing, assume it's valid if ack exists
                     let isAck = false;
-                    if (latestAck) {
-                        if (req.updatedAt) {
-                            // Allow a small buffer (e.g. 5 seconds) for concurrent db writes or clock skew
-                            // Check if acknowledgedAt is >= updatedAt
-                            isAck = new Date(latestAck.acknowledgedAt).getTime() >= (new Date(req.updatedAt).getTime() - 5000);
-                        } else {
-                            isAck = true;
+
+                    if (req.isPolicy) {
+                        // Check policy_assignments table
+                        const assignment = assignedPolicies.find((p: any) => p.id === req.id);
+                        isAck = assignment?.status === 'attested';
+                    } else {
+                        // Check employee_acknowledgments table
+                        const latestAck = acknowledgments
+                            .filter((a: any) => a.acknowledgmentType === req.key)
+                            .sort((a: any, b: any) => new Date(b.acknowledgedAt).getTime() - new Date(a.acknowledgedAt).getTime())[0];
+
+                        // Check if it exists AND is recent enough (acknowledged AFTER the requirement was last updated)
+                        if (latestAck) {
+                            if (req.updatedAt) {
+                                isAck = new Date(latestAck.acknowledgedAt).getTime() >= (new Date(req.updatedAt).getTime() - 5000);
+                            } else {
+                                isAck = true;
+                            }
                         }
                     }
 
-                    ackItems[req.key] = isAck;
-                    if (isAck) completedAcks++;
+                    // For policies, we check policyId in exceptions. For documents, we will now check requirementId.
+                    const hasException = exceptions.find((ex: any) =>
+                        (req.isPolicy ? ex.policyId === req.id : ex.requirementId === req.id) &&
+                        ex.status === 'approved'
+                    );
+
+                    const isSatisfied = isAck || !!hasException;
+
+                    ackItems[req.key] = isSatisfied;
+                    if (isSatisfied) completedAcks++;
                 });
 
                 // Build tasks object with all sections
@@ -106,9 +152,14 @@ export const createOnboardingRouter = (t: any, clientProcedure: any, clientEdito
                         assigned: 0
                     },
                     acknowledgments: {
-                        complete: completedAcks >= requirements.length,
+                        complete: completedAcks >= allRequirements.length,
                         items: ackItems,
-                        requirements: requirements // Pass full requirements to frontend
+                        requirements: allRequirements.map((req: any) => ({
+                            ...req,
+                            exception: exceptions.find((ex: any) =>
+                                (req.isPolicy ? ex.policyId === req.id : ex.requirementId === req.id)
+                            ) || null
+                        })) // Pass requirements with exception status
                     },
                     security: {
                         complete: securitySetup?.mfaEnrolled && securitySetup?.passwordManagerSetup && securitySetup?.securityQuestionsSet,
@@ -350,6 +401,14 @@ export const createOnboardingRouter = (t: any, clientProcedure: any, clientEdito
                     .from(employeeAssetReceipts)
                     .where(eq(employeeAssetReceipts.clientId, clientId));
 
+                const allAssignments = await db.select()
+                    .from(policyAssignments)
+                    .where(inArray(policyAssignments.employeeId, employeeIds.length > 0 ? employeeIds : [-1]));
+
+                const allExceptions = await db.select()
+                    .from(policyExceptions)
+                    .where(inArray(policyExceptions.employeeId, employeeIds.length > 0 ? employeeIds : [-1]));
+
                 // 3. Map data to employees
                 const employeeStatuses = clientEmployees.map((employee: any) => {
                     // Filter records for this employee
@@ -360,11 +419,29 @@ export const createOnboardingRouter = (t: any, clientProcedure: any, clientEdito
 
                     // Calculate basic status
                     const trainingComplete = empTraining.length >= 5;
-                    // Dynamically calculate acknowledgment completion
+
+                    // Dynamically calculate acknowledgment completion (including assigned policies)
+                    const empAssignments = allAssignments.filter((a: any) => a.employeeId === employee.id);
+                    const empExceptions = allExceptions.filter((e: any) => e.employeeId === employee.id);
+
                     const mandatoryReqs = requirements.filter((r: any) => r.isMandatory !== false).map((r: any) => r.key);
-                    const acksComplete = mandatoryReqs.length > 0
-                        ? mandatoryReqs.every((key: string) => empAcks.some((a: any) => a.acknowledgmentType === key))
+                    const docsComplete = mandatoryReqs.length > 0
+                        ? mandatoryReqs.every((key: string) => {
+                            const req = requirements.find((r: any) => r.key === key);
+                            const hasAck = empAcks.some((a: any) => a.acknowledgmentType === key);
+                            const hasException = empExceptions.some((ex: any) => ex.requirementId === req?.id && ex.status === 'approved');
+                            return hasAck || hasException;
+                        })
                         : true;
+
+                    const policiesComplete = empAssignments.length > 0
+                        ? empAssignments.every((a: any) => {
+                            const hasException = empExceptions.some((ex: any) => ex.policyId === a.policyId && ex.status === 'approved');
+                            return a.status === 'attested' || hasException;
+                        })
+                        : true;
+
+                    const acksComplete = docsComplete && policiesComplete;
 
                     const securityComplete = empSecurity?.mfaEnrolled && empSecurity?.passwordManagerSetup && empSecurity?.securityQuestionsSet;
                     const assetsComplete = empAssets.length > 0 && empAssets.every((a: any) => a.status === 'confirmed' || (a.confirmedAt && a.status !== 'returned'));
@@ -390,8 +467,8 @@ export const createOnboardingRouter = (t: any, clientProcedure: any, clientEdito
                             training: { complete: trainingComplete, count: empTraining.length, total: 5 },
                             acknowledgments: {
                                 complete: acksComplete,
-                                count: empAcks.length,
-                                total: requirements.length || 4
+                                count: empAcks.length + empAssignments.filter((a: any) => a.status === 'attested').length,
+                                total: requirements.length + empAssignments.length
                             },
                             security: { complete: !!securityComplete },
                             assets: { complete: assetsComplete, count: empAssets.filter((a: any) => a.status === 'confirmed' || (a.confirmedAt && a.status !== 'returned')).length, total: empAssets.length }

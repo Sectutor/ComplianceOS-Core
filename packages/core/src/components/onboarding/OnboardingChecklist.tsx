@@ -12,7 +12,7 @@ interface OnboardingChecklistProps {
 export function OnboardingChecklist({ stats, role }: OnboardingChecklistProps) {
     const [, setLocation] = useLocation();
 
-    const isAdmin = role === 'admin' || role === 'owner';
+    const isAdmin = role === 'admin' || role === 'owner' || role === 'super_admin';
 
     const userItems = [
         {

@@ -6,6 +6,7 @@ import { Button } from "@complianceos/ui/ui/button";
 import { Input } from "@complianceos/ui/ui/input";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Loader2, Search, ArrowLeft, Plus, ExternalLink, Globe, ShieldCheck, Zap } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
 import { Breadcrumb } from "@/components/Breadcrumb";
 
@@ -56,13 +57,16 @@ export default function GlobalVendorCatalog() {
             ]} />
 
             <div className="flex justify-between items-end animate-slide-down">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Global Vendor Catalog</h1>
-                    <p className="text-muted-foreground mt-2 max-w-2xl">
-                        Discover and add vendors from our community-driven database of over 500 trust centers.
-                        Pre-verified vendors include direct links to security portals and trust scores.
-                    </p>
-                </div>
+                <PageGuide
+                    title="Global Vendor Catalog"
+                    description="Discover and add vendors from our community-driven database."
+                    rationale="Leverage shared intelligence to accelerate vendor onboarding and risk assessment."
+                    howToUse={[
+                        { step: "Search", description: "Find vendors by name, domain, or category." },
+                        { step: "Verify", description: "Check trust scores and existing certifications." },
+                        { step: "Import", description: "Add verified vendors to your ecosystem." }
+                    ]}
+                />
                 <Link href={`/clients/${clientId}/vendors/all`}>
                     <Button variant="ghost" className="text-slate-500 hover:text-slate-900">
                         <ArrowLeft className="w-4 h-4 mr-2" /> Back to List

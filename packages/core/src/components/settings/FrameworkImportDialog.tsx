@@ -16,7 +16,7 @@ interface FrameworkImportDialogProps {
 }
 
 export function FrameworkImportDialog({ open, onOpenChange, clientId, onSuccess }: FrameworkImportDialogProps) {
-    const [frameworkType, setFrameworkType] = useState<"pci_dss_v4" | "cis_v8" | "ccm_v4" | "hitrust" | "fedramp" | "fedramp_low" | "fedramp_high" | "cyber_essentials" | "nist_ai_rmf" | "iso27001" | "soc2" | "cis_v8_system">("pci_dss_v4");
+    const [frameworkType, setFrameworkType] = useState<"pci_dss_v4" | "cis_v8" | "ccm_v4" | "hitrust" | "fedramp" | "fedramp_low" | "fedramp_high" | "cyber_essentials" | "nist_ai_rmf" | "iso27001" | "soc2" | "cis_v8_system" | "owasp_aisvs" | "owasp_asvs" | "owasp_masvs" | "owasp_samm" | "owasp_api_top10" | "owasp_top10" | "owasp_top10_2021" | "owasp_ml_top10">("pci_dss_v4");
     const [file, setFile] = useState<File | null>(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +46,13 @@ export function FrameworkImportDialog({ open, onOpenChange, clientId, onSuccess 
         frameworkType === "nist_ai_rmf" ||
         frameworkType === "iso27001" ||
         frameworkType === "soc2" ||
-        frameworkType === "cis_v8_system";
+        frameworkType === "cis_v8_system" ||
+        frameworkType === "owasp_aisvs" ||
+        frameworkType === "owasp_asvs" ||
+        frameworkType === "owasp_masvs" ||
+        frameworkType === "owasp_samm" ||
+        frameworkType === "owasp_api_top10" ||
+        frameworkType === "owasp_top10";
 
     // Dynamic Description Text
     const getFrameworkDescription = () => {
@@ -158,6 +164,86 @@ export function FrameworkImportDialog({ open, onOpenChange, clientId, onSuccess 
                 </div>
             );
         }
+        if (frameworkType === "owasp_aisvs" as any) {
+            return (
+                <div className="bg-cyan-50 border-l-4 border-cyan-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-cyan-700 mb-1">OWASP AISVS 1.0 (AI Security)</p>
+                    <p className="text-cyan-600 mb-2">
+                        The Artificial Intelligence Security Verification Standard. Covers training data, model lifecycle, and adversarial robustness.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_asvs" as any) {
+            return (
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-blue-700 mb-1">OWASP ASVS 4.0.3 (App Security)</p>
+                    <p className="text-blue-600 mb-2">
+                        The Application Security Verification Standard. Technical security controls for modern web applications and APIs.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_masvs" as any) {
+            return (
+                <div className="bg-rose-50 border-l-4 border-rose-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-rose-700 mb-1">OWASP MASVS 2.0 (Mobile Security)</p>
+                    <p className="text-rose-600 mb-2">
+                        The Mobile Application Security Verification Standard. Focuses on storage, crypto, network, and resilience for mobile apps.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_samm" as any) {
+            return (
+                <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-amber-700 mb-1">OWASP SAMM 2.0 (Maturity Model)</p>
+                    <p className="text-amber-600 mb-2">
+                        Software Assurance Maturity Model. Evaluates governance, design, implementation, verification, and operations.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_api_top10" as any) {
+            return (
+                <div className="bg-cyan-50 border-l-4 border-cyan-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-cyan-700 mb-1">OWASP API Security Top 10 (2023)</p>
+                    <p className="text-cyan-600 mb-2">
+                        Focuses on the most critical security risks to APIs, including authorization and excessive data exposure.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_top10" as any) {
+            return (
+                <div className="bg-slate-50 border-l-4 border-slate-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-slate-700 mb-1">OWASP Web Top 10 (2025 Pre-release)</p>
+                    <p className="text-slate-600 mb-2">
+                        The latest awareness document for web application security risks, updated for 2025 with detailed mitigation guidance.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_ml_top10" as any) {
+            return (
+                <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-indigo-700 mb-1">OWASP ML Security Top 10 (2023)</p>
+                    <p className="text-indigo-600 mb-2">
+                        Vulnerabilities in machine learning models and systems through the ML lifecycle, covering poisoning, extraction, and inversion.
+                    </p>
+                </div>
+            );
+        }
+        if (frameworkType === "owasp_top10_2021" as any) {
+            return (
+                <div className="bg-slate-50 border-l-4 border-slate-500 p-4 mb-4 text-sm">
+                    <p className="font-bold text-slate-700 mb-1">OWASP Web Top 10 (2021)</p>
+                    <p className="text-slate-600 mb-2">
+                        The 2021 edition of the foundational web application security risks.
+                    </p>
+                </div>
+            );
+        }
         return null;
     };
 
@@ -219,6 +305,14 @@ export function FrameworkImportDialog({ open, onOpenChange, clientId, onSuccess 
                                 <SelectItem value="fedramp_high">FedRAMP High</SelectItem>
                                 <SelectItem value="cyber_essentials">Cyber Essentials / Plus</SelectItem>
                                 <SelectItem value="nist_ai_rmf">NIST AI RMF 1.0</SelectItem>
+                                <SelectItem value="owasp_aisvs">OWASP AISVS 1.0 (AI Security)</SelectItem>
+                                <SelectItem value="owasp_asvs">OWASP ASVS 4.0.3 (App Security)</SelectItem>
+                                <SelectItem value="owasp_masvs">OWASP MASVS 2.0 (Mobile Security)</SelectItem>
+                                <SelectItem value="owasp_samm">OWASP SAMM 2.0 (Maturity)</SelectItem>
+                                <SelectItem value="owasp_api_top10">OWASP API Security Top 10</SelectItem>
+                                <SelectItem value="owasp_top10">OWASP Web Top 10 (2025)</SelectItem>
+                                <SelectItem value="owasp_top10_2021">OWASP Web Top 10 (2021)</SelectItem>
+                                <SelectItem value="owasp_ml_top10">OWASP ML Security Top 10</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

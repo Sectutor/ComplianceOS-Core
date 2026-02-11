@@ -1,0 +1,1 @@
+import{t as f,g as n,c}from"./getTimezoneOffsetInMilliseconds-em2BGgN1.js";function o(s){const t=f(s);return t.setHours(0,0,0,0),t}function d(s,t){const a=o(s),e=o(t),r=+a-n(a),i=+e-n(e);return Math.round((r-i)/c)}export{d,o as s};

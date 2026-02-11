@@ -98,6 +98,36 @@ export default function AssuranceOverview() {
                 "Deadline reminders",
                 "Audit milestone tracking"
             ]
+        },
+        {
+            title: "SAMM Maturity Assessment",
+            headerTitle: "Software Assurance Model",
+            description: "Assess and improve your software security maturity using the OWASP SAMM framework. Set targets, track progress, and link evidence to practices.",
+            icon: Shield,
+            color: "from-cyan-500 to-blue-600",
+            textColor: "text-cyan-600",
+            bgLight: "bg-cyan-50",
+            path: `/clients/${clientId}/samm`,
+            benefits: [
+                "Practice-level maturity scores",
+                "Target roadmap visualization",
+                "Direct evidence linking"
+            ]
+        },
+        {
+            title: "Essential Eight",
+            headerTitle: "Core Cyber Controls",
+            description: "Assess maturity across eight prioritized mitigation strategies and generate improvement plans based on gaps.",
+            icon: Shield,
+            color: "from-emerald-500 to-cyan-500",
+            textColor: "text-emerald-600",
+            bgLight: "bg-emerald-50",
+            path: `/clients/${clientId}/essential-eight`,
+            benefits: [
+                "Control-level maturity scores",
+                "Target-driven improvement tasks",
+                "Evidence-driven verification"
+            ]
         }
     ];
 

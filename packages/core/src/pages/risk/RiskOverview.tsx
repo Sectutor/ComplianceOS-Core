@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function RiskOverview() {
     const { id } = useParams<{ id: string }>();
@@ -141,13 +142,29 @@ export default function RiskOverview() {
     return (
         <DashboardLayout>
             <div className="space-y-10 pb-20 px-6">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: "/dashboard" },
-                        { label: "Risk Management", href: `/clients/${clientId}/risks` },
-                        { label: "Overview & Guidance" },
-                    ]}
-                />
+                <div className="flex justify-between items-center">
+                    <Breadcrumb
+                        items={[
+                            { label: "Dashboard", href: "/dashboard" },
+                            { label: "Risk Management", href: `/clients/${clientId}/risks` },
+                            { label: "Overview & Guidance" },
+                        ]}
+                    />
+                    <PageGuide
+                        title="Risk Management Overview"
+                        description="Navigate the risk management lifecycle from identification to treatment."
+                        rationale="This hub connects all components of your risk program. Use it to understand how Assets, Threats, and Controls interact to form a comprehensive risk posture."
+                        howToUse={[
+                            { step: "Explore Modules", description: "Click on cards to access specific risk modules (e.g., Assets, Register)." },
+                            { step: "Follow the Lifecycle", description: "Use the 'Risk Management Lifecycle' diagram to understand the process flow." },
+                            { step: "Quick Actions", description: "Use the 'Start Here' guide if you are setting up a new program." }
+                        ]}
+                        integrations={[
+                            { name: "ISO 27005", description: "The workflow is strictly aligned with ISO 27005 risk management standards." },
+                            { name: "Dashboard", description: "Data from all modules aggregates into the main Risk Dashboard." }
+                        ]}
+                    />
+                </div>
 
                 {/* Hero Section */}
                 <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 md:p-16 text-white shadow-2xl">

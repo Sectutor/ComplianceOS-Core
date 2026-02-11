@@ -1,8 +1,8 @@
-﻿import { pgTable, integer, varchar, text, timestamp, pgEnum, boolean, json, jsonb, serial, index, uniqueIndex, customType } from "drizzle-orm/pg-core";
+import { pgTable, integer, varchar, text, timestamp, pgEnum, boolean, json, jsonb, serial, index, uniqueIndex, customType } from "drizzle-orm/pg-core";
 
 
 
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 
 
 
@@ -42,7 +42,7 @@ export const vector = customType<{ data: number[]; driverData: string }>({
 
 
 
-export const roleEnum = pgEnum("role", ["owner", "admin", "editor", "viewer"]);
+export const roleEnum = pgEnum("role", ["owner", "admin", "editor", "viewer", "auditor"]);
 
 
 
@@ -66,7 +66,7 @@ export const policyReviewStatusEnum = pgEnum("policy_review_status", ["analyzing
 
 
 
-export const evidenceStatusEnum = pgEnum("evidence_status", ["pending", "collected", "verified", "expired", "not_applicable"]);
+export const evidenceStatusEnum = pgEnum("evidence_status", ["pending", "collected", "verified", "rejected", "expired", "not_applicable"]);
 
 
 
@@ -783,6 +783,8 @@ export const users = pgTable("users", {
 
 
 
+  accessExpiresAt: timestamp("access_expires_at"),
+
   createdAt: timestamp("created_at").defaultNow(),
 
 
@@ -916,6 +918,9 @@ export const clients = pgTable("clients", {
 
   dpoName: varchar("dpo_name", { length: 255 }),
 
+  // Integration Settings
+  scanKey: varchar("scan_key", { length: 255 }), // API Key for external scanners (e.g., SurfSense, NVD)
+
 
 
   headquarters: varchar("headquarters", { length: 255 }),
@@ -982,6 +987,7 @@ export const clients = pgTable("clients", {
 
 
 
+  requireMfa: boolean("require_mfa").default(false),
 });
 
 
@@ -1025,6 +1031,8 @@ export const userClients = pgTable("user_clients", {
   joinedAt: timestamp("joined_at").defaultNow(),
 
 
+
+  accessExpiresAt: timestamp("access_expires_at"), // For time-limited access (Magic Links)
 
 }, (table) => {
 
@@ -1806,19 +1814,13 @@ export const policyTemplates = pgTable("policy_templates", {
 
 
   name: varchar("name", { length: 255 }).notNull(),
-
-
-
   content: text("content"),
-
   // Ownership
   ownerId: integer("owner_id"),
+  clientId: integer("client_id"),
   isPublic: boolean("is_public").default(false),
 
-
-
   sections: json("sections").$type<{
-
 
 
     id: string;
@@ -2949,53 +2951,19 @@ export type InsertEvidenceFile = typeof evidenceFiles.$inferInsert;
 
 
 export const notificationLog = pgTable("notification_log", {
-
-
-
   id: serial("id").primaryKey(),
-
-
-
   userId: integer("user_id").notNull(),
-
-
-
   type: varchar("type", { length: 50 }),
-
-
-
   channel: varchar("channel", { length: 20 }).default("email"), // email, system, push
-
-
-
   title: varchar("title", { length: 255 }),
-
-
-
   message: text("message"),
-
-
-
+  link: text("link"),
   sentAt: timestamp("sent_at").defaultNow(),
-
-
-
+  readAt: timestamp("read_at"),
   status: varchar("status", { length: 20 }).default("sent"), // sent, failed, queued
-
-
-
   metadata: json("metadata"), // Context data
-
-
-
   relatedEntityType: varchar("related_entity_type", { length: 50 }), // risk, policy, gap, questionnaire
-
-
-
   relatedEntityId: integer("related_entity_id"),
-
-
-
 });
 
 
@@ -3412,14 +3380,38 @@ export const employeeAssetReceipts = pgTable("employee_asset_receipts", {
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   assignedBy: integer("assigned_by"),
   confirmedAt: timestamp("confirmed_at"),
+  expiresAt: timestamp("expires_at").defaultNow().notNull(),
   notes: text("notes"),
 });
+
+export const emailTemplates = pgTable("email_templates", {
+  id: serial("id").primaryKey(),
+  slug: varchar("slug", { length: 255 }).unique().notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const emailTriggers = pgTable("email_triggers", {
+  id: serial("id").primaryKey(),
+  eventSlug: varchar("event_slug", { length: 255 }).unique().notNull(), // e.g. 'USER_WELCOME'
+  templateId: integer("template_id").references(() => emailTemplates.id),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const emailTemplatesRelations = relations(emailTemplates, ({ }) => ({
+}));
 
 export type EmployeeAssetReceipt = typeof employeeAssetReceipts.$inferSelect;
 export type InsertEmployeeAssetReceipt = typeof employeeAssetReceipts.$inferInsert;
 
-
-
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertEmailTemplate = typeof emailTemplates.$inferInsert;
+export type EmailTrigger = typeof emailTriggers.$inferSelect;
+export type InsertEmailTrigger = typeof emailTriggers.$inferInsert;
 
 export const employeeTaskAssignments = pgTable("employee_task_assignments", {
 
@@ -5702,50 +5694,24 @@ export const riskScenarios = pgTable("risk_scenarios", {
 
   processId: varchar("process_id", { length: 100 }), // Linked Business Process (if process-based)
 
-
-
   vendorId: integer("vendor_id"), // Linked Vendor (if vendor-based)
-
   devProjectId: integer("dev_project_id"), // Linked Dev Project
+  projectId: integer("project_id"), // Linked General Project
   threatModelId: integer("threat_model_id"), // Linked Threat Model
 
-
-
-
-
-
-
   // Linked Context (New)
-
-
-
   threatId: integer("threat_id"), // FK to threats
-
-
-
   vulnerabilityId: integer("vulnerability_id"), // FK to vulnerabilities
 
-
-
-
-
-
-
   // The "What can go wrong"
-
-
-
   title: varchar("title", { length: 500 }).notNull(), // Short risk name
-
-
-
   description: text("description"),
 
-
-
-
-
-
+  // Security Framework Triage
+  category: varchar("category", { length: 100 }).default('General'), // Project, Enterprise, Data, AI
+  owaspCategory: varchar("owasp_category", { length: 100 }), // e.g. "Broken Access Control"
+  privacyImpact: boolean("privacy_impact").default(false), // If DPIA required
+  csfFunction: varchar("csf_function", { length: 50 }), // Identify, Protect, etc.
 
   // Threat & Vulnerability (ISO 27005 Model)
 
@@ -5807,17 +5773,8 @@ export const riskScenarios = pgTable("risk_scenarios", {
 
 
   status: varchar("status", { length: 50 }).default("identified"), // identified, analyzed, treated, monitored
-
-
-
   owner: varchar("owner", { length: 255 }),
-
-
-
-
-
-
-
+  customMitigationPlan: text("custom_mitigation_plan"), // AI generated for custom rich text plan
   updatedAt: timestamp("updated_at").defaultNow(),
 
 
@@ -6856,11 +6813,23 @@ export const riskAssessments = pgTable("risk_assessments", {
 
 
 
+  projectId: integer("project_id"),
+
+
+
   assessmentId: varchar("assessment_id", { length: 50 }).notNull(), // e.g. RA-2024-001
 
 
 
   title: varchar("title", { length: 255 }), // User-friendly name
+
+
+  // Security Framework Triage (Consistency with riskScenarios)
+  category: varchar("category", { length: 100 }).default('General'), // Project, Enterprise, Data, AI
+  owaspCategory: varchar("owasp_category", { length: 100 }), // e.g. "Broken Access Control"
+  privacyImpact: boolean("privacy_impact").default(false), // If DPIA required
+  csfFunction: varchar("csf_function", { length: 50 }), // Identify, Protect, etc.
+  aiRmfCategory: varchar("ai_rmf_category", { length: 50 }), // Govern, Map, Measure, Manage
 
 
 
@@ -7087,6 +7056,17 @@ export type RiskAssessment = typeof riskAssessments.$inferSelect;
 
 
 export type InsertRiskAssessment = typeof riskAssessments.$inferInsert;
+
+export const riskAssessmentsRelations = relations(riskAssessments, ({ many }) => ({
+  treatments: many(riskTreatments),
+}));
+
+export const riskTreatmentsRelations = relations(riskTreatments, ({ one }) => ({
+  assessment: one(riskAssessments, {
+    fields: [riskTreatments.riskAssessmentId],
+    references: [riskAssessments.id],
+  }),
+}));
 
 
 
@@ -7942,6 +7922,8 @@ export const vendorAssessments = pgTable("vendor_assessments", {
 
   status: varchar("status", { length: 50 }).default("Planned"), // Planned, Sent, In Progress, Review, Completed
 
+  reviewStatus: varchar("review_status", { length: 50 }).default("pending"),
+
 
 
 
@@ -8589,25 +8571,6 @@ export const frameworkMappings_deprecated = pgTable("framework_mappings_deprecat
 
 
 });
-
-
-
-
-
-
-
-export type FrameworkMapping = typeof frameworkMappings.$inferSelect;
-
-
-
-export type InsertFrameworkMapping = typeof frameworkMappings.$inferInsert;
-
-
-
-
-
-
-
 // ==================== INTEGRATIONS ====================
 
 
@@ -11385,6 +11348,13 @@ export const federalSspControls = pgTable("federal_ssp_controls", {
 
   responsibleRole: varchar("responsible_role", { length: 255 }),
 
+  evidenceLinks: json("evidence_links").$type<{
+    id?: string;
+    url?: string;
+    name: string;
+    type?: 'link' | 'file';
+  }[]>().default([]),
+
   updatedAt: timestamp("updated_at").defaultNow(),
 
 });
@@ -11395,6 +11365,36 @@ export type FederalSspControl = typeof federalSspControls.$inferSelect;
 
 export type InsertFederalSspControl = typeof federalSspControls.$inferInsert;
 
+
+
+
+// FIPS 199 Categorization
+export const federalFipsCategorizations = pgTable("federal_fips_categorizations", {
+  id: serial("id").primaryKey(),
+  sspId: integer("ssp_id").unique().notNull(),
+
+  // Security Objectives
+  securityObjectiveConfidentiality: varchar("security_objective_confidentiality", { length: 20 }).default('low'), // low, moderate, high
+  securityObjectiveIntegrity: varchar("security_objective_integrity", { length: 20 }).default('low'),
+  securityObjectiveAvailability: varchar("security_objective_availability", { length: 20 }).default('low'),
+
+  // Rationale
+  rationaleConfidentiality: text("rationale_confidentiality"),
+  rationaleIntegrity: text("rationale_integrity"),
+  rationaleAvailability: text("rationale_availability"),
+
+  // Information Types (array of types affecting the system)
+  informationTypes: json("information_types").$type<{
+    type: string;
+    impact: 'low' | 'moderate' | 'high';
+    description?: string;
+  }[]>().default([]),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FederalFipsCategorization = typeof federalFipsCategorizations.$inferSelect;
+export type InsertFederalFipsCategorization = typeof federalFipsCategorizations.$inferInsert;
 
 
 // SAR Findings
@@ -12451,7 +12451,9 @@ export const policyExceptions = pgTable("policy_exceptions", {
 
   id: serial("id").primaryKey(),
 
-  policyId: integer("policy_id").notNull(), // FK to client_policies
+  policyId: integer("policy_id"), // FK to client_policies (Nullable)
+  requirementId: integer("requirement_id"), // FK to compliance_requirements (Nullable)
+  policyType: varchar("policy_type", { length: 50 }).default("policy"), // 'policy' or 'document'
 
   employeeId: integer("employee_id").notNull(), // FK to employees (requester)
 
@@ -12521,6 +12523,215 @@ export const privacyAssessments = pgTable("privacy_assessments", {
 
 });
 
+
+
+export const sammMaturityAssessments = pgTable("samm_maturity_assessments", {
+
+  id: serial("id").primaryKey(),
+
+  clientId: integer("client_id").notNull(),
+
+  practiceId: varchar("practice_id", { length: 50 }).notNull(), // e.g., 'SM-1'
+
+  maturityLevel: integer("maturity_level").notNull().default(0),
+
+  targetLevel: integer("target_level").notNull().default(1),
+
+  evidenceLinks: jsonb("evidence_links").$type<number[]>().default([]), // Array of evidence IDs
+
+  notes: text("notes"),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+  createdAt: timestamp("created_at").defaultNow(),
+
+}, (table) => {
+
+  return {
+
+    clientPracticeIdx: uniqueIndex("idx_samm_client_practice").on(table.clientId, table.practiceId),
+
+  };
+
+});
+
+
+
+export type SammMaturityAssessment = typeof sammMaturityAssessments.$inferSelect;
+
+export type InsertSammMaturityAssessment = typeof sammMaturityAssessments.$inferInsert;
+
+// ============================================================================
+// Essential Eight Maturity Assessment Schema
+// ============================================================================
+export const essentialEightAssessments = pgTable("essential_eight_assessments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  controlId: varchar("control_id", { length: 80 }).notNull(),
+  maturityLevel: integer("maturity_level").notNull().default(0),
+  targetLevel: integer("target_level").notNull().default(1),
+  assessmentAnswers: jsonb("assessment_answers").$type<Record<string, boolean>>().default({}),
+  qualityCriteria: jsonb("quality_criteria").$type<Record<string, Record<string, boolean>>>().default({}),
+  levelNotes: jsonb("level_notes").$type<Record<string, string>>().default({}),
+  outcome: varchar("outcome", { length: 30 }).notNull().default("not_assessed"),
+  evidenceQuality: varchar("evidence_quality", { length: 20 }).notNull().default("poor"),
+  evidenceQualityByLevel: jsonb("evidence_quality_by_level").$type<Record<string, string>>().default({}),
+  sampleCoverage: jsonb("sample_coverage").$type<{ workstations?: number; servers?: number; networkDevices?: number }>().default({}),
+  compensatingControls: jsonb("compensating_controls").$type<Array<{ description: string; acceptedBy?: string; date?: string }>>().default([]),
+  evidenceLinks: jsonb("evidence_links").$type<number[]>().default([]),
+  notes: text("notes"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    clientControlIdx: uniqueIndex("idx_e8_client_control").on(table.clientId, table.controlId),
+  };
+});
+
+export type EssentialEightAssessment = typeof essentialEightAssessments.$inferSelect;
+export type InsertEssentialEightAssessment = typeof essentialEightAssessments.$inferInsert;
+
+// ============================================================================
+// OWASP SAMM v2 Stream-Based Assessment Schema
+// This implements the proper SAMM v2 methodology with 30 streams (15 practices × 2 streams each)
+// ============================================================================
+
+export const sammStreamAssessments = pgTable("samm_stream_assessments", {
+  id: serial("id").primaryKey(),
+
+  clientId: integer("client_id").notNull(),
+
+  // Practice identification (e.g., "SM", "PC", "EG")
+  practiceId: varchar("practice_id", { length: 10 }).notNull(),
+
+  // Stream identification ("A" or "B")
+  streamId: varchar("stream_id", { length: 1 }).notNull(),
+
+  // Maturity levels (0-3)
+  maturityLevel: integer("maturity_level").notNull().default(0),
+  targetLevel: integer("target_level").notNull().default(1),
+
+  // Assessment details - stores Yes/No answers to assessment questions
+  // Format: { "level1": true, "level2": false, "level3": false }
+  assessmentAnswers: jsonb("assessment_answers").$type<Record<string, boolean>>().default({}),
+
+  // Quality criteria checklist
+  // Format: { "level1": { "criteria1": true, "criteria2": false, ... }, ... }
+  qualityCriteria: jsonb("quality_criteria").$type<Record<string, Record<string, boolean>>>().default({}),
+
+  // Assessment metadata
+  assessmentDate: timestamp("assessment_date"),
+  assessedBy: integer("assessed_by"), // User ID who performed the assessment
+
+  // Documentation and evidence
+  evidence: jsonb("evidence").$type<string[]>().default([]), // URLs or file paths
+  notes: text("notes"),
+  improvementNotes: text("improvement_notes"),
+
+  // Specific notes per level
+  // Format: { "1": "Notes for level 1", "2": "Notes for level 2", ... }
+  levelNotes: jsonb("level_notes").$type<Record<string, string>>().default({}),
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+}, (table) => {
+  return {
+    // Unique constraint: one assessment per client per stream
+    clientPracticeStreamIdx: uniqueIndex("idx_samm_client_practice_stream")
+      .on(table.clientId, table.practiceId, table.streamId),
+  };
+});
+
+export type SammStreamAssessment = typeof sammStreamAssessments.$inferSelect;
+export type InsertSammStreamAssessment = typeof sammStreamAssessments.$inferInsert;
+
+
+// SAMM Stream Questions - Reference Data (Read-Only)
+export const sammStreamQuestions = pgTable("samm_stream_questions", {
+  id: serial("id").primaryKey(),
+
+  // Stream identification
+  practiceId: varchar("practice_id", { length: 10 }).notNull(), // e.g., "SM"
+  practiceName: varchar("practice_name", { length: 100 }).notNull(), // e.g., "Strategy and Metrics"
+  streamId: varchar("stream_id", { length: 1 }).notNull(), // "A" or "B"
+  streamName: varchar("stream_name", { length: 100 }).notNull(), // e.g., "Create and Promote"
+  streamDescription: text("stream_description"),
+
+  // Level identification (0, 1, 2, or 3)
+  level: integer("level").notNull(),
+  levelName: varchar("level_name", { length: 50 }), // e.g., "Initial", "Defined", "Optimized"
+
+  // Assessment question
+  question: text("question").notNull(), // The main assessment question
+
+  // Quality criteria - array of strings
+  qualityCriteria: jsonb("quality_criteria").$type<string[]>().default([]),
+
+  // Activities required at this level
+  activities: jsonb("activities").$type<string[]>().default([]),
+
+  // Benefits of achieving this level
+  benefits: text("benefits"),
+
+  // Maturity indicators - what to look for
+  maturityIndicators: jsonb("maturity_indicators").$type<string[]>().default([]),
+
+  // Suggested evidence types
+  suggestedEvidence: jsonb("suggested_evidence").$type<string[]>().default([]),
+
+  // Business function (Governance, Design, Implementation, Verification, Operations)
+  businessFunction: varchar("business_function", { length: 50 }).notNull(),
+
+  // Official SAMM documentation links
+  officialLink: varchar("official_link", { length: 500 }),
+
+  // Metadata
+  isActive: boolean("is_active").default(true),
+  version: varchar("version", { length: 20 }).default("2.0"), // SAMM version
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+}, (table) => {
+  return {
+    // Unique constraint: one question set per stream per level
+    practiceStreamLevelIdx: uniqueIndex("idx_samm_practice_stream_level")
+      .on(table.practiceId, table.streamId, table.level),
+  };
+});
+
+export type SammStreamQuestion = typeof sammStreamQuestions.$inferSelect;
+export type InsertSammStreamQuestion = typeof sammStreamQuestions.$inferInsert;
+
+
+// SAMM Practices - Reference Data (Read-Only)
+export const sammPractices = pgTable("samm_practices", {
+  id: serial("id").primaryKey(),
+
+  practiceId: varchar("practice_id", { length: 10 }).notNull().unique(), // e.g., "SM"
+  practiceName: varchar("practice_name", { length: 100 }).notNull(),
+  description: text("description"),
+
+  businessFunction: varchar("business_function", { length: 50 }).notNull(),
+
+  // Stream definitions
+  streamAName: varchar("stream_a_name", { length: 100 }),
+  streamADescription: text("stream_a_description"),
+  streamBName: varchar("stream_b_name", { length: 100 }),
+  streamBDescription: text("stream_b_description"),
+
+  // Additional metadata
+  officialLink: varchar("official_link", { length: 500 }),
+  order: integer("order"), // Display order
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type SammPractice = typeof sammPractices.$inferSelect;
+export type InsertSammPractice = typeof sammPractices.$inferInsert;
 
 
 export type PrivacyAssessment = typeof privacyAssessments.$inferSelect;
@@ -13379,6 +13590,21 @@ export const roadmapReports = pgTable("roadmap_reports", {
 export type RoadmapReport = typeof roadmapReports.$inferSelect;
 export type InsertRoadmapReport = typeof roadmapReports.$inferInsert;
 
+export const roadmapReportsRelations = relations(roadmapReports, ({ one }) => ({
+  client: one(clients, {
+    fields: [roadmapReports.clientId],
+    references: [clients.id],
+  }),
+  roadmap: one(roadmaps, {
+    fields: [roadmapReports.roadmapId],
+    references: [roadmaps.id],
+  }),
+  generatedByUser: one(users, {
+    fields: [roadmapReports.generatedBy],
+    references: [users.id],
+  }),
+}));
+
 
 // ==========================================
 // IMPLEMENTATION TEMPLATES
@@ -13543,6 +13769,49 @@ export type InsertComplianceCertificate = typeof complianceCertificates.$inferIn
 // Developer Risk Management & Threat Modeling
 // ==========================================
 
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 50 }).default("planning"), // planning, active, completed, archived
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  owner: varchar("owner", { length: 255 }),
+  projectType: varchar("project_type", { length: 50 }).default("it"), // it, ai, infra, privacy
+  securityCriticality: varchar("security_criticality", { length: 50 }).default("medium"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    clientIdx: index("idx_projects_client").on(table.clientId),
+  };
+});
+
+export const projectComplianceMappings = pgTable("project_compliance_mappings", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id"), // Nullable for general projects
+  devProjectId: integer("dev_project_id"), // New: Linked to developer projects
+  framework: varchar("framework", { length: 100 }).notNull(), // NIST CSF, OWASP ASVS
+  requirementId: varchar("requirement_id", { length: 100 }).notNull(),
+  status: varchar("status", { length: 50 }).default("pending"),
+  evidenceId: integer("evidence_id"),
+  notes: text("notes"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    projectIdx: index("idx_pcm_project").on(table.projectId),
+    devProjectIdx: index("idx_pcm_dev_project").on(table.devProjectId),
+  };
+});
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = typeof projects.$inferInsert;
+
+export type ProjectComplianceMapping = typeof projectComplianceMappings.$inferSelect;
+export type InsertProjectComplianceMapping = typeof projectComplianceMappings.$inferInsert;
+
 export const devProjects = pgTable("dev_projects", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
@@ -13565,7 +13834,8 @@ export type InsertDevProject = typeof devProjects.$inferInsert;
 export const threatModels = pgTable("threat_models", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
-  devProjectId: integer("dev_project_id").notNull(),
+  devProjectId: integer("dev_project_id"), // Nullable for general projects
+  projectId: integer("project_id"), // New: Linked to general projects
   name: varchar("name", { length: 255 }).notNull(),
   methodology: varchar("methodology", { length: 50 }).default('STRIDE'),
   status: varchar("status", { length: 50 }).default('draft'), // draft, active, archived
@@ -13616,6 +13886,27 @@ export const threatModelDataFlows = pgTable("threat_model_data_flows", {
 
 export type ThreatModelDataFlow = typeof threatModelDataFlows.$inferSelect;
 export type InsertThreatModelDataFlow = typeof threatModelDataFlows.$inferInsert;
+
+// ==========================================
+// FRAMEWORK INTELLIGENCE & MAPPINGS
+// ==========================================
+
+export const frameworkKnowledgeMappings = pgTable("framework_knowledge_mappings", {
+  id: serial("id").primaryKey(),
+  sourceRequirementId: integer("source_requirement_id").notNull(),
+  targetType: varchar("target_type", { length: 50 }).notNull(), // 'threat_category', 'tech_stack', 'component_type', etc.
+  targetValue: varchar("target_value", { length: 255 }).notNull(), // e.g. 'Tampering', 'React', 'API'
+  mappingWeight: integer("mapping_weight").default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    sourceIdx: index("idx_fkm_source").on(table.sourceRequirementId),
+    targetIdx: index("idx_fkm_target").on(table.targetType, table.targetValue),
+  };
+});
+
+export type FrameworkKnowledgeMapping = typeof frameworkKnowledgeMappings.$inferSelect;
+export type InsertFrameworkKnowledgeMapping = typeof frameworkKnowledgeMappings.$inferInsert;
 
 // ==========================================
 // TRUST CENTER & NDA GATEKEEPING
@@ -13838,3 +14129,115 @@ export type InsertTrainingModule = typeof trainingModules.$inferInsert;
 export type TrainingAssignment = typeof trainingAssignments.$inferSelect;
 export type InsertTrainingAssignment = typeof trainingAssignments.$inferInsert;
 
+export const magicLinks = pgTable("magic_links", {
+  id: serial("id").primaryKey(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  label: varchar("label", { length: 255 }), // e.g., "Early Adopter Pro Link"
+  email: varchar("email", { length: 255 }), // Optional: restrict to specific email
+  role: varchar("role", { length: 50 }).default("viewer"),
+  planTier: varchar("plan_tier", { length: 50 }).default("free"), // free, pro, enterprise
+  maxClients: integer("max_clients").default(2), // e.g., 2 for Pro, 10 for Enterprise
+  accessDurationType: varchar("access_duration_type", { length: 50 }), // 'lifetime', 'limited'
+  accessDurationDays: integer("access_duration_days"), // e.g., 14 for 2 weeks
+  waitlistId: integer("waitlist_id"), // Reference to waiting_list table
+  status: varchar("status", { length: 50 }).default("active"), // active, accepted, revoked
+  createdById: integer("created_by_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Link expiration (different from access duration)
+  usageLimit: integer("usage_limit").default(1), // null = unlimited
+  useCount: integer("use_count").default(0),
+  restrictedDomains: json("restricted_domains").$type<string[]>(), // e.g. ["intellfence.com"]
+});
+
+export const magicLinkRedemptions = pgTable("magic_link_redemptions", {
+  id: serial("id").primaryKey(),
+  magicLinkId: integer("magic_link_id").notNull(),
+  userId: integer("user_id").notNull(),
+  redeemedAt: timestamp("redeemed_at").defaultNow(),
+});
+
+export type MagicLink = typeof magicLinks.$inferSelect;
+export type InsertMagicLink = typeof magicLinks.$inferInsert;
+export type MagicLinkRedemption = typeof magicLinkRedemptions.$inferSelect;
+export type InsertMagicLinkRedemption = typeof magicLinkRedemptions.$inferInsert;
+
+// ============================================================================
+// OWASP ASVS v4.0.3 Assessment Schema
+// ============================================================================
+
+// ASVS Categories (e.g., V1: Architecture)
+export const asvsCategories = pgTable("asvs_categories", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 10 }).notNull().unique(), // e.g., "V1"
+  name: varchar("name", { length: 255 }).notNull(), // e.g., "Architecture, Design and Threat Modeling"
+  description: text("description"),
+  order: integer("order").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ASVS Chapters (Sub-categories if needed, but usually flattened to Requirements. 
+// However, ASVS structure is V1 -> 1.1 -> 1.1.1. 
+// We will store individual requirements and link them to the Category V1, V2 etc.
+// We will simply store the "Chapter" (1.1, 1.2) as a string property on the requirement for grouping.)
+
+// ASVS Requirements (Reference Data)
+export const asvsRequirements = pgTable("asvs_requirements", {
+  id: serial("id").primaryKey(),
+
+  categoryCode: varchar("category_code", { length: 10 }).notNull(), // FK to asvsCategories.code e.g. "V1" (manual link or join)
+
+  chapterId: varchar("chapter_id", { length: 20 }).notNull(), // e.g., "1.1"
+  chapterName: varchar("chapter_name", { length: 255 }), // e.g., "Secure Software Development Lifecycle"
+
+  requirementId: varchar("requirement_id", { length: 20 }).notNull().unique(), // e.g., "1.1.1"
+  description: text("description").notNull(),
+
+  level1: boolean("level_1").default(false), // Required for L1?
+  level2: boolean("level_2").default(false), // Required for L2?
+  level3: boolean("level_3").default(false), // Required for L3?
+
+  cwe: varchar("cwe", { length: 50 }), // e.g., "CWE-123"
+  nist: varchar("nist", { length: 50 }), // NIST mapping if available
+
+  version: varchar("version", { length: 20 }).default("4.0.3"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    categoryIdx: index("idx_asvs_req_category").on(table.categoryCode),
+    reqIdIdx: index("idx_asvs_req_id").on(table.requirementId),
+  };
+});
+
+// ASVS Assessments (Client Data)
+export const asvsAssessments = pgTable("asvs_assessments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+
+  requirementId: varchar("requirement_id", { length: 20 }).notNull(), // Link to asvsRequirements
+
+  status: varchar("status", { length: 50 }).default("unanswered"), // unanswered, pass, fail, na
+
+  notes: text("notes"),
+  evidence: jsonb("evidence").$type<string[]>().default([]),
+
+  assessedBy: integer("assessed_by"),
+  assessmentDate: timestamp("assessment_date").defaultNow(),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    clientReqIdx: uniqueIndex("idx_asvs_client_req").on(table.clientId, table.requirementId),
+    clientStatusIdx: index("idx_asvs_client_status").on(table.clientId, table.status),
+  };
+});
+
+export type AsvsCategory = typeof asvsCategories.$inferSelect;
+export type InsertAsvsCategory = typeof asvsCategories.$inferInsert;
+
+export type AsvsRequirement = typeof asvsRequirements.$inferSelect;
+export type InsertAsvsRequirement = typeof asvsRequirements.$inferInsert;
+
+export type AsvsAssessment = typeof asvsAssessments.$inferSelect;
+export type InsertAsvsAssessment = typeof asvsAssessments.$inferInsert;

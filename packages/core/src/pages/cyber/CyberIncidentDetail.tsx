@@ -14,6 +14,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import { format } from "date-fns";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function CyberIncidentDetail() {
     const { selectedClientId } = useClientContext();
@@ -103,17 +104,21 @@ export default function CyberIncidentDetail() {
     return (
         <CyberLayout>
             <div className="space-y-6 w-full max-w-4xl">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" onClick={() => setLocation("/cyber/incidents")}>
+                <div className="flex items-center justify-between animate-slide-down">
+                    <div className="flex items-start gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => setLocation("/cyber/incidents")} className="mt-1">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold tracking-tight">Incident #{incidentId}</h1>
-                            <p className="text-muted-foreground text-sm">
-                                {incident?.createdAt && `Reported ${format(new Date(incident.createdAt), "MMMM d, yyyy 'at' HH:mm")}`}
-                            </p>
-                        </div>
+                        <PageGuide
+                            title={`Incident #${incidentId}`}
+                            description="Manage the lifecycle of this security incident."
+                            rationale="Detailed record-keeping is essential for post-incident analysis and reporting."
+                            howToUse={[
+                                { step: "Update", description: "Log new findings and status changes." },
+                                { step: "Mitigate", description: "Record mitigation actions taken." },
+                                { step: "Close", description: "Ensure all reporting obligations are met before closing." }
+                            ]}
+                        />
                     </div>
                     <Badge className={`text-sm px-3 py-1 ${getSeverityColor(severity)}`}>
                         {severity.toUpperCase()}

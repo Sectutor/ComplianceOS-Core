@@ -10,6 +10,7 @@ import { Label } from "@complianceos/ui/ui/label";
 import { toast } from "sonner";
 import { Download, ArrowLeft, Save, FileText } from "lucide-react";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 import { Slot } from "@/registry";
 import { SlotNames } from "@/registry/slotNames";
 
@@ -281,6 +282,19 @@ export default function RiskReportEditor() {
                             <Download className={`w-4 h-4 text-white ${downloading ? 'animate-bounce' : ''}`} />
                             {downloading ? "Exporting..." : "Export Report"}
                         </Button>
+                        <PageGuide
+                            title="Report Editor"
+                            description="Use AI to generate comprehensive risk management reports."
+                            rationale="Automated reporting saves weeks of manual effort and standardized communication to stakeholders."
+                            howToUse={[
+                                { step: "Generate Sections", description: "Use the 'Generate with AI' buttons to draft content for each section." },
+                                { step: "Review & Edit", description: "Manually refine the generated text to ensure accuracy." },
+                                { step: "Export", description: "Download the final report as a Word document for offline distribution." }
+                            ]}
+                            integrations={[
+                                { name: "Risk Data", description: "Critcal risks and statistics are automatically pulled into the report." }
+                            ]}
+                        />
                     </div>
                 </div>
 

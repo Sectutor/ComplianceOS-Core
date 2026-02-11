@@ -21,6 +21,7 @@ import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import crypto from "crypto";
 import * as dbHelpers from "../../db";
 import * as threatIntel from "../../lib/threatIntelligence";
+import { EmailService } from "../../lib/email/service";
 
 export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publicProcedure: any, premiumClientProcedure: any, adminProcedure: any) => {
     return t.router({
@@ -113,8 +114,26 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                     expiresAt: input.dueDate ? new Date(input.dueDate) : undefined,
                 }).returning();
 
-                // 3. Mock Email Sending (Log for now)
-                console.log(`[Email Sent] To: ${input.recipientEmail}, Link: /portal/assessment/${token}`);
+                // 3. Send Real Email
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+                const inviteLink = `${baseUrl}/portal/assessment/${token}`;
+
+                await EmailService.send({
+                    to: input.recipientEmail,
+                    subject: "Action Required: Vendor Security Assessment",
+                    html: `
+                        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                            <h2 style="color: #1a1a1a;">Security Assessment Request</h2>
+                            <p>You have been requested to complete a security assessment for your organization.</p>
+                            <p><strong>Due Date:</strong> ${input.dueDate || 'Not specified'}</p>
+                            <div style="margin: 32px 0; text-align: center;">
+                                <a href="${inviteLink}" style="background-color: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Complete Assessment</a>
+                            </div>
+                            <p style="color: #666; font-size: 14px;">If the button above does not work, copy and paste this link into your browser: <br/> ${inviteLink}</p>
+                        </div>
+                    `,
+                    clientId: input.clientId
+                });
 
                 return request;
             }),
@@ -253,7 +272,33 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                     expiresAt: input.dueDate ? new Date(input.dueDate) : undefined,
                 }).returning();
 
-                console.log(`[Consolidated Request Sent] To: ${input.recipientEmail}, Portal Link: /portal/request/${token}`);
+                // Send Real Consolidated Email
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+                const portalLink = `${baseUrl}/portal/request/${token}`;
+
+                await EmailService.send({
+                    to: input.recipientEmail,
+                    subject: "Document & Assessment Request - ComplianceOS",
+                    html: `
+                        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                            <h2 style="color: #1a1a1a;">Information Request</h2>
+                            <p>An information request has been created for your organization.</p>
+                            
+                            ${input.message ? `<div style="background: #f9f9f9; padding: 15px; border-left: 4px solid #ddd; margin: 20px 0;">${input.message}</div>` : ''}
+
+                            <p><strong>Requested Items:</strong></p>
+                            <ul>
+                                ${input.items.map((i: any) => `<li>${i.name} (${i.type})</li>`).join('')}
+                            </ul>
+
+                            <div style="margin: 32px 0; text-align: center;">
+                                <a href="${portalLink}" style="background-color: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">View Request Portal</a>
+                            </div>
+                            <p style="color: #666; font-size: 14px;">Link: ${portalLink}</p>
+                        </div>
+                    `,
+                    clientId: input.clientId
+                });
                 return request;
             }),
 

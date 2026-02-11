@@ -9,9 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Avatar, AvatarFallback } from "@complianceos/ui/ui/avatar";
-import { Mail, Plus, Shield, User, X } from "lucide-react";
+import { Mail, Plus, Shield, User, X, MoreHorizontal, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@complianceos/ui/ui/dropdown-menu";
 
 interface ClientTeamManagementProps {
     clientId: number;
@@ -20,16 +28,14 @@ interface ClientTeamManagementProps {
 export default function ClientTeamManagement({ clientId }: ClientTeamManagementProps) {
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState<"viewer" | "editor" | "owner">("viewer");
+    const [inviteRole, setInviteRole] = useState<"viewer" | "editor" | "owner" | "auditor">("viewer");
 
     const { data: users, isLoading, refetch } = trpc.clients.getUsers.useQuery({ clientId });
 
     const inviteMutation = trpc.clients.inviteUser.useMutation({
         onSuccess: () => {
             toast.success("User invited successfully");
-            setIsInviteOpen(false);
-            setInviteEmail("");
-            setInviteRole("viewer");
+            handleClose();
             refetch();
         },
         onError: (error) => {
@@ -37,16 +43,60 @@ export default function ClientTeamManagement({ clientId }: ClientTeamManagementP
         },
     });
 
+    const auditorInviteMutation = trpc.auditors.invite.useMutation({
+        onSuccess: () => {
+            toast.success("Auditor invited successfully via Magic Link");
+            handleClose();
+            refetch();
+        },
+        onError: (error) => {
+            toast.error(error.message);
+        },
+    });
+
+    const revokeAuditorMutation = trpc.auditors.revoke.useMutation({
+        onSuccess: () => {
+            toast.success("Auditor access revoked");
+            refetch();
+        },
+        onError: (error) => {
+            toast.error(error.message);
+        }
+    });
+
+    const handleClose = () => {
+        setIsInviteOpen(false);
+        setInviteEmail("");
+        setInviteRole("viewer");
+    }
+
     const handleInvite = () => {
         if (!inviteEmail) {
             toast.error("Please enter an email address");
             return;
         }
-        inviteMutation.mutate({
-            clientId,
-            email: inviteEmail,
-            role: inviteRole,
-        });
+
+        if (inviteRole === 'auditor') {
+            auditorInviteMutation.mutate({
+                clientId,
+                email: inviteEmail
+            });
+        } else {
+            inviteMutation.mutate({
+                clientId,
+                email: inviteEmail,
+                role: inviteRole as "viewer" | "editor" | "owner",
+            });
+        }
+    };
+
+    const handleRevokeAuditor = (userId: number) => {
+        if (confirm("Are you sure you want to revoke access for this auditor?")) {
+            revokeAuditorMutation.mutate({
+                clientId,
+                userId
+            });
+        }
     };
 
     const getInitials = (name?: string) => {
@@ -58,6 +108,8 @@ export default function ClientTeamManagement({ clientId }: ClientTeamManagementP
             .toUpperCase()
             .slice(0, 2);
     };
+
+    const isPending = inviteMutation.isPending || auditorInviteMutation.isPending;
 
     return (
         <Card>
@@ -80,8 +132,8 @@ export default function ClientTeamManagement({ clientId }: ClientTeamManagementP
                     footer={
                         <div className="flex justify-end gap-2 w-full">
                             <Button variant="outline" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-                            <Button onClick={handleInvite} disabled={inviteMutation.isPending}>
-                                {inviteMutation.isPending ? "Inviting..." : "Send Invite"}
+                            <Button onClick={handleInvite} disabled={isPending}>
+                                {isPending ? "Inviting..." : "Send Invite"}
                             </Button>
                         </div>
                     }
@@ -107,6 +159,7 @@ export default function ClientTeamManagement({ clientId }: ClientTeamManagementP
                                     <SelectItem value="viewer">Viewer (Read-only)</SelectItem>
                                     <SelectItem value="editor">Editor (Can edit controls/policies)</SelectItem>
                                     <SelectItem value="owner">Owner (Full admin access)</SelectItem>
+                                    <SelectItem value="auditor">Auditor (Limited external access)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -138,12 +191,32 @@ export default function ClientTeamManagement({ clientId }: ClientTeamManagementP
                                         </TableCell>
                                         <TableCell className="text-gray-600 py-4">{user.email}</TableCell>
                                         <TableCell className="py-4">
-                                            <Badge variant={user.role === 'owner' ? 'default' : 'secondary'}>
+                                            <Badge variant={user.role === 'owner' ? 'default' : user.role === 'auditor' ? 'outline' : 'secondary'}>
                                                 {user.role}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="py-4">
-                                            {/* Future: Remove user button */}
+                                            {user.role === 'auditor' && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            className="text-red-600 focus:text-red-600"
+                                                            onClick={() => handleRevokeAuditor(user.id)}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Revoke Access
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}

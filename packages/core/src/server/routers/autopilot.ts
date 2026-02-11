@@ -5,8 +5,8 @@ import { auditLogs } from "../../schema";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 
-export const createAutopilotRouter = (router: any, procedure: any) => {
-    return router({
+export const createAutopilotRouter = (t: any, procedure: any) => {
+    return t.router({
         trigger: procedure
             .input(z.object({ clientId: z.number() }))
             .mutation(async ({ ctx, input }: any) => {

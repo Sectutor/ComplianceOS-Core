@@ -63,6 +63,14 @@ export default function ControlDetailsDialog({
       : ""
   );
   const [status, setStatus] = useState(clientControl.status);
+  const [monitoringInterval, setMonitoringInterval] = useState("");
+
+  useEffect(() => {
+      const notes = clientControl.implementationNotes || "";
+      const match = notes.match(/Monitoring Frequency: (.*)$/m);
+      setMonitoringInterval(match ? match[1] : "Manual");
+  }, [clientControl]);
+
   const [evidenceLocation, setEvidenceLocation] = useState(clientControl.evidenceLocation || "");
   const [deleteEvidenceId, setDeleteEvidenceId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<'responsible' | 'accountable' | 'consulted' | 'informed' | null>(null);
@@ -175,7 +183,13 @@ export default function ControlDetailsDialog({
   };
 
   useEffect(() => {
-    setImplementationNotes(clientControl.implementationNotes || "");
+    const notes = clientControl.implementationNotes || "";
+    const match = notes.match(/Monitoring Frequency: (.*)$/m);
+    setMonitoringInterval(match ? match[1] : "Manual");
+    
+    // Strip the metadata line for the textarea
+    setImplementationNotes(notes.replace(/\n\nMonitoring Frequency: .*$/m, "").trim());
+    
     setImplementationDate(
       clientControl.implementationDate
         ? new Date(clientControl.implementationDate).toISOString().split('T')[0]
@@ -186,10 +200,15 @@ export default function ControlDetailsDialog({
   }, [clientControl]);
 
   const handleSave = () => {
+    let finalNotes = implementationNotes.trim();
+    if (monitoringInterval && monitoringInterval !== "Manual") {
+        finalNotes = `${finalNotes}\n\nMonitoring Frequency: ${monitoringInterval}`;
+    }
+
     updateMutation.mutate({
       clientId: clientId,
       id: clientControl.id,
-      implementationNotes: implementationNotes || undefined,
+      implementationNotes: finalNotes || undefined,
       implementationDate: implementationDate ? new Date(implementationDate) : undefined,
       status: status as any,
       evidenceLocation: evidenceLocation || undefined,
@@ -252,7 +271,7 @@ export default function ControlDetailsDialog({
           </TabsList>
 
           <TabsContent value="implementation" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select value={status} onValueChange={setStatus}>
@@ -264,6 +283,24 @@ export default function ControlDetailsDialog({
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="implemented">Implemented</SelectItem>
                     <SelectItem value="not_applicable">Not Applicable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="monitoring">Monitoring Frequency</Label>
+                <Select value={monitoringInterval} onValueChange={setMonitoringInterval}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Manual">Manual / Ad-hoc</SelectItem>
+                    <SelectItem value="Daily">Daily</SelectItem>
+                    <SelectItem value="Weekly">Weekly</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    <SelectItem value="Annually">Annually</SelectItem>
+                    <SelectItem value="Continuous">Continuous (Automated)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

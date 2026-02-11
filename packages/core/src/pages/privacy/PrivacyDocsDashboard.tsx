@@ -27,6 +27,7 @@ import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { useStreamingAI } from "@/hooks/useStreamingAI";
+import { PageGuide } from "@/components/PageGuide";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -156,11 +157,17 @@ export default function PrivacyDocsDashboard() {
                     ]}
                 />
 
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold">Privacy Documentation</h2>
-                        <p className="text-muted-foreground">Manage your Privacy Notices, LIAs, and other accountability documents.</p>
-                    </div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-slide-down">
+                    <PageGuide
+                        title="Privacy Documentation"
+                        description="Manage and autogenerate privacy policies and notices."
+                        rationale="Demonstrate accountability with documented procedures (GDPR Art. 24)."
+                        howToUse={[
+                            { step: "Create", description: "Use AI templates for Notices, LIAs, and Procedures." },
+                            { step: "Review", description: "Tailor content to your specific processing activities." },
+                            { step: "Publish", description: "Approve versioned documents for compliance evidence." }
+                        ]}
+                    />
                     <div className="flex flex-wrap gap-2">
                         <Button onClick={() => setIsAddPolicyOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
                             <Plus className="mr-2 h-4 w-4" />

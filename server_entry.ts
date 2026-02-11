@@ -1,4 +1,4 @@
-// Server Entry Point - Touched for restart
+// Server Entry Point - Touched for restart at 2026-02-11 16:55
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -11,11 +11,12 @@ import { sql } from 'drizzle-orm';
 import { exportRouter } from './packages/core/src/server/routers/export';
 import { uploadRouter } from './packages/core/src/server/routers/upload';
 import { aiRouter } from './packages/core/src/server/routers/ai';
+import * as threatScheduler from './packages/core/src/server/services/threatScheduler';
 
 export const app = express();
 const port = process.env.PORT || 3002;
 // Force restart
-console.log('[Server] Initializing... Last update: 2026-02-02 17:05');
+console.log(`[Server] Initializing... Last update: ${new Date().toISOString()}`);
 
 console.log('[Server Start] Environment Check:');
 console.log(`- DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'MISSING'}`);
@@ -23,9 +24,9 @@ console.log(`- SUPABASE_URL: ${process.env.VITE_SUPABASE_URL ? 'Set' : 'MISSING'
 console.log(`- EDITION: ${process.env.VITE_ENABLE_PREMIUM === 'false' ? 'CORE (Open Source)' : 'PREMIUM (Full Access)'}`);
 
 
-// Add request logging for all /api routes BEFORE anything else
-app.use('/api', (req, res, next) => {
-    console.log(`[API Request] ${req.method} ${req.url}`);
+// Add request logging for ALL routes BEFORE anything else
+app.use((req, res, next) => {
+    console.log(`[Incoming] ${req.method} ${req.url}`);
     next();
 });
 
@@ -65,9 +66,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Apply Authentication Middleware to populate req.user
 app.use(authMiddleware);
 
+// Serve static uploads
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // Health Check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date(), update: '2026-02-02 17:15' });
+    res.json({ status: 'ok', timestamp: new Date(), update: '2026-02-07 12:20' });
 });
 
 
@@ -108,7 +112,7 @@ app.get('/api/debug/connection', async (req, res) => {
         });
     }
 });
-
+// APIs
 // APIs
 app.use('/api/export', exportRouter);
 app.use('/api/upload', uploadRouter);
@@ -182,12 +186,18 @@ app.use(
     })
 );
 
+// Optional background syncs
+if (process.env.ENABLE_THREAT_SCHEDULER === 'true') {
+    threatScheduler.start();
+}
+
 
 // Only listen locally, Netlify calls the handler directly
 if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
-    app.listen(port, () => {
-        console.log(`\n🚀 Server listening on port ${port}`);
-        console.log(`-> Health check: http://localhost:${port}/health`);
-        console.log(`-> TRPC endpoint: http://localhost:${port}/api/trpc`);
+    app.listen(Number(port), '127.0.0.1', () => {
+        console.log(`\n🚀 Server listening specifically on http://127.0.0.1:${port}`);
+        console.log(`-> Health check: http://127.0.0.1:${port}/health`);
+        console.log(`-> TRPC endpoint: http://127.0.0.1:${port}/api/trpc\n`);
     });
 }
+

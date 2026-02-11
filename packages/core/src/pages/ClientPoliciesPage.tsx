@@ -24,7 +24,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@complianceos/ui/ui/dropdown-menu";
-import { useEffect, useState } from "react";
+import RichTextEditor from "@/components/RichTextEditor";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { Breadcrumb } from "@/components/Breadcrumb";
@@ -66,9 +67,29 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
     const [customInstruction, setCustomInstruction] = useState("");
     const [deletePolicyId, setDeletePolicyId] = useState<number | null>(null);
     const [distributionPolicyId, setDistributionPolicyId] = useState<number | null>(null);
+    const [editedContent, setEditedContent] = useState("");
+    const [isFetchingPreview, setIsFetchingPreview] = useState(false);
 
     const { text: streamedContent, isLoading: isStreaming, generate: generateStream, reset: resetStream } = useStreamingAI();
 
+    const ensureTitleHeading = (html: string, title: string) => {
+        try {
+            const container = document.createElement("div");
+            container.innerHTML = html || "";
+            let h1 = container.querySelector("h1");
+            const t = (title || "Information Security Policy").trim();
+            if (!h1) {
+                h1 = document.createElement("h1");
+                h1.textContent = t;
+                container.insertBefore(h1, container.firstChild);
+            } else if (t && (h1.textContent || "").trim() !== t) {
+                h1.textContent = t;
+            }
+            return container.innerHTML;
+        } catch {
+            return html;
+        }
+    };
     useEffect(() => {
         const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         if (params?.get('create') === 'true') {
@@ -79,6 +100,43 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
             setLocation(`/clients/${clientId}/policies${newSearch ? '?' + newSearch : ''}`, { replace: true });
         }
     }, [clientId, setLocation]);
+
+    const previewMutation = trpc.policyTemplates.preview.useMutation({
+        onSuccess: (data) => {
+            if (data.content) {
+                const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
+                const title = nameInput?.value || "Information Security Policy";
+                setEditedContent(ensureTitleHeading(data.content, title));
+            }
+            setIsFetchingPreview(false);
+        },
+        onError: (err) => {
+            console.error("Preview failed:", err);
+            setIsFetchingPreview(false);
+        }
+    });
+
+    // Sync streamed content to editor
+    useEffect(() => {
+        if (streamedContent) {
+            const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
+            const title = nameInput?.value || "Information Security Policy";
+            setEditedContent(ensureTitleHeading(streamedContent, title));
+        }
+    }, [streamedContent]);
+
+    // Fetch initial template content when selection/step changes
+    useEffect(() => {
+        if (creationStep === 'config' && selectedTemplateId && !editedContent && !isStreaming) {
+            setIsFetchingPreview(true);
+            previewMutation.mutate({
+                clientId,
+                templateId: parseInt(selectedTemplateId),
+                tailor: tailorToIndustry,
+                instruction: customInstruction
+            });
+        }
+    }, [creationStep, selectedTemplateId, tailorToIndustry]);
 
     const addPolicyMutation = trpc.clientPolicies.create.useMutation({
         onSuccess: () => {
@@ -128,7 +186,7 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
             clientId,
             name,
             templateId,
-            content: streamedContent || undefined,
+            content: editedContent || streamedContent || undefined,
             tailor: tailorToIndustry,
             instruction: customInstruction || undefined,
             status: 'draft' as const,
@@ -186,7 +244,7 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                             Load Policy for Review
                         </Button>
                     )}
-                    {user?.role === 'admin' && !hideLayout && (
+                    {(user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin') && !hideLayout && (
                         <Button
                             variant="outline"
                             onClick={handleBulkGeneratePolicies}
@@ -347,19 +405,28 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                                 </Button>
                             </div>
 
-                            {(isStreaming || streamedContent) && (
-                                <div className="border rounded-md p-3 max-h-[200px] overflow-y-auto bg-background">
-                                    {streamedContent ? (
-                                        <div className="prose prose-sm max-w-none">
-                                            <div dangerouslySetInnerHTML={{ __html: marked.parse(streamedContent, { async: false }) as string }} />
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center text-muted-foreground h-16">
-                                            <span className="animate-pulse">Waiting for AI...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium">Policy Content Preview</Label>
+                                {(isFetchingPreview || isStreaming) && !editedContent ? (
+                                    <div className="border rounded-md p-8 flex flex-col items-center justify-center bg-muted/20 space-y-4">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        <p className="text-sm text-muted-foreground">Preparing preview...</p>
+                                    </div>
+                                ) : (
+                                    <RichTextEditor
+                                        value={editedContent}
+                                        onChange={setEditedContent}
+                                        minHeight="400px"
+                                        className="border-primary/20 shadow-sm"
+                                    />
+                                )}
+                                {isStreaming && (
+                                    <div className="flex items-center gap-2 text-xs text-purple-600 font-medium animate-pulse">
+                                        <Sparkles className="h-3 w-3" />
+                                        <span>AI is generating content...</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </form>
                 )}
@@ -397,7 +464,7 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => deletePolicyId && deletePolicyMutation.mutate({ id: deletePolicyId })}
+                            onClick={() => deletePolicyId && deletePolicyMutation.mutate({ id: deletePolicyId, clientId })}
                         >
                             Delete
                         </AlertDialogAction>

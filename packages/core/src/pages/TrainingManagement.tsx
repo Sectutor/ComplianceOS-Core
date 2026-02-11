@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useClientContext } from "@/contexts/ClientContext";
 import { TrainingAssignmentDialog } from "@/components/training/TrainingAssignmentDialog";
+import { PageGuide } from "@/components/PageGuide";
 import { Button } from "@complianceos/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
@@ -115,10 +116,26 @@ export default function TrainingManagement({ hideLayout = false, clientId: propC
                             Create and manage training modules for your employees.
                         </p>
                     </div>
-                    <Button onClick={openCreateDialog}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Module
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <PageGuide
+                            title="Training Management"
+                            description="Create, assign, and track employee security training."
+                            rationale="Ensures staff awareness of security risks and compliance obligations."
+                            howToUse={[
+                                { step: "Create Module", description: "Upload videos or write text-based training content." },
+                                { step: "Assign Training", description: "Target specific departments or roles." },
+                                { step: "Track Progress", description: "Monitor completion rates and audit evidence." }
+                            ]}
+                            integrations={[
+                                { name: "Personnel Hub", description: "Syncs with employee records." },
+                                { name: "Evidence Collection", description: "Auto-generates training logs." }
+                            ]}
+                        />
+                        <Button onClick={openCreateDialog}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Module
+                        </Button>
+                    </div>
                 </div>
             )}
 

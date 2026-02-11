@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@comp
 import { Input } from "@complianceos/ui/ui/input";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Button } from "@complianceos/ui/ui/button";
-import { Search, Shield, Info, ArrowRight, BookOpen, Upload, Lock } from "lucide-react";
+import { Search, Shield, Info, ArrowRight, BookOpen, Upload, Lock, HelpCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useClientContext } from "@/contexts/ClientContext";
 import { frameworks } from "@/data/frameworks";
@@ -15,6 +15,7 @@ import { CircularProgress } from "@complianceos/ui/ui/circular-progress";
 import { FrameworkImportDialog } from "@/components/settings/FrameworkImportDialog";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 
 // Premium Feature: Custom Framework Import
 import { CustomFrameworkImportDialog } from "@complianceos/premium/components/frameworks/CustomFrameworkImportDialog";
@@ -131,11 +132,29 @@ export default function FrameworksDashboard() {
                     ]}
                 />
 
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight">Frameworks Library</h1>
-                    <p className="text-muted-foreground">
-                        Browse and manage adoption of standard security and privacy frameworks.
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-2">
+                        <h1 className="text-3xl font-bold tracking-tight">Frameworks Library</h1>
+                        <p className="text-muted-foreground">
+                            Browse and manage adoption of standard security and privacy frameworks.
+                        </p>
+                    </div>
+                    <PageGuide
+                        title="Framework Implementation Guide"
+                        description="Learn how to adopt and implement compliance standards efficiently."
+                        rationale="Compliance frameworks provide the structure for your security program. Proper implementation ensures you meet regulatory requirements while building a robust security posture."
+                        howToUse={[
+                            { step: "Browse Standards", description: "Search for frameworks like SOC 2, ISO 27001, or NIST in our library." },
+                            { step: "Adopt & Import", description: "Select a framework to import its controls into your Control Workbench." },
+                            { step: "Track Progress", description: "Monitor implementation status across all active frameworks via the dashboard." },
+                            { step: "Custom Frameworks", description: "Pro and Enterprise users can import proprietary control sets." }
+                        ]}
+                        integrations={[
+                            { name: "Ready Wizards", description: "Launch step-by-step readiness assessments for any standard." },
+                            { name: "Global Mappings", description: "Controls are cross-mapped to reduce duplicate implementation work." },
+                            { name: "Audit Hub", description: "Implementation data flows directly into audit reports." }
+                        ]}
+                    />
                 </div>
 
                 <div className="flex items-center justify-between gap-4">

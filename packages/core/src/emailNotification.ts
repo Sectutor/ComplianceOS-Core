@@ -3,6 +3,7 @@ import * as db from "./db";
 import { CalendarEvent } from "./db";
 import * as schema from "./schema";
 import { eq, and } from "drizzle-orm";
+import { createInAppNotification } from "./lib/notificationService";
 
 /**
  * Format a list of calendar events into a readable notification
@@ -25,7 +26,7 @@ function formatEventsForNotification(events: CalendarEvent[], title: string): st
     content += `### ${clientName}\n\n`;
 
     for (const event of clientEvents) {
-      const dueDate = new Date(event.dueDate).toLocaleDateString('en-US', {
+      const dueDate = new Date(event.date).toLocaleDateString('en-US', {
         weekday: 'short',
         year: 'numeric',
         month: 'short',
@@ -108,6 +109,13 @@ export async function sendOverdueNotification(): Promise<{
       body: htmlBody,
       snippet: `You have ${clientItems.length} overdue items.`
     });
+
+    await createInAppNotification(clientId, {
+      type: "overdue_alert",
+      title: title,
+      message: `You have ${clientItems.length} overdue compliance items that require immediate attention.`,
+      link: `/clients/${clientId}/dashboard`
+    });
   }
 
   return { success, itemCount: overdueItems.length };
@@ -160,6 +168,13 @@ export async function sendUpcomingNotification(days: number = 7): Promise<{
       subject: title,
       body: htmlBody,
       snippet: `You have ${clientItems.length} upcoming items.`
+    });
+
+    await createInAppNotification(clientId, {
+      type: "upcoming_alert",
+      title: title,
+      message: `You have ${clientItems.length} compliance items due in the next ${days} days.`,
+      link: `/clients/${clientId}/calendar`
     });
   }
 
@@ -217,8 +232,8 @@ export async function sendDailyDigest(): Promise<{
         <h2>Daily Compliance Digest</h2>
         <p><strong>Overdue:</strong> ${cOver.length} | <strong>Upcoming:</strong> ${cUp.length}</p>
         <hr/>
-        ${cOver.length > 0 ? `<h3>⚠️ Overdue</h3><ul>${cOver.map(i => `<li><strong>${i.title}</strong>: ${i.dueDate}</li>`).join('')}</ul>` : ''}
-        ${cUp.length > 0 ? `<h3>📅 Upcoming</h3><ul>${cUp.map(i => `<li><strong>${i.title}</strong>: ${i.dueDate}</li>`).join('')}</ul>` : ''}
+        ${cOver.length > 0 ? `<h3>⚠️ Overdue</h3><ul>${cOver.map(i => `<li><strong>${i.title}</strong>: ${i.date}</li>`).join('')}</ul>` : ''}
+        ${cUp.length > 0 ? `<h3>📅 Upcoming</h3><ul>${cUp.map(i => `<li><strong>${i.title}</strong>: ${i.date}</li>`).join('')}</ul>` : ''}
       `;
 
     await sendInternalSystemEmail({
@@ -288,7 +303,7 @@ export async function sendExpiredEvidenceNotification(clientId?: number): Promis
   const allEvidence = await dbConn.select().from(schema.evidence)
     .where(clientId ? eq(schema.evidence.clientId, clientId) : undefined);
 
-  const expiredEvidence = allEvidence.filter(ev => {
+  const expiredEvidence = allEvidence.filter((ev: any) => {
     if (ev.status === 'expired') return true;
     if (!ev.lastVerified) return false;
 
@@ -305,7 +320,7 @@ export async function sendExpiredEvidenceNotification(clientId?: number): Promis
   const title = `⚠️ Expired Evidence Items (${expiredEvidence.length})`;
   let content = `You have ${expiredEvidence.length} evidence item(s) that have expired and need re-verification.\n\n`;
 
-  expiredEvidence.forEach(ev => {
+  expiredEvidence.forEach((ev: any) => {
     const lastVerifiedDate = ev.lastVerified ? new Date(ev.lastVerified).toLocaleDateString() : 'Never';
     content += `- **${ev.evidenceId}**: ${ev.description || 'No description'}\n`;
     content += `  - Last Verified: ${lastVerifiedDate}\n`;
@@ -322,17 +337,17 @@ export async function sendExpiredEvidenceNotification(clientId?: number): Promis
   }
 
   // Internal email per client
-  const distinctClientIds = [...new Set(expiredEvidence.map(e => e.clientId).filter(Boolean))];
+  const distinctClientIds = [...new Set(expiredEvidence.map((e: any) => e.clientId).filter(Boolean))] as number[];
   for (const cId of distinctClientIds) {
     if (!cId) continue;
-    const clientItems = expiredEvidence.filter(e => e.clientId === cId);
+    const clientItems = expiredEvidence.filter((e: any) => e.clientId === cId);
 
     const htmlBody = `
       <div style="font-family: sans-serif;">
         <h2>⚠️ Expired Evidence Alert</h2>
         <p>You have <strong>${clientItems.length}</strong> evidence items that require re-verification:</p>
         <ul>
-          ${clientItems.map(e => `<li><strong>${e.evidenceId}</strong>: ${e.description || 'No description'} (Last verified: ${e.lastVerified ? new Date(e.lastVerified).toLocaleDateString() : 'Never'})</li>`).join('')}
+          ${clientItems.map((e: any) => `<li><strong>${e.evidenceId}</strong>: ${e.description || 'No description'} (Last verified: ${e.lastVerified ? new Date(e.lastVerified).toLocaleDateString() : 'Never'})</li>`).join('')}
         </ul>
         <p>Please update these items to maintain compliance.</p>
       </div>
@@ -343,6 +358,13 @@ export async function sendExpiredEvidenceNotification(clientId?: number): Promis
       subject: title,
       body: htmlBody,
       snippet: `${clientItems.length} evidence items need re-verification`
+    });
+
+    await createInAppNotification(cId, {
+      type: "evidence_expired",
+      title: title,
+      message: `You have ${clientItems.length} evidence items that have expired and need re-verification.`,
+      link: `/clients/${cId}/evidence`
     });
   }
 
@@ -365,7 +387,7 @@ export async function sendPolicyReviewNotification(clientId?: number, daysAhead:
   const reviewDate = new Date();
   reviewDate.setDate(reviewDate.getDate() + daysAhead);
 
-  const policiesDueForReview = allPolicies.filter(policy => {
+  const policiesDueForReview = allPolicies.filter((policy: any) => {
     if (!policy.updatedAt) return false;
 
     // Policies should be reviewed annually
@@ -383,7 +405,7 @@ export async function sendPolicyReviewNotification(clientId?: number, daysAhead:
   const title = `📋 Policy Review Due (${policiesDueForReview.length})`;
   let content = `You have ${policiesDueForReview.length} policy/policies due for annual review within the next ${daysAhead} days.\n\n`;
 
-  policiesDueForReview.forEach(policy => {
+  policiesDueForReview.forEach((policy: any) => {
     const lastUpdate = new Date(policy.updatedAt || '');
     const reviewDue = new Date(lastUpdate);
     reviewDue.setFullYear(reviewDue.getFullYear() + 1);
@@ -404,17 +426,17 @@ export async function sendPolicyReviewNotification(clientId?: number, daysAhead:
   }
 
   // Internal email per client
-  const distinctClientIds = [...new Set(policiesDueForReview.map(p => p.clientId).filter(Boolean))];
+  const distinctClientIds = [...new Set(policiesDueForReview.map((p: any) => p.clientId).filter(Boolean))] as number[];
   for (const cId of distinctClientIds) {
     if (!cId) continue;
-    const clientItems = policiesDueForReview.filter(p => p.clientId === cId);
+    const clientItems = policiesDueForReview.filter((p: any) => p.clientId === cId);
 
     const htmlBody = `
       <div style="font-family: sans-serif;">
         <h2>📋 Policy Review Reminder</h2>
         <p>You have <strong>${clientItems.length}</strong> policies due for annual review:</p>
         <ul>
-          ${clientItems.map(p => {
+          ${clientItems.map((p: any) => {
       const lastUpdate = new Date(p.updatedAt || '');
       const reviewDue = new Date(lastUpdate);
       reviewDue.setFullYear(reviewDue.getFullYear() + 1);
@@ -430,6 +452,13 @@ export async function sendPolicyReviewNotification(clientId?: number, daysAhead:
       subject: title,
       body: htmlBody,
       snippet: `${clientItems.length} policies need review`
+    });
+
+    await createInAppNotification(cId, {
+      type: "policy_review",
+      title: title,
+      message: `You have ${clientItems.length} policies due for annual review.`,
+      link: `/clients/${cId}/policies`
     });
   }
 
@@ -461,7 +490,7 @@ export async function sendMissingJustificationNotification(clientId?: number): P
         : eq(schema.clientControls.applicability, 'not_applicable')
     );
 
-  const missingJustification = allControls.filter(item =>
+  const missingJustification = allControls.filter((item: any) =>
     !item.control.justification || item.control.justification.trim() === ''
   );
 
@@ -472,7 +501,7 @@ export async function sendMissingJustificationNotification(clientId?: number): P
   const title = `⚠️ Missing Justifications (${missingJustification.length})`;
   let content = `You have ${missingJustification.length} control(s) marked as "Not Applicable" without required justification.\n\n`;
 
-  missingJustification.forEach(item => {
+  missingJustification.forEach((item: any) => {
     const controlName = item.masterControl?.name || item.control.clientControlId || `Control ${item.control.id}`;
     content += `- **${item.control.clientControlId || item.masterControl?.controlId}**: ${controlName}\n`;
     content += `  - Framework: ${item.masterControl?.framework || 'Unknown'}\n`;
@@ -489,17 +518,17 @@ export async function sendMissingJustificationNotification(clientId?: number): P
   }
 
   // Internal email per client
-  const distinctClientIds = [...new Set(missingJustification.map(i => i.control.clientId).filter(Boolean))];
+  const distinctClientIds = [...new Set(missingJustification.map((i: any) => i.control.clientId).filter(Boolean))] as number[];
   for (const cId of distinctClientIds) {
     if (!cId) continue;
-    const clientItems = missingJustification.filter(i => i.control.clientId === cId);
+    const clientItems = missingJustification.filter((i: any) => i.control.clientId === cId);
 
     const htmlBody = `
       <div style="font-family: sans-serif;">
         <h2>⚠️ Missing Justifications Alert</h2>
         <p>You have <strong>${clientItems.length}</strong> controls marked as "Not Applicable" without justification:</p>
         <ul>
-          ${clientItems.map(i => {
+          ${clientItems.map((i: any) => {
       const controlName = i.masterControl?.name || i.control.clientControlId || `Control ${i.control.id}`;
       return `<li><strong>${i.control.clientControlId || i.masterControl?.controlId}</strong>: ${controlName}</li>`;
     }).join('')}
@@ -514,7 +543,84 @@ export async function sendMissingJustificationNotification(clientId?: number): P
       body: htmlBody,
       snippet: `${clientItems.length} controls need justification`
     });
+
+    await createInAppNotification(cId, {
+      type: "missing_justification",
+      title: title,
+      message: `You have ${clientItems.length} controls marked as "Not Applicable" without required justification.`,
+      link: `/clients/${cId}/controls`
+    });
   }
 
   return { success, itemCount: missingJustification.length };
+}
+
+/**
+ * Send notification for high severity threat alerts
+ */
+export async function sendThreatAlert(clientId: number, threats: any[]): Promise<{
+  success: boolean;
+  count: number;
+}> {
+  if (threats.length === 0) return { success: true, count: 0 };
+
+  const title = `🚨 Critical Risk Alert: ${threats.length} New High-Severity Vulnerabilities`;
+
+  let content = `We have detected **${threats.length}** new critical vulnerabilities potentially affecting your assets.\n\n`;
+  content += `## Affected Assets\n\n`;
+
+  threats.forEach(t => {
+    content += `### ${t.cveId} (Score: ${t.score})\n`;
+    content += `**Asset:** ${t.assetName}\n`;
+    content += `**Description:** ${t.description.substring(0, 200)}...\n`;
+    content += `[View Details](${process.env.NEXT_PUBLIC_APP_URL}/clients/${clientId}/risks/vuln-workbench)\n\n`;
+  });
+
+  content += `\n---\n*Immediate investigation is recommended.*`;
+
+  // External Notification (Owner)
+  try {
+    await notifyOwner({ title, content });
+  } catch (e) {
+    console.warn("External threat notification failed", e);
+  }
+
+  // Internal System Email
+  const htmlBody = `
+    <div style="font-family: sans-serif; border-left: 4px solid #ef4444; padding-left: 16px;">
+      <h2 style="color: #b91c1c;">🚨 Critical Security Alert</h2>
+      <p>We detected <strong>${threats.length} new high-severity vulnerabilities</strong> affecting your specific technology stack.</p>
+      
+      ${threats.map(t => `
+        <div style="margin-bottom: 16px; background-color: #fef2f2; padding: 12px; border-radius: 6px;">
+          <h3 style="margin: 0; color: #991b1b;">${t.cveId} <span style="font-size: 0.8em; background: #fee2e2; padding: 2px 6px; border-radius: 4px;">Score: ${t.score}</span></h3>
+          <p style="margin: 4px 0 0 0;"><strong>Asset:</strong> ${t.assetName}</p>
+          <p style="margin: 8px 0; font-size: 0.9em; color: #4b5563;">${t.description.substring(0, 150)}...</p>
+        </div>
+      `).join('')}
+
+      <div style="margin-top: 20px;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/clients/${clientId}/risks/vuln-workbench" 
+           style="background-color: #dc2626; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
+           View Vulnerability Workbench
+        </a>
+      </div>
+    </div>
+  `;
+
+  await sendInternalSystemEmail({
+    clientId,
+    subject: title,
+    body: htmlBody,
+    snippet: `Critical Alert: ${threats.length} vulnerabilities found`
+  });
+
+  await createInAppNotification(clientId, {
+    type: "threat_alert",
+    title: "🚨 Critical Vulnerability Alert",
+    message: `${threats.length} critical vulnerabilities detected. Immediate action required.`,
+    link: `/clients/${clientId}/risks/vuln-workbench`
+  });
+
+  return { success: true, count: threats.length };
 }

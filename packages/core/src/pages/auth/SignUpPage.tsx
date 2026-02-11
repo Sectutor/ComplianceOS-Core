@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { trpc } from '@/lib/trpc';
 import { Building2, Loader2 } from 'lucide-react';
+import MFAChallengeModal from '@/components/auth/MFAChallengeModal';
 
 export default function SignUpPage() {
     const [email, setEmail] = useState('');
@@ -19,6 +20,9 @@ export default function SignUpPage() {
     const [loading, setLoading] = useState(false);
     const [, setLocation] = useLocation();
     const { user, signIn } = useAuth(); // Use signIn from AuthContext for consistent state
+    const [showMFAModal, setShowMFAModal] = useState(false);
+    const [factorId, setFactorId] = useState<string | undefined>(undefined);
+    const [mfaRequired, setMfaRequired] = useState(false);
 
     // If already logged in AND we aren't in the middle of a signup process (checking params), redirect
     // But here we want to handle the payment flow, so we might need to be careful not to redirect too early if we just auto-logged in.
@@ -85,34 +89,35 @@ export default function SignUpPage() {
                 if (signInError) throw signInError;
             }
 
+            const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aal?.currentLevel !== 'aal2') {
+                const { data: lf } = await supabase.auth.mfa.listFactors();
+                const totpVerified = lf?.factors?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+                const totpAny = totpVerified || lf?.factors?.find((f: any) => f.factor_type === 'totp');
+                if (totpAny?.id) {
+                    setFactorId(totpAny.id);
+                    setShowMFAModal(true);
+                    setMfaRequired(true);
+                    setLoading(false);
+                    toast.message('Enter the 6‑digit code to continue');
+                    return;
+                }
+            }
+
+            if (inviteToken) {
+                toast.success("Account created! Redirecting to redeem your invitation...");
+                setLocation(`/auth/redeem-link?token=${inviteToken}`);
+                return;
+            }
+
             toast.success("Account created! Redirecting to payment...");
 
             // Step 3: Create Checkout Session
-            // We need to pass the selected tier and interval.
-            // The user is not yet created in the 'users' table via webhook potentially if that's async? 
-            // In many setups, the TRPC call might fail if the public.users record doesn't exist yet. 
-            // Assuming the `createUserCheckout` uses `ctx.user` which comes from Supabase auth token, it should be fine.
-            // BUT, `billing.ts` `createUserCheckout` uses `ctx.user.stripeCustomerId`. 
-            // If the webhook hasn't fired to create the user/stripe customer, this might fail if it relies on DB record.
-            // Let's check `createUserCheckout` in billing.ts.
-            // It uses `ctx.user.stripeCustomerId`. `ctx.user` usually comes from looking up the user in the DB based on auth ID.
-            // If the webhook is slow, `ctx.user` might be null or missing fields.
-
-            // However, `createUserCheckout` handles the case where `ctx.user.stripeCustomerId` is undefined by passing it as undefined to `createCheckoutSession`.
-            // `createCheckoutSession` then uses `customer_email`.
-            // So it should be robust enough even if the DB record isn't fully synced, AS LONG AS accessing `ctx.user` parses the JWT successfully or finds the user.
-            // The `isAuthed` middleware likely checks the DB.
-
-            // If `isAuthed` checks DB, we might race.
-            // For now, let's assume the latency is acceptable or the middleware just checks JWT. 
-            // (Standard T3/Supabase stacks often check DB in context creation).
-
-            // Let's trigger it.
             const { url } = await createUserCheckout.mutateAsync({
                 tier,
                 interval,
-                successUrl: `${window.location.origin}/dashboard?onboarding=true&payment_success=true`, // Redirect to dashboard after payment
-                cancelUrl: `${window.location.origin}/login`, // If they cancel, they go to login (and are technically signed up but unpaid)
+                successUrl: `${window.location.origin}/dashboard?onboarding=true&payment_success=true`,
+                cancelUrl: `${window.location.origin}/login`,
             });
 
             if (url) {
@@ -136,6 +141,26 @@ export default function SignUpPage() {
 
                     if (signInError) throw signInError;
                     if (signInData.session) {
+                        const { data: aal2 } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                        if (aal2?.currentLevel !== 'aal2') {
+                            const { data: lf } = await supabase.auth.mfa.listFactors();
+                            const totpVerified = lf?.factors?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+                            const totpAny = totpVerified || lf?.factors?.find((f: any) => f.factor_type === 'totp');
+                            if (totpAny?.id) {
+                                setFactorId(totpAny.id);
+                                setShowMFAModal(true);
+                                setMfaRequired(true);
+                                setLoading(false);
+                                toast.message('Enter the 6‑digit code to continue');
+                                return;
+                            }
+                        }
+                        if (inviteToken) {
+                            toast.success("Logged in successfully! Redirecting to redeem your invitation...");
+                            setLocation(`/auth/redeem-link?token=${inviteToken}`);
+                            return;
+                        }
+
                         toast.success("Logged in successfully! Proceeding to payment...");
 
                         const { url } = await createUserCheckout.mutateAsync({
@@ -262,7 +287,10 @@ export default function SignUpPage() {
                                 variant="link"
                                 type="button"
                                 className="px-0 font-semibold text-[#0ea5e9] hover:text-[#0284c7]"
-                                onClick={() => setLocation('/login')}
+                                onClick={() => {
+                                    const invite = new URLSearchParams(window.location.search).get('invite');
+                                    setLocation(invite ? `/login?invite=${invite}` : '/login');
+                                }}
                             >
                                 Sign in
                             </Button>
@@ -270,6 +298,32 @@ export default function SignUpPage() {
                     </CardFooter>
                 </form>
             </Card>
+            {showMFAModal && (
+                <MFAChallengeModal
+                    open={showMFAModal}
+                    onOpenChange={async (o) => {
+                        setShowMFAModal(o);
+                        if (!o) {
+                            const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                            if (aal?.currentLevel === 'aal2') {
+                                setMfaRequired(false);
+                                setLoading(true);
+                                const searchParams = new URLSearchParams(window.location.search);
+                                const tier = (searchParams.get('tier') || 'startup') as 'startup' | 'pro' | 'guided' | 'enterprise';
+                                const interval = (searchParams.get('interval') || 'month') as 'month' | 'year';
+                                const { url } = await createUserCheckout.mutateAsync({
+                                    tier,
+                                    interval,
+                                    successUrl: `${window.location.origin}/dashboard?onboarding=true&payment_success=true`,
+                                    cancelUrl: `${window.location.origin}/login`,
+                                });
+                                if (url) window.location.href = url;
+                            }
+                        }
+                    }}
+                    factorId={factorId}
+                />
+            )}
         </div>
     );
 }

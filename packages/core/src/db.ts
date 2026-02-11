@@ -129,7 +129,6 @@ import {
   riskAssessments, InsertRiskAssessment, RiskAssessment,
   vendorScans, InsertVendorScan, VendorScan,
   vendorCveMatches, InsertVendorCveMatch, VendorCveMatch,
-  vendorBreaches, InsertVendorBreach, VendorBreach,
   bcPlanBias, InsertBcPlanBia, BcPlanBia,
   bcPlanStrategies, InsertBcPlanStrategy, BcPlanStrategy,
   bcPlanScenarios, InsertBcPlanScenario, BcPlanScenario,
@@ -159,7 +158,8 @@ import {
   integrations, evidenceRequests,
 
 
-  projectTasks
+  projects, InsertProject, Project,
+  projectComplianceMappings, InsertProjectComplianceMapping, ProjectComplianceMapping
 } from "./schema";
 
 import * as schema from "./schema";
@@ -232,7 +232,7 @@ export async function getDb(): Promise<NonNullable<typeof _db>> {
 
     } catch (error) {
 
-      logger.warn("[Database] Failed to connect:", error);
+      logger.warn({ message: "[Database] Failed to connect:", error });
 
       _db = null;
       console.error('[DB] Database connection failed:', error);
@@ -439,7 +439,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   } catch (error) {
 
-    logger.error("[Database] Failed to upsert user:", error);
+    logger.error({ message: "[Database] Failed to upsert user:", error });
 
     throw error;
 
@@ -487,7 +487,7 @@ export async function updateUserRole(id: number, role: string) {
 
 // ==================== USER CLIENT ACCESS FUNCTIONS ====================
 
-export async function assignUserToClient(userId: number, clientId: number, role: 'owner' | 'admin' | 'editor' | 'viewer') {
+export async function assignUserToClient(userId: number, clientId: number, role: 'owner' | 'admin' | 'editor' | 'viewer' | 'auditor') {
 
   const db = await getDb();
 
@@ -576,10 +576,11 @@ const ROLE_HIERARCHY = {
   'owner': 4,
   'admin': 3,
   'editor': 2,
-  'viewer': 1
+  'viewer': 1,
+  'auditor': 1 // Auditors have read-only access similar to viewers
 };
 
-export async function isUserAllowedForClient(userId: number, clientId: number, minRole?: 'owner' | 'admin' | 'editor' | 'viewer') {
+export async function isUserAllowedForClient(userId: number, clientId: number, minRole?: 'owner' | 'admin' | 'editor' | 'viewer' | 'auditor') {
   const db = await getDb();
 
   const results = await db.select().from(userClients)
@@ -671,10 +672,21 @@ export async function updateClient(id: number, data: Partial<InsertClient>) {
 
   const db = await getDb();
 
-
-
-  await db.update(clients).set(data).where(eq(clients.id, id));
-
+  try {
+    const filtered = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined));
+    if (Object.keys(filtered).length === 0) {
+      await db.update(clients).set({ updatedAt: new Date() }).where(eq(clients.id, id));
+      return;
+    }
+    await db.update(clients).set(filtered as any).where(eq(clients.id, id));
+  } catch (e: any) {
+    console.error('[updateClient] Failed to update client:', e?.message || e);
+    if (String(e?.message || '').includes('No values to set')) {
+      await db.update(clients).set({ updatedAt: new Date() }).where(eq(clients.id, id));
+      return;
+    }
+    throw e;
+  }
 }
 
 
@@ -710,11 +722,13 @@ export async function deleteClient(id: number) {
 
       // 3. Assessments & Findings
       logger.info(`[deleteClient] Deleting assessments & findings...`);
-      await tx.delete(gapResponses).where(eq(gapResponses.clientId, id));
-      await tx.delete(gapQuestionnaireRequests).where(inArray(gapQuestionnaireRequests.assessmentId,
-        tx.select({ id: gapAssessments.id }).from(gapAssessments).where(eq(gapAssessments.clientId, id))
-      ));
-      await tx.delete(gapAssessments).where(eq(gapAssessments.clientId, id));
+      const clientAssessments = await tx.select({ id: gapAssessments.id }).from(gapAssessments).where(eq(gapAssessments.clientId, id));
+      if (clientAssessments.length > 0) {
+        const assessmentIds = clientAssessments.map(a => a.id);
+        await tx.delete(gapResponses).where(inArray(gapResponses.assessmentId, assessmentIds));
+        await tx.delete(gapQuestionnaireRequests).where(inArray(gapQuestionnaireRequests.assessmentId, assessmentIds));
+        await tx.delete(gapAssessments).where(eq(gapAssessments.clientId, id));
+      }
       await tx.delete(auditFindings).where(eq(auditFindings.clientId, id));
       await tx.delete(complianceSnapshots).where(eq(complianceSnapshots.clientId, id));
 
@@ -771,7 +785,7 @@ export async function deleteClient(id: number) {
     });
 
   } catch (error) {
-    logger.error(`[deleteClient] FAILED at some step:`, error);
+    logger.error({ message: `[deleteClient] FAILED at some step:`, error });
     throw error;
   }
 }
@@ -1124,9 +1138,7 @@ export async function getPolicyTemplates(framework?: string) {
   if (framework && framework !== 'all') {
 
     return db.select().from(policyTemplates)
-
-      .where(eq(policyTemplates.framework, framework))
-
+      .where(sql`${policyTemplates.frameworks}::text ILIKE ${`%"${framework}"%`}`)
       .orderBy(policyTemplates.templateId);
 
   }
@@ -1493,22 +1505,15 @@ export async function ensureDefaultDataSeeded() {
 
         name: "Information Security Policy",
 
-        framework: "ISO 27001",
+        frameworks: ["ISO 27001"],
 
         sections: [
-
-          "Purpose",
-
-          "Scope",
-
-          "Roles & Responsibilities",
-
-          "Policy Statement",
-
-          "Procedures",
-
-          "Review & Approval",
-
+          { id: "purpose", title: "Purpose", content: "", optional: false, defaultEnabled: true },
+          { id: "scope", title: "Scope", content: "", optional: false, defaultEnabled: true },
+          { id: "roles", title: "Roles & Responsibilities", content: "", optional: false, defaultEnabled: true },
+          { id: "statement", title: "Policy Statement", content: "", optional: false, defaultEnabled: true },
+          { id: "procedures", title: "Procedures", content: "", optional: false, defaultEnabled: true },
+          { id: "approval", title: "Review & Approval", content: "", optional: false, defaultEnabled: true },
         ],
 
         content: "[COMPANY NAME] establishes an Information Security Policy to protect information assets.",
@@ -1521,40 +1526,45 @@ export async function ensureDefaultDataSeeded() {
 
         name: "Access Control Policy",
 
-        framework: "ISO 27001",
+        frameworks: ["ISO 27001"],
 
-        sections: ["Purpose", "Scope", "Policy Statement", "Procedures", "Review & Approval"],
+        sections: [
+          { id: "purpose", title: "Purpose", content: "", optional: false, defaultEnabled: true },
+          { id: "scope", title: "Scope", content: "", optional: false, defaultEnabled: true },
+          { id: "statement", title: "Policy Statement", content: "", optional: false, defaultEnabled: true },
+          { id: "procedures", title: "Procedures", content: "", optional: false, defaultEnabled: true },
+          { id: "approval", title: "Review & Approval", content: "", optional: false, defaultEnabled: true },
+        ],
 
         content: "Access to systems and data is granted based on least privilege and business need.",
 
       },
 
       {
-
         templateId: "POL-003",
-
         name: "Incident Response Policy",
-
-        framework: "SOC 2",
-
-        sections: ["Purpose", "Scope", "Policy Statement", "Procedures", "Review & Approval"],
-
+        frameworks: ["SOC 2"],
+        sections: [
+          { id: "purpose", title: "Purpose", content: "", optional: false, defaultEnabled: true },
+          { id: "scope", title: "Scope", content: "", optional: false, defaultEnabled: true },
+          { id: "statement", title: "Policy Statement", content: "", optional: false, defaultEnabled: true },
+          { id: "procedures", title: "Procedures", content: "", optional: false, defaultEnabled: true },
+          { id: "approval", title: "Review & Approval", content: "", optional: false, defaultEnabled: true },
+        ],
         content: "Defines processes to respond to and recover from security incidents.",
-
       },
-
       {
-
         templateId: "POL-004",
-
         name: "Vendor Risk Management Policy",
-
-        framework: "SOC 2",
-
-        sections: ["Purpose", "Scope", "Policy Statement", "Procedures", "Review & Approval"],
-
+        frameworks: ["SOC 2"],
+        sections: [
+          { id: "purpose", title: "Purpose", content: "", optional: false, defaultEnabled: true },
+          { id: "scope", title: "Scope", content: "", optional: false, defaultEnabled: true },
+          { id: "statement", title: "Policy Statement", content: "", optional: false, defaultEnabled: true },
+          { id: "procedures", title: "Procedures", content: "", optional: false, defaultEnabled: true },
+          { id: "approval", title: "Review & Approval", content: "", optional: false, defaultEnabled: true },
+        ],
         content: "Establishes due diligence and monitoring of third-party service providers.",
-
       },
 
     ];
@@ -1664,11 +1674,14 @@ export async function getClientControls(clientId: number) {
       framework: controls.framework,
 
       category: controls.category,
-
     },
-
+    evidenceCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${evidence} 
+        WHERE ${evidence.clientControlId} = ${clientControls.id} 
+        AND ${evidence.status} != 'rejected'
+    )`.mapWith(Number)
   })
-
     .from(clientControls)
 
     .leftJoin(controls, eq(clientControls.controlId, controls.id))
@@ -1740,11 +1753,9 @@ export async function getClientControls(clientId: number) {
       description: fc.description,
 
       framework: fw.name,
-
       category: fc.grouping || 'General',
-
-    }
-
+    },
+    evidenceCount: 0
   }));
 
 
@@ -2001,16 +2012,14 @@ export async function getClientPolicyById(id: number) {
 
 
   const result = await db.select({
-
     clientPolicy: clientPolicies,
-
     template: policyTemplates,
-
+    clientName: clients.name,
+    industry: clients.industry
   })
-
     .from(clientPolicies)
-
     .leftJoin(policyTemplates, eq(clientPolicies.templateId, policyTemplates.id))
+    .leftJoin(clients, eq(clientPolicies.clientId, clients.id))
 
     .where(eq(clientPolicies.id, id))
 
@@ -2387,19 +2396,12 @@ export async function getDashboardStats() {
 // ==================== BULK CONTROL ASSIGNMENT ====================
 
 export async function getControlsByFramework(framework: string) {
-
   const db = await getDb();
-
-
-
-  // Match controls that contain the framework (handles "ISO 27001", "SOC 2", or "ISO 27001 / SOC 2")
+  const cleanFramework = framework.replace(/\s/g, '');
 
   return db.select().from(controls)
-
-    .where(ilike(controls.framework, `%${framework}%`))
-
+    .where(sql`(${controls.framework} ILIKE ${`%${framework}%`} OR REPLACE(${controls.framework}, ' ', '') ILIKE ${`%${cleanFramework}%`})`)
     .orderBy(controls.controlId);
-
 }
 
 
@@ -2619,6 +2621,18 @@ export async function bulkGeneratePolicies(clientId: number, companyName: string
 }
 
 
+export const NATIVE_OWASP_STANDARDS = [
+  "SAMM",
+  "ASVS",
+  "SCVS",
+  "WSTG",
+  "MASVS",
+  "MASTG",
+  "OPENSSF",
+  "AISVS",
+  "WEB-T10",
+  "API-T10"
+];
 
 export async function onboardClient(data: {
   name: string;
@@ -2635,6 +2649,7 @@ export async function onboardClient(data: {
       industry: data.industry,
       status: 'active'
     }).returning();
+    console.log('[DEBUG onboardClient] Created client:', client.id, 'for user:', data.userId);
 
     // 2. Assign User
     await tx.insert(userClients).values({
@@ -2642,11 +2657,21 @@ export async function onboardClient(data: {
       clientId: client.id,
       role: 'owner'
     });
+    console.log('[DEBUG onboardClient] Assigned user:', data.userId, 'to client:', client.id);
 
-    // 3. Assign Frameworks
+    // 3. Assign Frameworks (User selected + Native OWASP)
+    const frameworksToAssign = [...NATIVE_OWASP_STANDARDS];
     if (data.frameworks) {
-      await bulkAssignControls(client.id, data.frameworks, tx);
+      if (Array.isArray(data.frameworks)) {
+        frameworksToAssign.push(...data.frameworks);
+      } else {
+        frameworksToAssign.push(data.frameworks);
+      }
     }
+
+    // Remove duplicates
+    const uniqueFrameworks = Array.from(new Set(frameworksToAssign));
+    await bulkAssignControls(client.id, uniqueFrameworks, tx);
 
     // 4. Generate Policies
     await bulkGeneratePolicies(client.id, data.companyName, tx);
@@ -2953,6 +2978,7 @@ export async function seedSampleData(userId: number, options: { name: string, in
 
     // 2. Link User
     await assignUserToClient(userId, client.id, 'owner');
+    console.log('[DEBUG seedSampleData] Assigned user:', userId, 'to demo client:', client.id);
   }
 
   // 3. Bulk Assign ISO 27001 & SOC 2 Controls
@@ -3490,27 +3516,18 @@ export async function getEnhancedDashboardStats() {
 
 
 export interface CalendarEvent {
-
-  id: string;
-
-  type: 'control_review' | 'policy_renewal' | 'evidence_expiration';
-
+  id: string; // Composite ID
   title: string;
-
-  description: string;
-
-  dueDate: Date;
-
-  clientId: number;
-
-  clientName: string;
-
+  date: Date; // The due date
+  type: 'control_review' | 'policy_renewal' | 'evidence_expiration' | 'risk_review' | 'treatment_due';
   status: string;
-
-  entityId: number;
-
-  priority: 'high' | 'medium' | 'low';
-
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  description?: string;
+  clientId: number;
+  clientName?: string;
+  url?: string;
+  completed?: boolean;
+  entityId?: number;
 }
 
 
@@ -3679,7 +3696,7 @@ export async function getCalendarEvents(
 
         description: `${control.frequency || 'Annual'} review for control ${control.clientControlId}`,
 
-        dueDate: nextReview,
+        date: nextReview,
 
         clientId: control.clientId,
 
@@ -3767,7 +3784,7 @@ export async function getCalendarEvents(
 
         description: `Annual policy renewal required`,
 
-        dueDate: nextReview,
+        date: nextReview,
 
         clientId: policy.clientId,
 
@@ -3859,7 +3876,7 @@ export async function getCalendarEvents(
 
           description: `Evidence ${ev.evidenceId} needs re-verification`,
 
-          dueDate: expirationDate,
+          date: expirationDate,
 
           clientId: ev.clientId,
 
@@ -3883,7 +3900,7 @@ export async function getCalendarEvents(
 
   // Sort events by due date
 
-  events.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
 
 
@@ -3919,7 +3936,7 @@ export async function getNotificationSettings(userId: number): Promise<Notificat
 
     .from(notificationSettings)
 
-    .where(eq(notificationSettings.userId, userId))
+    .where(eq((notificationSettings as any).userId, userId))
 
     .limit(1);
 
@@ -5983,11 +6000,9 @@ export async function getRACIMatrix(clientId: number) {
 
   // Build lookup maps
 
-  const controlsMap = new Map(controlsList.map(c => [c.id, c]));
-
-  const policiesMap = new Map(policiesList.map(p => [p.id, p]));
-
-  const evidenceMap = new Map(evidenceList.map(e => [e.id, e]));
+  const controlsMap = new Map<number, any>(controlsList.map(c => [c.id, c]));
+  const policiesMap = new Map<number, any>(policiesList.map(p => [p.id, p]));
+  const evidenceMap = new Map<number, any>(evidenceList.map(e => [e.id, e]));
 
 
 
@@ -6851,31 +6866,7 @@ function isWithinDays(date: Date | string | null, days: number): boolean {
 
 
 
-export interface CalendarEvent {
-
-  id: string; // Composite ID
-
-  title: string;
-
-  date: Date; // The due date
-
-  type: 'control_review' | 'policy_renewal' | 'evidence_expiration' | 'risk_review' | 'treatment_due';
-
-  status: string;
-
-  priority: 'low' | 'medium' | 'high' | 'critical';
-
-  description?: string;
-
-  clientId: number;
-
-  clientName?: string;
-
-  url?: string;
-
-  completed?: boolean;
-
-}
+// (Interface removed to unify at top)
 
 
 
@@ -7013,7 +7004,7 @@ export async function getOverdueItems(clientId?: number): Promise<CalendarEvent[
 
   } catch (e) {
 
-    logger.warn("Error fetching overdue risks:", e);
+    logger.warn({ message: "Error fetching overdue risks:", error: e });
 
   }
 
@@ -7097,7 +7088,7 @@ export async function getOverdueItems(clientId?: number): Promise<CalendarEvent[
 
   } catch (e) {
 
-    logger.warn("Error fetching overdue treatments:", e);
+    logger.warn({ message: "Error fetching overdue treatments:", error: e });
 
   }
 
@@ -7201,7 +7192,7 @@ export async function getUpcomingDeadlines(clientId?: number, days: number = 7):
 
   } catch (e) {
 
-    logger.warn("Error fetching upcoming risks:", e);
+    logger.warn({ message: "Error fetching upcoming risks:", error: e });
 
   }
 
@@ -7287,7 +7278,7 @@ export async function getUpcomingDeadlines(clientId?: number, days: number = 7):
 
   } catch (e) {
 
-    logger.warn("Error fetching upcoming treatments:", e);
+    logger.warn({ message: "Error fetching upcoming treatments:", error: e });
 
   }
 

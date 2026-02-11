@@ -189,6 +189,7 @@ export class LLMService {
         metadata: UsageMetadata = { endpoint: 'generate' }
     ): Promise<CompletionResponse> {
         const providers = await this.getProviders(request.feature);
+        console.log(`[LLMService] Found ${providers.length} providers. Priority order:`, providers.map(p => p.name).join(', '));
 
         if (providers.length === 0) {
             throw new Error("No enabled LLM provider found. Please configure one in Settings.");

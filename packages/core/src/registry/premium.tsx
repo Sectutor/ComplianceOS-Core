@@ -10,6 +10,8 @@ import { RiskAutoTriageButton } from '@/components/risk/RiskAutoTriageButton';
 import { RiskReportAIButton } from '@/components/risk/RiskReportAIButton';
 import { RiskReportGenerateAllButton } from '@/components/risk/RiskReportGenerateAllButton';
 import { GapAnalysisAIButton } from '@/components/gap-analysis/GapAnalysisAIButton';
+import PolicyRewriteButton from '@/components/policy/PolicyRewriteButton';
+import PolicySectionDraftButton from '@/components/policy/PolicySectionDraftButton';
 
 export function registerPremium() {
     console.log('[Registry] Registering PREMIUM AI components...');
@@ -24,6 +26,8 @@ export function registerPremium() {
     // Policy Page
     registry.register(SlotNames.POLICY_RISK_SUGGESTION, PolicyRiskSuggestion);
     registry.register(SlotNames.POLICY_CONTROL_SUGGESTION, PolicyControlSuggestion);
+    registry.register(SlotNames.POLICY_REWRITE_BUTTON, PolicyRewriteButton);
+    registry.register(SlotNames.POLICY_SECTION_DRAFT, PolicySectionDraftButton);
 
     // Risk Page
     registry.register(SlotNames.RISK_CONTROL_SUGGESTION, AIControlSuggestions);

@@ -318,7 +318,24 @@ export default function POAMTracker() {
         );
     }
 
+    // Filter & Search State
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
     const items = poamData?.items || [];
+
+    const filteredItems = items.filter(item => {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = !searchQuery ||
+            item.weaknessName?.toLowerCase().includes(query) ||
+            item.weaknessDescription?.toLowerCase().includes(query) ||
+            item.controlId?.toLowerCase().includes(query) ||
+            item.sourceIdentifier?.toLowerCase().includes(query);
+
+        const matchesStatus = !statusFilter || item.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
 
     return (
         <DashboardLayout>
@@ -590,11 +607,58 @@ export default function POAMTracker() {
                             <div className="flex items-center gap-2">
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                                    <Input placeholder="Search weaknesses..." className="pl-9 h-9 w-64 bg-white" />
+                                    <Input
+                                        placeholder="Search weaknesses, controls, or IDs..."
+                                        className="pl-9 h-9 w-72 bg-white"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                    />
                                 </div>
-                                <Button variant="outline" size="sm" className="h-9 gap-2 font-bold">
-                                    <Filter className="h-4 w-4" /> Filter
-                                </Button>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={`h-9 gap-2 font-bold ${statusFilter ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}`}
+                                        >
+                                            <Filter className="h-4 w-4" />
+                                            {statusFilter ? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1) : "Filter Status"}
+                                            {statusFilter && <ChevronDown className="h-3 w-3 opacity-50" />}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => setStatusFilter(null)}>
+                                            {statusFilter === null && <Check className="h-3 w-3 mr-2" />}
+                                            All Statuses
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setStatusFilter('open')}>
+                                            {statusFilter === 'open' && <Check className="h-3 w-3 mr-2" />}
+                                            Open
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setStatusFilter('closed')}>
+                                            {statusFilter === 'closed' && <Check className="h-3 w-3 mr-2" />}
+                                            Closed
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setStatusFilter('risk_accepted')}>
+                                            {statusFilter === 'risk_accepted' && <Check className="h-3 w-3 mr-2" />}
+                                            Risk Accepted
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                {statusFilter && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-9 px-2 text-slate-400 hover:text-slate-600"
+                                        onClick={() => setStatusFilter(null)}
+                                    >
+                                        Clear
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </CardHeader>
@@ -611,13 +675,15 @@ export default function POAMTracker() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {items.length === 0 ? (
+                                {filteredItems.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-32 text-center text-slate-400">
-                                            No POA&M items found. Start by recording a weakness.
+                                            {items.length === 0
+                                                ? "No POA&M items found. Start by recording a weakness."
+                                                : "No items match your search criteria."}
                                         </TableCell>
                                     </TableRow>
-                                ) : items.map((item) => (
+                                ) : filteredItems.map((item) => (
                                     <TableRow
                                         key={item.id}
                                         className="group border-slate-100 cursor-pointer hover:bg-slate-50 transition-colors"

@@ -45,7 +45,7 @@ export function EnhancedDialog({
         <Dialog open={open} onOpenChange={onOpenChange} {...props}>
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent className={cn(
-                "p-0 gap-0 overflow-hidden",
+                "p-0 gap-0 overflow-hidden flex flex-col h-[92vh]",
                 sizeClasses[size],
                 className
             )}>
@@ -60,7 +60,7 @@ export function EnhancedDialog({
                     )}
                 </DialogHeader>
 
-                <div className="p-6 bg-white overflow-y-auto max-h-[70vh]">
+                <div className="p-6 bg-white overflow-y-auto flex-1 min-h-0">
                     {children}
                 </div>
 

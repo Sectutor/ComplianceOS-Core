@@ -12,6 +12,7 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { useState, useMemo } from 'react';
 import { RACIMatrixGrid } from '@/components/RACIMatrixGrid';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@complianceos/ui/ui/tabs';
+import { PageGuide } from "@/components/PageGuide";
 
 const RACI_COLORS: Record<string, { bg: string; text: string; label: string }> = {
   'R': { bg: 'bg-red-100', text: 'text-red-800', label: 'Responsible' },
@@ -120,6 +121,22 @@ export default function RACIMatrix() {
               <Download className="w-4 h-4" />
               Export
             </Button>
+            <PageGuide
+              title="RACI Matrix"
+              description="Visualize and manage role responsibilities across your compliance program."
+              rationale="A clear RACI matrix prevents ambiguity about who is doing what. It ensures that for every critical control or policy, there is someone Responsible for doing the work and someone Accountable for ensuring it gets done."
+              howToUse={[
+                { step: "Analyze Gaps", description: "Use the top cards to identify unassigned Controls, Policies, or Evidence tasks." },
+                { step: "Switch Views", description: "Toggle between 'Table View' for a list of employees and 'Grid View' for a classic matrix layout." },
+                { step: "Assign Roles", description: "Click on intersection points in the Grid View to toggle R, A, C, or I roles." },
+                { step: "Filter", description: "Use department and search filters to focus on specific teams or individuals." }
+              ]}
+              integrations={[
+                { name: "Task Management", description: "Assigning 'Responsible' will automatically create tasks for the user." },
+                { name: "Notifications", description: "'Informed' users receive updates when item status changes." },
+                { name: "Audit Trail", description: "Auditors use this matrix to verify organizational oversight." }
+              ]}
+            />
           </div>
         </div>
 

@@ -12,23 +12,34 @@ import {
     Textarea,
     Checkbox,
     Badge,
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from "@complianceos/ui";
 import {
     ArrowLeft, ArrowRight, Save, Trash2, Loader2, AlertTriangle, Plus,
     ShieldAlert, Sparkles, Box, Search, ListChecks, CheckCircle2,
-    ShieldCheck, Activity, Server, Database, Globe, Network, Lock, Unlock, X, User, Cylinder, Download, Upload, Target
+    ShieldCheck, Activity, Server, Database, Globe, Network, Lock, Unlock, X, User, Cylinder, Download, Upload, Target, EyeOff, ChevronDown, ChevronUp, Info
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PASTAStages, PASTAData } from "./PASTAStages";
+import RichTextEditor from "@/components/RichTextEditor";
+import { PageGuide } from "@/components/PageGuide";
 
-const COMPONENT_TYPES = [
-    'Process', 'Store', 'Actor',
-    'Web Client', 'Mobile Client', 'API', 'Database', 'External Service', 'Authentication Service', 'Queue/Broker', 'File Storage'
-];
+const COMPONENT_GROUPS = {
+    "General": ['Process', 'Store', 'Actor'],
+    "Clients": ['Web Client', 'Mobile Client', 'Desktop Client', 'IoT Device'],
+    "Compute": ['API', 'Microservice', 'Serverless Function', 'Container', 'Virtual Machine'],
+    "Data": ['Database', 'Data Warehouse', 'Object Storage', 'Cache', 'Message Queue', 'File Storage', 'Vector DB'],
+    "Network": ['Load Balancer', 'API Gateway', 'Firewall/WAF', 'CDN', 'VPN'],
+    "Security": ['Identity Provider', 'Key Management', 'HSM'],
+    "AI": ['LLM Model', 'Training Pipeline', 'AI Agent'],
+    "Third Party": ['External Service', 'SaaS Provider', 'Legacy System']
+};
+
+const COMPONENT_TYPES = Object.values(COMPONENT_GROUPS).flat();
 
 // --- PROFESSIONAL WORKFLOW DIAGRAM COMPONENT ---
 const WorkflowDiagram = ({ currentStep }: { currentStep: number }) => {
@@ -99,11 +110,34 @@ export function ThreatModelWizard() {
     const [showPastaStages, setShowPastaStages] = useState(false);
 
     // Queries
-    const { data: project } = trpc.devProjects.get.useQuery({ id: projectId, clientId: clientId! }, { enabled: !!projectId && !!clientId });
+    const searchParams = new URLSearchParams(window.location.search);
+    const isGeneralProject = searchParams.get('source') === 'general';
+
+    // Queries
+    // Queries: Try to fetch as DevProject first (default). If it fails or we have generic flag, try Generic.
+    const { data: devProject, error: devError, isFetched: isDevFetched } = trpc.devProjects.get.useQuery(
+        { id: projectId, clientId: clientId! },
+        { enabled: !!projectId && !!clientId && !isGeneralProject, retry: false }
+    );
+
+    // If explicitly general OR if dev query returned null/error (fallback for users on wrong URL)
+    const isDevNotFound = isDevFetched && !devProject;
+    const enableGeneralQuery = !!projectId && !!clientId && (isGeneralProject || !!devError || isDevNotFound);
+
+    const { data: generalProject } = trpc.projects.get.useQuery(
+        { id: projectId, clientId: clientId! },
+        { enabled: enableGeneralQuery }
+    );
+
+    // Determines active project based on what data we found
+    const project = isGeneralProject || enableGeneralQuery ? generalProject : devProject;
+    const effectiveIsGeneral = isGeneralProject || !!generalProject;
     const { data: existingModel, refetch: refetchModel } = trpc.threatModels.get.useQuery(
         { id: createdModelId!, clientId: clientId! },
         { enabled: !!createdModelId && !!clientId }
     );
+
+    const utils = trpc.useUtils();
 
     const createModelMutation = trpc.threatModels.create.useMutation();
     const addComponentMutation = trpc.threatModels.addComponent.useMutation();
@@ -114,6 +148,7 @@ export function ThreatModelWizard() {
     const updateFlowMutation = trpc.threatModels.updateFlow.useMutation();
     const removeFlowMutation = trpc.threatModels.removeFlow.useMutation();
     const commitRisksMutation = trpc.threatModels.commitRisks.useMutation();
+    const generateMitigationPlanMutation = trpc.advisor.generateRiskMitigationPlan.useMutation();
 
     // Canvas State
     const [connectingSource, setConnectingSource] = useState<number | null>(null);
@@ -152,6 +187,8 @@ export function ThreatModelWizard() {
                 setGeneratedRisks(existingModel.risks.map((r: any) => ({
                     ...r,
                     selected: true,
+                    expanded: false,
+                    planExpanded: false,
                     likelihood: r.likelihood || 3,
                     impact: r.impact || 3,
                     selectedMitigations: r.mitigations || []
@@ -169,14 +206,15 @@ export function ThreatModelWizard() {
         try {
             const model = await createModelMutation.mutateAsync({
                 clientId,
-                devProjectId: projectId,
+                devProjectId: effectiveIsGeneral ? undefined : projectId,
+                projectId: effectiveIsGeneral ? projectId : undefined,
                 name: modelBasic.name,
                 methodology: modelBasic.methodology
             });
             setCreatedModelId(model.id);
 
-            // If PASTA methodology, show PASTA stages first
-            if (modelBasic.methodology === 'PASTA') {
+            // If PASTA methodology or COMBINED (which includes PASTA), show PASTA stages
+            if (modelBasic.methodology === 'PASTA' || modelBasic.methodology === 'COMBINED') {
                 setShowPastaStages(true);
             } else {
                 setArchSubstep(2);
@@ -268,6 +306,8 @@ export function ThreatModelWizard() {
             setGeneratedRisks(risks.map(r => ({
                 ...r,
                 selected: true,
+                expanded: false,
+                planExpanded: false,
                 likelihood: 3,
                 impact: 3,
                 selectedMitigations: r.mitigations?.slice(0, 1) || []
@@ -373,26 +413,62 @@ export function ThreatModelWizard() {
         reader.readAsText(file);
     };
 
+    const [isCommitting, setIsCommitting] = useState(false);
+
     const handleCommit = async () => {
         if (!createdModelId || !clientId || !projectId) return;
+
+        setIsCommitting(true);
+        const startTime = Date.now();
+
         const risksToCommit = generatedRisks.filter((r: any) => r.selected);
         try {
             await commitRisksMutation.mutateAsync({
                 clientId,
                 devProjectId: projectId,
                 threatModelId: createdModelId,
-                risks: risksToCommit.map(r => ({
+                risks: risksToCommit.map((r: any) => ({
                     title: r.title,
                     description: r.description,
                     likelihood: r.likelihood,
                     impact: r.impact,
-                    selectedMitigations: r.selectedMitigations || []
+                    privacyImpact: r.source?.includes('Privacy') ||
+                        r.source?.includes('LINDDUN') ||
+                        r.category === 'Privacy' ||
+                        existingModel?.methodology?.includes('LINDDUN') ||
+                        modelBasic.methodology?.includes('LINDDUN') ||
+                        !!r.privacyImpact,
+                    category: r.category,
+                    selectedMitigations: r.selectedMitigations || [],
+                    customMitigationPlan: r.customMitigationPlan
                 }))
             });
+
+            // visual delay for UX
+            const elapsed = Date.now() - startTime;
+            if (elapsed < 1000) {
+                await new Promise(resolve => setTimeout(resolve, 1000 - elapsed));
+            }
+
+            // Invalidate queries to ensure dashboard is fresh
+            await Promise.all([
+                utils.projects.getProjectSecurityPosture.invalidate({ projectId, clientId }),
+                utils.risks.list.invalidate({ projectId, clientId }),
+                utils.threatModels.list.invalidate({ projectId, clientId })
+            ]);
+
             toast.success("Success", { description: "Risks committed to register." });
-            setLocation(`/clients/${clientId}/dev/projects/${projectId}`);
+
+            // Redirect based on active project type (captured from queries above)
+            const targetRoute = isGeneralProject || enableGeneralQuery
+                ? `/clients/${clientId}/projects/${projectId}`
+                : `/clients/${clientId}/dev/projects/${projectId}`;
+
+            setLocation(targetRoute);
         } catch (error: any) {
+            console.error(error);
             toast.error("Failed to commit risks");
+            setIsCommitting(false);
         }
     };
 
@@ -406,9 +482,22 @@ export function ThreatModelWizard() {
                         { label: "Dashboard", href: "/dashboard" },
                         { label: "Developer Projects", href: `/clients/${clientId}/dev/projects` },
                         { label: project?.name || "Project", href: `/clients/${clientId}/dev/projects/${projectId}` },
-                        { label: "STRIDE Framework" }
+                        { label: `${modelBasic.methodology || "STRIDE"} Framework` }
                     ]}
                 />
+
+                <div className="flex justify-between items-start">
+                    <PageGuide
+                        title="Threat Modeling Wizard"
+                        description="Identify architectural flaws and security risks."
+                        rationale="Systematic analysis of your design prevents costly security fixes later."
+                        howToUse={[
+                            { step: "Architecture", description: "Design your system using the drag-and-drop canvas." },
+                            { step: "Analysis", description: "Automatically generate threats based on the design." },
+                            { step: "Mitigation", description: "Select controls to reduce risk." }
+                        ]}
+                    />
+                </div>
 
                 <WorkflowDiagram currentStep={step} />
 
@@ -435,6 +524,8 @@ export function ThreatModelWizard() {
                                                     <SelectItem value="STRIDE">STRIDE (Microsoft)</SelectItem>
                                                     <SelectItem value="PASTA">PASTA (Risk-Centric)</SelectItem>
                                                     <SelectItem value="LINDDUN">LINDDUN (Privacy)</SelectItem>
+                                                    <SelectItem value="STRIDE+LINDDUN">STRIDE + LINDDUN (Sec + Priv)</SelectItem>
+                                                    <SelectItem value="COMBINED">Combined (Security + Privacy + Business)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -552,8 +643,15 @@ export function ThreatModelWizard() {
                                                         className="h-8 w-32 border-none bg-transparent"
                                                     />
                                                     <Select value={newComp.type} onValueChange={v => setNewComp({ ...newComp, type: v })}>
-                                                        <SelectTrigger className="h-8 w-32 border-none bg-white shadow-sm"><SelectValue placeholder="Type" /></SelectTrigger>
-                                                        <SelectContent>{COMPONENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                                        <SelectTrigger className="h-8 w-38 border-none bg-white shadow-sm"><SelectValue placeholder="Type" /></SelectTrigger>
+                                                        <SelectContent className="max-h-[300px]">
+                                                            {Object.entries(COMPONENT_GROUPS).map(([group, types]) => (
+                                                                <React.Fragment key={group}>
+                                                                    <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50">{group}</div>
+                                                                    {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </SelectContent>
                                                     </Select>
                                                     <Button size="sm" onClick={handleAddComponent} disabled={!newComp.name || !newComp.type}>
                                                         <Plus className="h-4 w-4" />
@@ -646,16 +744,26 @@ export function ThreatModelWizard() {
                                             >
                                                 <div className="flex flex-col items-center justify-center p-2">
                                                     <div className={cn("p-2 rounded-lg mb-2",
-                                                        ['Actor', 'Web Client', 'Mobile Client'].includes(comp.type) ? "bg-amber-100/50 text-amber-600" :
-                                                            ['Store', 'Database', 'File Storage'].includes(comp.type) ? "bg-indigo-100/50 text-indigo-600" :
-                                                                "bg-blue-100/50 text-blue-600"
+                                                        ['Actor', 'Web Client', 'Mobile Client', 'Desktop Client', 'IoT Device'].includes(comp.type) ? "bg-amber-100/50 text-amber-600" :
+                                                            ['Store', 'Database', 'File Storage', 'Data Warehouse', 'Object Storage', 'Vector DB'].includes(comp.type) ? "bg-indigo-100/50 text-indigo-600" :
+                                                                ['Identity Provider', 'Key Management', 'HSM', 'Firewall/WAF'].includes(comp.type) ? "bg-red-100/50 text-red-600" :
+                                                                    ['LLM Model', 'AI Agent', 'Training Pipeline'].includes(comp.type) ? "bg-purple-100/50 text-purple-600" :
+                                                                        "bg-blue-100/50 text-blue-600"
                                                     )}>
-                                                        {['Actor', 'Web Client', 'Mobile Client', 'External Service'].includes(comp.type) ? <User size={24} /> :
-                                                            ['Store', 'Database', 'File Storage', 'Queue/Broker'].includes(comp.type) ? <Cylinder size={24} /> :
-                                                                <Box size={24} />}
+                                                        {['Actor', 'Web Client', 'Mobile Client', 'Desktop Client'].includes(comp.type) ? <User size={24} /> :
+                                                            ['IoT Device', 'Sensor'].includes(comp.type) ? <Activity size={24} /> :
+                                                                ['Store', 'Database', 'File Storage', 'Data Warehouse', 'Object Storage', 'Vector DB'].includes(comp.type) ? <Cylinder size={24} /> :
+                                                                    ['Queue/Broker', 'Message Queue', 'Cache'].includes(comp.type) ? <Layers size={24} /> :
+                                                                        ['Serverless Function'].includes(comp.type) ? <Activity size={24} /> :
+                                                                            ['Container', 'Microservice'].includes(comp.type) ? <Box size={24} /> :
+                                                                                ['Load Balancer', 'API Gateway', 'CDN', 'VPN'].includes(comp.type) ? <Network size={24} /> :
+                                                                                    ['Firewall/WAF', 'Identity Provider', 'Key Management', 'HSM'].includes(comp.type) ? <ShieldCheck size={24} /> :
+                                                                                        ['LLM Model', 'AI Agent'].includes(comp.type) ? <Sparkles size={24} /> :
+                                                                                            ['External Service', 'SaaS Provider'].includes(comp.type) ? <Globe size={24} /> :
+                                                                                                <Box size={24} />}
                                                     </div>
                                                     <div className="font-bold text-xs text-center truncate w-full">{comp.name}</div>
-                                                    <div className="text-[10px] text-slate-400 uppercase tracking-wider">{comp.type}</div>
+                                                    <div className="text-[9px] text-slate-400 uppercase tracking-wider truncate w-full text-center">{comp.type}</div>
                                                 </div>
 
                                                 {/* Connection Points */}
@@ -680,7 +788,7 @@ export function ThreatModelWizard() {
                                             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100"
                                         >
                                             <Sparkles className="mr-2 h-4 w-4" />
-                                            Analyze Architecture
+                                            Analyze {modelBasic.methodology || "Architecture"}
                                         </Button>
                                     </CardFooter>
                                 </Card>
@@ -708,9 +816,67 @@ export function ThreatModelWizard() {
                                                 <div className="flex-1">
                                                     <div className="flex justify-between items-center">
                                                         <h4 className="font-bold text-slate-900">{risk.title}</h4>
-                                                        <Badge variant="outline" className="bg-white">{risk.category}</Badge>
+                                                        <div className="flex items-center gap-2">
+                                                            {risk.source === 'OWASP Intelligence Advisor' && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip delayDuration={200}>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 cursor-help">
+                                                                                <Sparkles className="w-3 h-3 mr-1" />
+                                                                                OWASP Intelligence
+                                                                            </Badge>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent
+                                                                            side="top"
+                                                                            align="start"
+                                                                            sideOffset={8}
+                                                                            className="max-w-[400px] p-4 bg-amber-50 border-amber-200 text-amber-900 shadow-xl z-[100]"
+                                                                        >
+                                                                            <div className="space-y-2">
+                                                                                <p className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                                                                                    <Sparkles className="w-3 h-3" />
+                                                                                    Advisor Intelligence Details
+                                                                                </p>
+                                                                                <div className="text-sm leading-relaxed whitespace-pre-wrap mt-2 text-amber-900/90">
+                                                                                    {risk.mitigations?.[0] || "Detailed security guidance from OWASP framework intelligence."}
+                                                                                </div>
+                                                                            </div>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            {risk.source?.includes('LINDDUN') && (
+                                                                <Badge className="bg-teal-100 text-teal-700 border-teal-200">
+                                                                    <EyeOff className="w-3 h-3 mr-1" />
+                                                                    LINDDUN Privacy
+                                                                </Badge>
+                                                            )}
+                                                            <Badge variant="outline" className="bg-white">{risk.category}</Badge>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-7 w-7 p-0 ml-1 rounded-full hover:bg-slate-100"
+                                                                onClick={() => {
+                                                                    const n = [...generatedRisks];
+                                                                    n[idx].expanded = !n[idx].expanded;
+                                                                    setGeneratedRisks(n);
+                                                                }}
+                                                            >
+                                                                {risk.expanded ? <ChevronUp size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                     <p className="text-sm text-slate-600 mt-2">{risk.description}</p>
+
+                                                    {risk.expanded && (
+                                                        <div className="mt-3 p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-sm text-slate-700 leading-relaxed animate-in slide-in-from-top-2 shadow-sm">
+                                                            <div className="font-bold mb-2 flex items-center gap-2 text-slate-800 text-xs uppercase tracking-wide">
+                                                                <Info size={14} className="text-blue-600" />
+                                                                Detailed Threat Explanation
+                                                            </div>
+                                                            {risk.explanation || risk.description || "No additional detailed explanation is available for this threat automatically. Use the analysis to determine specific impact."}
+                                                        </div>
+                                                    )}
 
                                                     {risk.selected && (
                                                         <div className="flex gap-6 mt-4 p-3 bg-white/50 rounded-lg border border-white/50 shadow-inner">
@@ -834,23 +1000,74 @@ export function ThreatModelWizard() {
                                                         );
                                                     })}
                                                 </div>
-                                                <div className="mt-3">
-                                                    <Input
-                                                        placeholder="Type custom mitigation strategy and press Enter..."
-                                                        className="h-9 text-sm bg-white"
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') {
-                                                                const val = (e.currentTarget as HTMLInputElement).value;
-                                                                if (val) {
+                                                <div className="mt-4 space-y-3">
+                                                    <div className="flex justify-between items-center bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                                                        <div
+                                                            className="flex items-center gap-2 cursor-pointer group"
+                                                            onClick={() => {
+                                                                const n = [...generatedRisks];
+                                                                n[idx].planExpanded = !n[idx].planExpanded;
+                                                                setGeneratedRisks(n);
+                                                            }}
+                                                        >
+                                                            <div className="bg-white p-1 rounded-md border border-slate-200 group-hover:border-indigo-300 transition-colors">
+                                                                {risk.planExpanded ? <ChevronUp className="h-3 w-3 text-indigo-600" /> : <ChevronDown className="h-3 w-3 text-slate-400" />}
+                                                            </div>
+                                                            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest cursor-pointer group-hover:text-indigo-600 transition-colors">
+                                                                {risk.customMitigationPlan ? "AI Mitigation Plan" : "Generate Custom Plan"}
+                                                            </Label>
+                                                            {risk.customMitigationPlan && (
+                                                                <Badge variant="outline" className="text-[8px] h-4 bg-white text-indigo-600 border-indigo-100">AI Generated</Badge>
+                                                            )}
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-7 text-[10px] gap-1.5 border-indigo-200 bg-white text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shadow-sm"
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                if (!clientId) return;
+                                                                toast.promise(
+                                                                    generateMitigationPlanMutation.mutateAsync({
+                                                                        clientId,
+                                                                        riskTitle: risk.title,
+                                                                        riskDescription: risk.description,
+                                                                        riskContext: `${risk.componentName} (${risk.componentType})`,
+                                                                        currentMitigations: risk.selectedMitigations
+                                                                    }),
+                                                                    {
+                                                                        loading: 'Generating comprehensive mitigation plan...',
+                                                                        success: (data) => {
+                                                                            const n = [...generatedRisks];
+                                                                            n[idx].customMitigationPlan = data.mitigationPlan;
+                                                                            n[idx].planExpanded = true;
+                                                                            setGeneratedRisks(n);
+                                                                            return 'Mitigation plan generated!';
+                                                                        },
+                                                                        error: 'Failed to generate plan'
+                                                                    }
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Sparkles className="w-3 h-3" />
+                                                            {risk.customMitigationPlan ? "Regenerate" : "Generate with AI"}
+                                                        </Button>
+                                                    </div>
+
+                                                    {risk.planExpanded && (
+                                                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                                            <RichTextEditor
+                                                                value={risk.customMitigationPlan || ""}
+                                                                onChange={(val) => {
                                                                     const n = [...generatedRisks];
-                                                                    const rIdx = n.indexOf(risk);
-                                                                    n[rIdx].selectedMitigations = [...(n[rIdx].selectedMitigations || []), val];
+                                                                    n[idx].customMitigationPlan = val;
                                                                     setGeneratedRisks(n);
-                                                                    (e.currentTarget as HTMLInputElement).value = '';
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
+                                                                }}
+                                                                minHeight="200px"
+                                                                className="bg-white border-slate-200 rounded-xl shadow-inner"
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -912,9 +1129,18 @@ export function ThreatModelWizard() {
 
                                 <div className="pt-8 border-t flex justify-between gap-4">
                                     <Button variant="outline" onClick={() => setStep(3)}>Back to Mitigation</Button>
-                                    <Button onClick={handleCommit} disabled={commitRisksMutation.isLoading} className="bg-green-600 hover:bg-green-700 text-white min-w-[200px] shadow-lg shadow-green-200">
-                                        {commitRisksMutation.isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                        Finalize & Commit Risks
+                                    <Button onClick={handleCommit} disabled={isCommitting} className="bg-green-600 hover:bg-green-700 text-white min-w-[200px] shadow-lg shadow-green-200">
+                                        {isCommitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Committing Risks...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Save className="mr-2 h-4 w-4" />
+                                                Finalize & Commit Risks
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </CardContent>

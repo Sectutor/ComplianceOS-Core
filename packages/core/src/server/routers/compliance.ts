@@ -1,11 +1,12 @@
-
 import { z } from "zod";
 import * as db from "../../db";
 import { getDb } from "../../db";
 import * as schema from "../../schema";
-import { eq, and, desc, sql, inArray, like, or, aliasedTable } from "drizzle-orm";
+import { eq, and, sql, inArray, or, aliasedTable } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { llmService } from "../../lib/llm/service";
+import { cosineSimilarity } from "../../lib/utils";
+import { EmailService } from "../../lib/email/service";
 
 function cosineSimilarity(vecA: number[], vecB: number[]) {
   let dotProduct = 0;
@@ -744,7 +745,31 @@ export const createComplianceRouter = (
             notes: input.notes
           }).returning();
 
-          // TODO: Send Email here (mocked for now)
+          // Send Real Notification
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5173";
+          const inviteUrl = `${baseUrl}/portal/questionnaire/${token}`;
+
+          await EmailService.send({
+            to: input.recipientEmail,
+            subject: "Compliance Information Request",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                <h2 style="color: #1a1a1a;">Information Request</h2>
+                <p>You have been requested to provide compliance information for a security assessment.</p>
+                
+                ${input.notes ? `<div style="background: #f9f9f9; padding: 15px; border-left: 4px solid #ddd; margin: 20px 0;">${input.notes}</div>` : ''}
+
+                <div style="margin: 32px 0; text-align: center;">
+                  <a href="${inviteUrl}" style="background-color: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Complete Questionnaire</a>
+                </div>
+                
+                <p style="color: #666; font-size: 14px;"><strong>Expires:</strong> ${expiresAt.toLocaleDateString()}</p>
+                <p style="color: #999; font-size: 12px;">Link: ${inviteUrl}</p>
+              </div>
+            `,
+            clientId: input.clientId
+          });
+
           console.log(`[GapQuestionnaire] Invite sent to ${input.recipientEmail} with token ${token}`);
 
           return request;

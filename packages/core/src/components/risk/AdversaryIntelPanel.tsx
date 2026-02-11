@@ -7,6 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { trpc } from '@/lib/trpc';
+import { Link } from 'wouter';
 import { Button } from '@complianceos/ui/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@complianceos/ui/ui/card';
 import { Badge } from '@complianceos/ui/ui/badge';
@@ -88,7 +89,7 @@ interface MitreTactic {
 }
 
 export function AdversaryIntelPanel({ clientId, onRiskCreated }: AdversaryIntelPanelProps) {
-    const [activeTab, setActiveTab] = useState('feeds');
+    const [activeTab, setActiveTab] = useState('briefing');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTactic, setSelectedTactic] = useState<string | null>(null);
     const [selectedTechnique, setSelectedTechnique] = useState<MitreTechnique | null>(null);
@@ -129,6 +130,12 @@ export function AdversaryIntelPanel({ clientId, onRiskCreated }: AdversaryIntelP
     const { data: searchResults } = trpc.adversaryIntel.searchTechniques.useQuery(
         { query: searchQuery, limit: 20, clientId },
         { enabled: searchQuery.length >= 2 && activeTab === 'mitre' }
+    );
+
+    // Fetch daily briefing
+    const { data: briefing, isLoading: briefingLoading } = trpc.threatIntel.getDailyBriefing.useQuery(
+        { clientId },
+        { staleTime: 1000 * 60 * 30 } // 30 minutes
     );
 
     // Create threat mutation (add to threat library from intelligence)
@@ -321,7 +328,14 @@ export function AdversaryIntelPanel({ clientId, onRiskCreated }: AdversaryIntelP
             <CardContent className="p-0">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="px-6 pt-4">
-                        <TabsList className="bg-slate-50 border border-slate-200 p-1 w-full grid grid-cols-2">
+                        <TabsList className="bg-slate-50 border border-slate-200 p-1 w-full grid grid-cols-3">
+                            <TabsTrigger
+                                value="briefing"
+                                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-orange-600 data-[state=active]:text-white"
+                            >
+                                <Zap className="w-4 h-4 mr-2" />
+                                Daily Briefing
+                            </TabsTrigger>
                             <TabsTrigger
                                 value="feeds"
                                 className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-cyan-600 data-[state=active]:text-white"
@@ -339,7 +353,127 @@ export function AdversaryIntelPanel({ clientId, onRiskCreated }: AdversaryIntelP
                         </TabsList>
                     </div>
 
-                    {/* Search Bar */}
+                    {/* Daily Briefing Tab */}
+                    <TabsContent value="briefing" className="m-0">
+                        <ScrollArea className="h-[500px]">
+                            {briefingLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                                    <span className="ml-2 text-slate-400">Analyzing latest threats...</span>
+                                </div>
+                            ) : !briefing ? (
+                                <div className="text-center py-12 text-slate-400">
+                                    <Zap className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                    <p>No briefing data available</p>
+                                </div>
+                            ) : (
+                                <div className="p-6 space-y-6">
+                                    {/* Summary Stats Cards */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                                            <div className="text-amber-800 text-xs font-semibold uppercase tracking-wider mb-1">New Vulns</div>
+                                            <div className="text-3xl font-bold text-amber-900">{briefing.summary.newCriticalVulns}</div>
+                                            <div className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+                                                <AlertTriangle className="w-3 h-3" />
+                                                Critical Matches
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                                            <div className="text-red-800 text-xs font-semibold uppercase tracking-wider mb-1">Urgent Threats</div>
+                                            <div className="text-3xl font-bold text-red-900">{briefing.summary.urgentThreats}</div>
+                                            <div className="text-[10px] text-red-700 mt-1 flex items-center gap-1">
+                                                <Radar className="w-3 h-3" />
+                                                High Priority
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                            <div className="text-slate-600 text-xs font-semibold uppercase tracking-wider mb-1">Assets Scanned</div>
+                                            <div className="text-3xl font-bold text-slate-900">{briefing.summary.totalScanned}</div>
+                                            <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                                                <Clock className="w-3 h-3" />
+                                                Last 24 Hours
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Take Action Section */}
+                                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white shadow-lg overflow-hidden relative">
+                                        <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-amber-500/10 rounded-full blur-3xl"></div>
+                                        <div className="relative z-10 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
+                                                    <Zap className="w-5 h-5 text-amber-400" />
+                                                    Daily Action Required
+                                                </h4>
+                                                <p className="text-slate-300 text-sm max-w-md">
+                                                    Review and resolve {briefing.summary.newCriticalVulns} new critical vulnerabilities discovered in your environment today.
+                                                </p>
+                                            </div>
+                                            <Link href={`/clients/${clientId}/risks/vulnerability-workbench`}>
+                                                <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white border-0 shadow-lg shadow-amber-500/20">
+                                                    Open Workbench
+                                                    <ChevronRight className="w-4 h-4 ml-1" />
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    </div>
+
+                                    {/* Critical Vulns List */}
+                                    {briefing.criticalVulns.length > 0 && (
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                <Shield className="w-4 h-4 text-red-500" />
+                                                Impacted Internal Assets
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {briefing.criticalVulns.map((v: any, idx: number) => (
+                                                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white hover:border-red-200 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded bg-red-50 flex items-center justify-center text-red-600 font-bold text-xs">
+                                                                !
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-sm font-semibold text-slate-900">{v.id}</div>
+                                                                <div className="text-xs text-slate-500">{v.asset}</div>
+                                                            </div>
+                                                        </div>
+                                                        <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">
+                                                            {v.severity}
+                                                        </Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Urgent News List */}
+                                    {briefing.urgentNews.length > 0 && (
+                                        <div className="space-y-3">
+                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                <Newspaper className="w-4 h-4 text-orange-500" />
+                                                Urgent Intelligence Alerts
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {briefing.urgentNews.map((n: any, idx: number) => (
+                                                    <div
+                                                        key={idx}
+                                                        className="p-3 rounded-lg border border-slate-100 bg-white hover:bg-slate-50 transition-colors cursor-pointer"
+                                                        onClick={() => window.open(n.link, '_blank')}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="text-sm font-semibold text-slate-900 leading-snug">{n.title}</div>
+                                                            <ExternalLink className="w-3 h-3 text-slate-300 shrink-0" />
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">{n.source}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </ScrollArea>
+                    </TabsContent>
                     <div className="px-6 py-4 flex gap-2">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -593,7 +727,7 @@ export function AdversaryIntelPanel({ clientId, onRiskCreated }: AdversaryIntelP
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setSelectedTechnique(technique);
-                                                                setCreateRiskDialog({ open: true, type: 'technique' });
+                                                                setCreateThreatDialog({ open: true, type: 'technique' });
                                                             }}
                                                         >
                                                             <Plus className="w-4 h-4 mr-1" />

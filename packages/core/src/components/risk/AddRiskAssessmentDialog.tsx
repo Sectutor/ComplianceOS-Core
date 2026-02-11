@@ -14,6 +14,38 @@ import { calculateResidualRisk, type RiskLevel, type ControlEffectiveness } from
 import { RiskTreatmentForm } from './RiskTreatmentForm';
 import { RiskTreatmentCard } from './RiskTreatmentCard';
 
+const LIKELIHOOD_MAP: Record<string, number> = {
+    'Rare': 1,
+    'Unlikely': 2,
+    'Possible': 3,
+    'Likely': 4,
+    'Almost Certain': 5,
+};
+
+const IMPACT_MAP: Record<string, number> = {
+    'Low': 1,
+    'Medium': 2,
+    'High': 3,
+    'Very High': 4,
+    'Critical': 5,
+};
+
+const REVERSE_LIKELIHOOD_MAP: Record<string | number, string> = {
+    1: 'Rare', '1': 'Rare',
+    2: 'Unlikely', '2': 'Unlikely',
+    3: 'Possible', '3': 'Possible',
+    4: 'Likely', '4': 'Likely',
+    5: 'Almost Certain', '5': 'Almost Certain',
+};
+
+const REVERSE_IMPACT_MAP: Record<string | number, string> = {
+    1: 'Low', '1': 'Low',
+    2: 'Medium', '2': 'Medium',
+    3: 'High', '3': 'High',
+    4: 'Very High', '4': 'Very High',
+    5: 'Critical', '5': 'Critical',
+};
+
 interface AddRiskAssessmentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -76,8 +108,8 @@ export function AddRiskAssessmentDialog({ open, onOpenChange, clientId, onSucces
                 threatDescription: initialData.threatDescription || '',
                 vulnerabilityDescription: initialData.vulnerabilityDescription || '',
                 affectedAssets: Array.isArray(initialData.affectedAssets) ? initialData.affectedAssets : [],
-                likelihood: initialData.likelihood || 'Possible',
-                impact: initialData.impact || 'High',
+                likelihood: REVERSE_LIKELIHOOD_MAP[initialData.likelihood] || initialData.likelihood || 'Possible',
+                impact: REVERSE_IMPACT_MAP[initialData.impact] || initialData.impact || 'High',
                 inherentRisk: initialData.inherentRisk || 'Medium',
                 controlEffectiveness: initialData.controlEffectiveness || 'Effective',
                 residualRisk: initialData.residualRisk || 'Low',
@@ -132,15 +164,15 @@ export function AddRiskAssessmentDialog({ open, onOpenChange, clientId, onSucces
         }
     }, [formData.inherentRisk, formData.controlEffectiveness, isResidualRiskManual, formData.residualRisk]);
 
-    const createMutation = trpc.risks.createRiskAssessment.useMutation({
+    const upsertMutation = trpc.risks.upsert.useMutation({
         onSuccess: () => {
-            toast.success('Risk Assessment created successfully');
+            toast.success(initialData ? 'Risk Assessment updated successfully' : 'Risk Assessment created successfully');
             onSuccess();
             onOpenChange(false);
             setLoading(false);
         },
         onError: (err) => {
-            toast.error(`Failed to create assessment: ${err.message}`);
+            toast.error(`Failed to save assessment: ${err.message}`);
             setLoading(false);
         }
     });
@@ -179,56 +211,27 @@ export function AddRiskAssessmentDialog({ open, onOpenChange, clientId, onSucces
         });
     };
 
-    const updateMutation = trpc.risks.updateRiskAssessment.useMutation({
-        onSuccess: () => {
-            toast.success('Risk Assessment updated successfully');
-            onSuccess();
-            onOpenChange(false);
-            setLoading(false);
-        },
-        onError: (err) => {
-            toast.error(`Failed to update assessment: ${err.message}`);
-            setLoading(false);
-        }
-    });
 
     const handleSubmit = async () => {
         setLoading(true);
-        if (initialData) {
-            // Prepare update data, ensuring dates stay as strings
-            const updatePayload = {
-                id: initialData.id,
-                assessor: formData.assessor,
-                method: formData.method,
-                threatDescription: formData.threatDescription,
-                vulnerabilityDescription: formData.vulnerabilityDescription,
-                affectedAssets: formData.affectedAssets,
-                likelihood: formData.likelihood,
-                impact: formData.impact,
-                inherentRisk: formData.inherentRisk,
-                controlEffectiveness: formData.controlEffectiveness,
-                residualRisk: formData.residualRisk,
-                riskOwner: formData.riskOwner,
-                treatmentOption: formData.treatmentOption,
-                recommendedActions: formData.recommendedActions,
-                priority: formData.priority,
-                targetResidualRisk: formData.targetResidualRisk,
-                status: formData.status as "draft" | "approved" | "reviewed",
-                notes: formData.notes,
-                controlIds: (formData.controlIds || []).filter((id: any) => typeof id === 'number'),
-                // Dates as strings (YYYY-MM-DD format)
-                assessmentDate: formData.assessmentDate || undefined,
-                reviewDueDate: formData.reviewDueDate || undefined,
-                nextReviewDate: formData.nextReviewDate || undefined,
-            };
-            updateMutation.mutate(updatePayload);
-        } else {
-            createMutation.mutate({
-                clientId,
-                ...formData,
-                controlIds: (formData.controlIds || []).filter((id: any) => typeof id === 'number')
-            });
-        }
+
+        const likelihoodNum = LIKELIHOOD_MAP[formData.likelihood] || 3;
+        const impactNum = IMPACT_MAP[formData.impact] || 3;
+
+        const payload = {
+            ...formData,
+            clientId,
+            id: initialData?.id,
+            likelihood: likelihoodNum,
+            impact: impactNum,
+            controlIds: (formData.controlIds || []).filter((id: any) => typeof id === 'number'),
+            // Ensure dates are sent correctly or omitted if empty
+            assessmentDate: formData.assessmentDate || undefined,
+            reviewDueDate: formData.reviewDueDate || undefined,
+            nextReviewDate: formData.nextReviewDate || undefined,
+        };
+
+        upsertMutation.mutate(payload);
     };
 
     const toggleControl = (controlId: number) => {

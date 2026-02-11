@@ -14,7 +14,7 @@ import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { Input } from "@complianceos/ui/ui/input";
 import { Label } from "@complianceos/ui/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
@@ -59,10 +59,28 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [framework, setFramework] = useState<string | undefined>();
-  const { data: enhancedStats, isLoading: statsLoading } = trpc.dashboard.enhanced.useQuery({ framework }, {
+  const [clientId, setClientId] = useState<string | undefined>();
+  const [hasSeenOnboardingThisSession, setHasSeenOnboardingThisSession] = useState(false);
+  const utils = trpc.useUtils();
+
+  // Check for onboarding completion parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('onboarding') === 'complete') {
+      // Force refresh data when returning from onboarding
+      utils.clients.list.invalidate();
+      utils.dashboard.enhanced.invalidate();
+      // Clean up URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('onboarding');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [utils]);
+
+  const { data: enhancedStats, isLoading: statsLoading } = trpc.dashboard.enhanced.useQuery({ framework, clientId }, {
     enabled: !!user
   });
-  const { data: clients } = trpc.clients.list.useQuery(undefined, {
+  const { data: clients, isLoading: clientsLoading } = trpc.clients.list.useQuery(undefined, {
     enabled: !!user
   });
   const { data: complianceScores, isLoading: scoresLoading } = trpc.dashboard.complianceScores.useQuery(undefined, {
@@ -71,7 +89,7 @@ export default function Dashboard() {
   const { data: overdueAssessments, isLoading: overdueLoading } = trpc.vendorAnalytics.getOverdueAssessments.useQuery(undefined, {
     enabled: !!user
   });
-  const { data: insightsData } = trpc.dashboard.getInsights.useQuery(undefined, {
+  const { data: insightsData } = trpc.dashboard.getInsights.useQuery({ clientId }, {
     enabled: !!user
   });
   const insights = Array.isArray(insightsData) ? insightsData : [];
@@ -80,7 +98,6 @@ export default function Dashboard() {
   const [selectedClient, setSelectedClient] = useState<{ id: number; name: string; currentTarget: number } | null>(null);
   const [newTargetScore, setNewTargetScore] = useState(80);
 
-  const utils = trpc.useUtils();
   const setTargetMutation = trpc.clients.setTargetScore.useMutation({
     onSuccess: () => {
       toast.success(`Target score updated for ${selectedClient?.name}`);
@@ -131,7 +148,9 @@ export default function Dashboard() {
     controlsInProgress: 0,
     controlsNotStarted: 0,
     totalRisks: 0,
-    highRisks: 0
+    highRisks: 0,
+    maxClients: 2,
+    ownedClientsCount: 0
   };
   const clientsOverview = enhancedStats?.clientsOverview || [];
   const recentActivity = enhancedStats?.recentActivity || [];
@@ -170,76 +189,108 @@ export default function Dashboard() {
   const overallComplianceRate = totalControlsAssigned > 0 ?
     Math.round(((status.implemented || 0) / totalControlsAssigned) * 100) : 0;
 
-  if (!statsLoading && clients && clients.length === 0) {
+  // Show onboarding only if: no clients, not loading, and hasn't been shown this session
+  const shouldShowOnboarding = !statsLoading && !clientsLoading && clients && clients.length === 0 && !hasSeenOnboardingThisSession;
+
+  // Show loading state when transitioning from onboarding to dashboard
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Mark that we've seen onboarding this session when conditions are met
+  useEffect(() => {
+    if (shouldShowOnboarding) {
+      setHasSeenOnboardingThisSession(true);
+    }
+  }, [shouldShowOnboarding]);
+
+  // Handle transition state when clients are being loaded after onboarding
+  useEffect(() => {
+    if (hasSeenOnboardingThisSession && clientsLoading) {
+      setIsTransitioning(true);
+    } else if (isTransitioning && !clientsLoading) {
+      setIsTransitioning(false);
+    }
+  }, [hasSeenOnboardingThisSession, clientsLoading, isTransitioning]);
+
+  if (shouldShowOnboarding || isTransitioning) {
     return (
       <DashboardLayout>
-        <OnboardingWizard />
-        <div className="max-w-4xl mx-auto space-y-8 mt-12 px-4">
-          <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-2">
-              <Shield className="h-10 w-10 text-primary" />
+        {shouldShowOnboarding && <OnboardingWizard />}
+        {isTransitioning && (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">Loading your workspace...</p>
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight">Set up your Compliance OS</h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Follow our guided path to get audit-ready in record time. Complete these steps to activate your live compliance reports.
-            </p>
           </div>
+        )}
+        {shouldShowOnboarding && (
+          <div className="max-w-4xl mx-auto space-y-8 mt-12 px-4">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-2">
+                <Shield className="h-10 w-10 text-primary" />
+              </div>
+              <h1 className="text-4xl font-extrabold tracking-tight">Set up your Compliance OS</h1>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Follow our guided path to get audit-ready in record time. Complete these steps to activate your live compliance reports.
+              </p>
+            </div>
 
-          <OnboardingChecklist stats={enhancedStats} />
+            <OnboardingChecklist stats={enhancedStats} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12">
-            <Card className="bg-white/50 border-none shadow-sm h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-blue-500" />
-                  Auto-Policies
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground leading-relaxed">Get 20+ policies tailored to your industry instantly using our AI policy engine.</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/50 border-none shadow-sm h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-purple-500" />
-                  Unified Controls
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground leading-relaxed">Map one master control to multiple frameworks like ISO 27001 and SOC 2 seamlessly.</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-white/50 border-none shadow-sm h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-emerald-500" />
-                  Live Monitoring
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground leading-relaxed">Connect your cloud stack to automate evidence collection and get real-time readiness scores.</p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-12">
+              <Card className="bg-white/50 border-none shadow-sm h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-500" />
+                    Auto-Policies
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Get 20+ policies tailored to your industry instantly using our AI policy engine.</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/50 border-none shadow-sm h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-purple-500" />
+                    Unified Controls
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Map one master control to multiple frameworks like ISO 27001 and SOC 2 seamlessly.</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/50 border-none shadow-sm h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-emerald-500" />
+                    Live Monitoring
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Connect your cloud stack to automate evidence collection and get real-time readiness scores.</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="pt-8 flex flex-col items-center gap-4">
+              <Button
+                variant="default"
+                className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 font-bold shadow-lg shadow-indigo-200 animate-pulse"
+                onClick={() => sampleMutation.mutate({ name: "DEMO Organization", industry: "Technology" })}
+                disabled={sampleMutation.isPending}
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                {sampleMutation.isPending ? "Generating Magic..." : "Explore with Demo Data"}
+              </Button>
+
+              <Button variant="ghost" className="text-muted-foreground hover:text-primary" onClick={() => setLocation('/learning')}>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Not ready yet? Explore the Learning Zone
+              </Button>
+            </div>
           </div>
-
-          <div className="pt-8 flex flex-col items-center gap-4">
-            <Button
-              variant="default"
-              className="bg-indigo-600 hover:bg-indigo-700 h-12 px-8 font-bold shadow-lg shadow-indigo-200 animate-pulse"
-              onClick={() => sampleMutation.mutate({ name: "DEMO Organization", industry: "Technology" })}
-              disabled={sampleMutation.isPending}
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              {sampleMutation.isPending ? "Generating Magic..." : "Explore with Demo Data"}
-            </Button>
-
-            <Button variant="ghost" className="text-muted-foreground hover:text-primary" onClick={() => setLocation('/learning')}>
-              <FolderOpen className="mr-2 h-4 w-4" />
-              Not ready yet? Explore the Learning Zone
-            </Button>
-          </div>
-        </div>
+        )}
       </DashboardLayout>
     );
   }
@@ -264,6 +315,25 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2 items-center">
+            {/* Client Selector - Subtle */}
+            {clients && clients.length > 0 && (
+              <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-1 text-sm shadow-sm transition-all hover:border-primary/50">
+                <span className="text-muted-foreground font-medium">Client:</span>
+                <select
+                  className="bg-transparent border-none focus:ring-0 cursor-pointer pr-8 font-semibold text-primary max-w-[150px] truncate"
+                  value={clientId || ""}
+                  onChange={(e) => setClientId(e.target.value || undefined)}
+                >
+                  <option value="">All Clients</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 bg-background border rounded-md px-3 py-1 text-sm shadow-sm transition-all hover:border-primary/50">
               <span className="text-muted-foreground font-medium">Standard:</span>
               <select
@@ -276,7 +346,7 @@ export default function Dashboard() {
                 <option value="SOC 2">SOC 2</option>
               </select>
             </div>
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'owner') && (
               <Button onClick={() => setLocation('/clients')}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Client
@@ -286,7 +356,7 @@ export default function Dashboard() {
         </div>
 
         {/* Onboarding Banner (Short version for active dashboard) */}
-        {!statsLoading && enhancedStats && (overview.totalPolicies === 0 || overview.totalEvidence === 0 || (user?.role === 'admin' && (overview.totalLLMProviders === 0))) && (
+        {!statsLoading && enhancedStats && (overview.totalPolicies === 0 || overview.totalEvidence === 0 || ((user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'owner') && (overview.totalLLMProviders === 0))) && (
           <OnboardingChecklist stats={enhancedStats} role={user?.role} />
         )}
 
@@ -297,15 +367,15 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-blue-600/10">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
+                    <Activity className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">AI-Powered Insights</CardTitle>
-                    <CardDescription>Actionable recommendations to improve your compliance posture</CardDescription>
+                    <CardTitle className="text-lg">Compliance Action Center</CardTitle>
+                    <CardDescription>Live updates and required actions</CardDescription>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                  Generate New Insights
+                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => utils.dashboard.getInsights.invalidate()}>
+                  Refresh Actions
                 </Button>
               </div>
             </CardHeader>
@@ -361,7 +431,11 @@ export default function Dashboard() {
                       {overview?.totalClients || 0}
                     </h3>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">Active workspaces</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {user?.role === 'super_admin'
+                      ? "Unlimited Organizations"
+                      : `${(overview as any)?.ownedClientsCount || 0} / ${(overview as any)?.maxClients || 2} used`}
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-blue-100 text-blue-600">
                   <Users className="w-6 h-6" />
@@ -397,7 +471,7 @@ export default function Dashboard() {
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-muted-foreground">Client Policies</p>
+                  <p className="text-sm font-medium text-muted-foreground">Policy Templates</p>
                   {statsLoading ? (
                     <Skeleton className="h-8 w-16 mt-2" />
                   ) : (
@@ -416,21 +490,27 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="hover-lift shadow-premium border-l-4 border-l-red-500">
+          <Card className="hover-lift shadow-premium border-l-4 border-l-red-500 cursor-pointer group" onClick={() => setLocation('/risk-register')}>
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-muted-foreground">Flagged Risks</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-muted-foreground">Flagged Risks</p>
+                    <span className="flex h-2 w-2 relative" title="Live Risk Monitoring">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  </div>
                   {statsLoading ? (
                     <Skeleton className="h-8 w-16 mt-2" />
                   ) : (
-                    <h3 className="text-3xl font-bold mt-2 metric-value">
+                    <h3 className="text-3xl font-bold mt-2 metric-value group-hover:text-red-600 transition-colors">
                       {overview?.highRisks || 0}
                     </h3>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">High & Critical severity</p>
                 </div>
-                <div className="p-3 rounded-lg bg-red-100 text-red-600">
+                <div className="p-3 rounded-lg bg-red-100 text-red-600 group-hover:bg-red-200 transition-colors">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
               </div>

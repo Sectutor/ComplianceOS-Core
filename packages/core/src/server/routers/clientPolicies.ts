@@ -58,7 +58,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         }
         return result;
       }),
-    create: adminProcedure
+    create: clientEditorProcedure
       .input(z.object({
         clientId: z.number(),
         templateId: z.number().optional(),
@@ -155,10 +155,10 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
       .query(async ({ input }: any) => {
         return await policyGenerator.suggestSections(input.policyName, input.industry);
       }),
-    update: adminProcedure
+    update: clientEditorProcedure
       .input(z.object({
         id: z.number(),
-        clientId: z.number().optional(), // usually not updated, but acceptable
+        clientId: z.number(),
         name: z.string().optional(),
         content: z.string().optional(),
         status: z.enum(["draft", "review", "approved", "archived"]).optional(),
@@ -166,7 +166,15 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         version: z.number().optional(),
       }))
       .mutation(async ({ input }: any) => {
-        const { id, ...data } = input;
+        const { id, clientId, ...data } = input;
+
+        // Safeguard: verify policy belongs to this client
+        const existing = await db.getClientPolicyById(id);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND" });
+        if (existing.clientPolicy.clientId !== clientId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Policy does not belong to this client" });
+        }
+
         await db.updateClientPolicy(id, data);
 
         // Re-index updated policy
@@ -174,12 +182,17 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
 
         return { success: true };
       }),
-    delete: adminProcedure
-      .input(z.object({ id: z.number() }))
+    delete: clientEditorProcedure
+      .input(z.object({ id: z.number(), clientId: z.number() }))
       .mutation(async ({ input }: any) => {
         // Fetch policy first to get clientId if needed, or assume global delete logic if supported.
         // But since we need clientId for partitioning, we must fetch it.
         const policy = await db.getClientPolicyById(input.id);
+        if (!policy) throw new TRPCError({ code: "NOT_FOUND" });
+
+        if (policy.clientPolicy.clientId !== input.clientId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Policy does not belong to this client" });
+        }
 
         await db.deleteClientPolicy(input.id);
 
@@ -192,7 +205,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
 
         return { success: true };
       }),
-    generateBulk: adminProcedure
+    generateBulk: clientEditorProcedure
       .input(z.object({
         clientId: z.number(),
         companyName: z.string(),
@@ -200,12 +213,13 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
       .mutation(async ({ input }: any) => {
         return await db.bulkGeneratePolicies(input.clientId, input.companyName);
       }),
-    getRACI: publicProcedure
-      .input(z.object({ policyId: z.number() }))
+    getRACI: clientProcedure
+      .input(z.object({ policyId: z.number(), clientId: z.number() }))
       .query(async ({ input }: any) => {
+        // Optional: verify policy belongs to clientId
         return await db.getPolicyRACIAssignments(input.policyId);
       }),
-    updateRACI: adminProcedure
+    updateRACI: clientEditorProcedure
       .input(z.object({
         clientId: z.number(),
         policyId: z.number(),
@@ -227,9 +241,10 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return { success: true };
       }),
 
-    publish: adminProcedure
+    publish: clientEditorProcedure
       .input(z.object({
         id: z.number(),
+        clientId: z.number(),
         version: z.string().optional(),
         notes: z.string().optional(),
       }))
@@ -237,9 +252,12 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         const dbConn = await db.getDb();
 
         const policy = await dbConn.query.clientPolicies.findFirst({
-          where: eq(clientPolicies.id, input.id)
+          where: and(
+            eq(clientPolicies.id, input.id),
+            eq(clientPolicies.clientId, input.clientId)
+          )
         });
-        if (!policy) throw new TRPCError({ code: "NOT_FOUND" });
+        if (!policy) throw new TRPCError({ code: "NOT_FOUND", message: "Policy not found or access denied" });
 
         // Create Version Snapshot
         const newVersionStr = input.version || `v${(policy.version || 0) + 1}.0`;
@@ -281,8 +299,8 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return { success: true, version: newVersionStr };
       }),
 
-    history: publicProcedure
-      .input(z.object({ policyId: z.number() }))
+    history: clientProcedure
+      .input(z.object({ policyId: z.number(), clientId: z.number() }))
       .query(async ({ input }: any) => {
         const dbConn = await db.getDb();
 
@@ -296,10 +314,11 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
           .orderBy(desc(policyVersions.createdAt));
       }),
 
-    restore: adminProcedure
+    restore: clientEditorProcedure
       .input(z.object({
         policyId: z.number(),
-        versionId: z.number()
+        versionId: z.number(),
+        clientId: z.number()
       }))
       .mutation(async ({ input, ctx }: any) => {
         const dbConn = await db.getDb();
@@ -315,6 +334,9 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         // Get policy for client ID (for logging)
         const policy = await db.getClientPolicyById(input.policyId);
         if (!policy) throw new TRPCError({ code: "NOT_FOUND", message: "Policy not found" });
+        if (policy.clientPolicy.clientId !== input.clientId) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Policy does not belong to this client" });
+        }
 
         // Update the policy
         await dbConn.update(clientPolicies)
@@ -341,24 +363,86 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return { success: true };
       }),
 
-    refine: adminProcedure
+    refine: clientEditorProcedure
       .input(z.object({
+        clientId: z.number(),
         content: z.string(),
-        instruction: z.string(),
+        instruction: z.string().optional(),
+        mode: z.enum(['refine', 'fix_placeholders']).optional(),
         context: z.object({
           clientName: z.string(),
           industry: z.string().optional()
         }).optional()
       }))
-      .mutation(async ({ input }: any) => {
-        // AI Refinement removed for Core split
-        // const { LLMService } = await import('../../lib/llm/service');
-        // const llm = new LLMService();
-        // ...
+      .mutation(async ({ input, ctx }: any) => {
+        const { llmService } = await import('../../lib/llm/service');
+        const dbConn = await db.getDb();
 
-        return { content: input.content }; // No-op return
+        // Fetch Client Data for accurate context
+        let clientName = input.context?.clientName || 'the Organization';
+        let industry = input.context?.industry || 'General';
+
+        try {
+          const client = await dbConn.query.clients.findFirst({
+            where: eq(schema.clients.id, input.clientId),
+            columns: { name: true, industry: true }
+          });
+          if (client?.name) clientName = client.name;
+          if (client?.industry) industry = client.industry;
+        } catch (e) {
+          console.warn("[Refine] Could not fetch client data:", e);
+        }
+
+        let prompt = "";
+
+        if (input.mode === 'fix_placeholders') {
+          prompt = `You are a compliance policy editor. Your task is to ONLY fill in placeholders in the provided HTML content.
+            Context: Client=${clientName}, Industry=${industry}.
+            
+            Strict Instructions:
+            1. Identify placeholders such as [Company Name], TBD, [Date], [Insert Role], {{company_name}}, etc.
+            2. Replace them with specific, plausible values appropriate for ${clientName}.
+            3. CRITICAL: DO NOT rewrite, rephrase, summarize, or change any other text. The structure and wording must remain exactly the same, except for the filled placeholders.
+            4. Return the full, valid HTML content.
+            `
+        } else {
+          prompt = `Rewrite the following compliance policy content to be more professional, clear, and compliant.
+            Context: Client=${clientName}, Industry=${industry}.
+            `;
+        }
+
+        if (input.instruction) {
+          prompt += `\nSpecific Instruction: ${input.instruction}\n`;
+        }
+
+        prompt += `\nReturn ONLY the HTML content. Do not include markdown code blocks, preamble, or explanations.\n\nContent:\n${input.content}`;
+
+        try {
+          const response = await llmService.generate({
+            userPrompt: prompt,
+            temperature: 0.3,
+            feature: 'policy_refinement'
+          }, {
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            endpoint: 'clientPolicies.refine'
+          });
+
+          let cleanContent = response.text.trim();
+          // specific cleanup for common LLM markdown habits
+          if (cleanContent.startsWith("```")) {
+            cleanContent = cleanContent.replace(/^```(?:html|markdown)?\s*/, '').replace(/\s*```$/, '');
+          }
+
+          return { content: cleanContent };
+        } catch (error: any) {
+          console.error("Refine failed:", error);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI Refinement failed: " + error.message });
+        }
       }),
-    gapAnalysis: publicProcedure
+
+
+    gapAnalysis: clientProcedure
       .input(z.object({ clientId: z.number() }))
       .query(async ({ input }: any) => {
         return await db.getPolicyGapAnalysis(input.clientId);
@@ -411,8 +495,8 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return { success: true };
       }),
 
-    getLinkedRisks: publicProcedure
-      .input(z.object({ policyId: z.number() }))
+    getLinkedRisks: clientProcedure
+      .input(z.object({ policyId: z.number(), clientId: z.number() }))
       .query(async ({ input }: any) => {
         const dbConn = await db.getDb();
 
@@ -427,8 +511,8 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return links;
       }),
 
-    getLinkedControls: publicProcedure
-      .input(z.object({ policyId: z.number() }))
+    getLinkedControls: clientProcedure
+      .input(z.object({ policyId: z.number(), clientId: z.number() }))
       .query(async ({ input }: any) => {
         const dbConn = await db.getDb();
         return await dbConn.select({
@@ -487,6 +571,28 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
             eq(controlPolicyMappings.clientControlId, input.controlId)
           ));
         return { success: true };
+      }),
+
+    incorporateLinterSections: clientEditorProcedure
+      .input(z.object({
+        clientId: z.number(),
+        policyId: z.number(),
+        content: z.string(),
+        missingSections: z.array(z.object({
+          id: z.string(),
+          title: z.string()
+        }))
+      }))
+      .mutation(async ({ input }: any) => {
+        const { policyGenerator } = await import("../../lib/policy/policy-generation");
+
+        const updatedContent = await policyGenerator.incorporateMissingSections(
+          input.clientId,
+          input.content,
+          input.missingSections
+        );
+
+        return { content: updatedContent };
       }),
 
   });

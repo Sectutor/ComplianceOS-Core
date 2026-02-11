@@ -23,6 +23,7 @@ import { ControlFilterBar } from "@/components/controls/ControlFilterBar";
 import { ControlDetailsSheet } from "@/components/controls/ControlDetailsSheet";
 import { Loader2, Trash2 } from "lucide-react";
 import { Slot } from "@/registry";
+import { PageGuide } from "@/components/PageGuide";
 import { SlotNames } from "@/registry/slotNames";
 import {
   AlertDialog,
@@ -357,6 +358,22 @@ export default function Controls() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <PageGuide
+              title="Global Control Library"
+              description="Your centralized repository for operational security controls. Define once, comply many times."
+              rationale="Instead of managing separate compliance projects for SOC 2, ISO 27001, and HIPAA, define a single 'Master Control' (e.g., 'Employee Background Checks') and map it to multiple framework requirements. This eliminates redundant work."
+              howToUse={[
+                { step: "Define Controls", description: "Document your company's actual security practices (e.g., 'MFA is enforced')." },
+                { step: "Map to Frameworks", description: "Link your internal control to external requirements (e.g., SOC 2 CC6.1)." },
+                { step: "Assign Owners", description: "Designate a responsible person to maintain the control." },
+                { step: "Upload Evidence", description: "Attach proof (screenshots, policies) to demonstrate effectiveness." }
+              ]}
+              integrations={[
+                { name: "Frameworks", description: "Controls satisfy specific Requirements." },
+                { name: "Risks", description: "Controls mitigate identified Risks." },
+                { name: "Audits", description: "Evidence attached here is automatically pulled into audits." }
+              ]}
+            />
             <Slot name={SlotNames.CONTROL_HEADER_ACTIONS} />
             <EnhancedDialog
               open={isCreateOpen}

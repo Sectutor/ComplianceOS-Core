@@ -11,6 +11,7 @@ import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@complianceos/ui/ui/dropdown-menu";
 import { toast } from "sonner";
+import { PageGuide } from "@/components/PageGuide";
 
 type AssessmentStatus = 'Planned' | 'Sent' | 'In Progress' | 'In Review' | 'Completed';
 
@@ -173,8 +174,16 @@ export default function SecurityReviews() {
         <div className="p-6 h-[calc(100vh-64px)] flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Security Reviews</h1>
-                    <p className="text-muted-foreground">Manage active security assessments and audit workflows.</p>
+                    <PageGuide
+                        title="Security Reviews"
+                        description="Manage active security assessments and audit workflows."
+                        rationale="Systematic evaluation of vendor security controls reduces third-party risk."
+                        howToUse={[
+                            { step: "Schedule", description: "Initiate new assessments (SIG, CAIQ)." },
+                            { step: "Track", description: "Monitor status of sent questionnaires." },
+                            { step: "Review", description: "Analyze vendor responses and approve." }
+                        ]}
+                    />
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50">

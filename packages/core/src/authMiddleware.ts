@@ -12,6 +12,7 @@ console.log('[AuthMiddleware Init] Supabase URL:', supabaseUrl);
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    console.log(`[Auth] Request: ${req.url}`);
     try {
         const authHeader = req.headers.authorization;
         const url = req.url;
@@ -57,7 +58,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             console.log('[Auth Debug] dbUser found:', dbUser.id, dbUser.role);
         }
 
+        console.log('[Auth Debug] Setting req.user:', { id: dbUser.id, role: dbUser.role, email: dbUser.email });
         req.user = dbUser;
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+                (req as any).aal = payload?.aal || null;
+            }
+        } catch { }
         next();
     } catch (error: any) {
         console.error('[AuthMiddleware] Exception:', error.message);
@@ -66,25 +75,25 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const path = await import('path');
         const logFile = path.resolve(process.cwd(), 'auth_error.log');
         const logEntry = `[${new Date().toISOString()}] ${error.stack}\n`;
-        fs.appendFile(logFile, logEntry, () => {});
+        fs.appendFile(logFile, logEntry, () => { });
 
         // If DB connection fails, we should probably fail hard for API requests
         // instead of letting it pass as unauthorized/undefined
         if (error.name === 'DatabaseConnectionError' || error.message.includes('connect')) {
-             res.status(503).json({ error: 'Database connection failed' });
-             return;
+            res.status(503).json({ error: 'Database connection failed' });
+            return;
         }
-        
+
         // Don't just next() on error, send a proper error response if we can't authenticate
         // Otherwise trpc gets undefined user and throws generic 500 or 401 later
         if (req.url.startsWith('/api/trpc')) {
-             res.status(500).json({ 
-                error: 'Internal Authentication Error', 
-                details: error.message 
-             });
-             return;
+            res.status(500).json({
+                error: 'Internal Authentication Error',
+                details: error.message
+            });
+            return;
         }
-        
+
         next();
     }
 };

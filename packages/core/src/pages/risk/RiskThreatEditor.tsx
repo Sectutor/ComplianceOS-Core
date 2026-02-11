@@ -13,6 +13,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Popover, PopoverContent, PopoverTrigger } from '@complianceos/ui/ui/popover';
 import { Badge } from '@complianceos/ui/ui/badge';
+import { PageGuide } from '@/components/PageGuide';
 
 // Comprehensive threat templates from ENISA, NIST, and ISO 27005
 // Comprehensive threat templates from ENISA, NIST, and ISO 27005
@@ -452,6 +453,20 @@ export default function RiskThreatEditor() {
                             <Save className="w-4 h-4 mr-2" />
                             {isNew ? 'Record Threat' : 'Save Changes'}
                         </Button>
+                        <PageGuide
+                            title={isNew ? "Record New Threat" : "Edit Threat"}
+                            description="Define a threat scenario, its origin, and potential impact."
+                            rationale="Detailed threat definitions help risk owners understand 'what could go wrong' and prioritize controls effectively."
+                            howToUse={[
+                                { step: "Import Template", description: "Use 'Import Template' to auto-fill common scenarios like 'Phishing' or 'Ransomware'." },
+                                { step: "Classify", description: "Set the Category, Source, and Intent to filter threats in reports." },
+                                { step: "Estimate Impact", description: "Describe the 'worst-case scenario' if this threat materializes." }
+                            ]}
+                            integrations={[
+                                { name: "MITRE ATT&CK", description: "Templates are pre-mapped to MITRE tactics (e.g., Initial Access)." },
+                                { name: "Vulnerabilities", description: "Link known vulnerabilities (CVEs) that this threat exploits." }
+                            ]}
+                        />
                     </div>
                 </div>
 

@@ -232,6 +232,7 @@ export function ThreatIntelPanel({
                                                 clientId,
                                                 assetId,
                                                 cveId: suggestion.cveId,
+                                                matchId: (suggestion as any).matchId,
                                             })}
                                             disabled={importMutation.isPending}
                                             title="Import as Vulnerability"
@@ -242,10 +243,15 @@ export function ThreatIntelPanel({
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-100"
-                                            onClick={() => updateStatusMutation.mutate({
-                                                matchId: 0,
-                                                status: 'dismissed',
-                                            })}
+                                            onClick={() => {
+                                                const mid = (suggestion as any).matchId;
+                                                if (mid) {
+                                                    updateStatusMutation.mutate({
+                                                        matchId: mid,
+                                                        status: 'dismissed',
+                                                    });
+                                                }
+                                            }}
                                             disabled={updateStatusMutation.isPending}
                                             title="Dismiss"
                                         >

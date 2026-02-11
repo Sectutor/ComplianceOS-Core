@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
-import { Plus, Layout, ArrowRight, Calendar, ClipboardList } from "lucide-react";
+import { Plus, Layout, ArrowRight, Calendar, ClipboardList, Trash2, FileText } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Link, useLocation } from "wouter";
 import { useClientContext } from "@/contexts/ClientContext";
@@ -10,7 +10,6 @@ import { useParams } from "wouter";
 import { trpc } from '@/lib/trpc';
 import { Badge } from "@complianceos/ui/ui/badge";
 import { useState } from 'react';
-import { FileText } from 'lucide-react';
 import ImplementationReportDialog from './ImplementationReportDialog';
 import { toast } from 'sonner';
 import { MyTasksView } from './MyTasksView';
@@ -25,7 +24,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ImplementationDashboard() {
     const params = useParams();
@@ -43,6 +42,21 @@ export default function ImplementationDashboard() {
     const { data: plans, isLoading } = trpc.implementation.list.useQuery({
         clientId: clientId!
     }, { enabled: !!clientId });
+
+    const generatePlan = trpc.compliancePlanning.generatePlan.useMutation({
+        onSuccess: (res) => {
+            if (res?.planId) {
+                toast.success("PDCA demo plan created", { description: `Generated ${res.taskCount} tasks for ${res.framework}` });
+                setLocation(`/clients/${clientId}/implementation/plan/${res.planId}`);
+            } else {
+                toast.info("Plan generated, but no planId returned");
+            }
+            utils.implementation.list.invalidate();
+        },
+        onError: (err) => {
+            toast.error("Failed to generate demo plan", { description: err.message });
+        }
+    });
 
     const deletePlanMutation = trpc.implementation.deletePlan.useMutation({
         onSuccess: () => {
@@ -79,6 +93,20 @@ export default function ImplementationDashboard() {
                         </p>
                     </div>
                     <div className="flex gap-3">
+                        <PageGuide
+                            title="Tactical Implementation"
+                            description="Execution hub for compliance tasks and remediation plans."
+                            rationale="Translates strategic goals into actionable tasks assigned to team members."
+                            howToUse={[
+                                { step: "Create Plan", description: "Start from a roadmap or template." },
+                                { step: "Manage Tasks", description: "Use the Kanban board to track progress." },
+                                { step: "Orchestrate", description: "Use AI to break down requirements into subtasks." }
+                            ]}
+                            integrations={[
+                                { name: "Roadmap", description: "Inherits strategic milestones." },
+                                { name: "Ticketing", description: "Syncs with JIRA/Linear (if configured)." }
+                            ]}
+                        />
                         <Button
                             variant="outline"
                             className="bg-white/50 hover:bg-white border-slate-200"
@@ -86,6 +114,14 @@ export default function ImplementationDashboard() {
                         >
                             <FileText className="w-4 h-4 mr-2" />
                             Generate Report
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="bg-indigo-50 hover:bg-indigo-100 border-indigo-200"
+                            disabled={generatePlan.isPending || !clientId}
+                            onClick={() => generatePlan.mutate({ clientId: clientId!, framework: 'ISO27001', useAi: false })}
+                        >
+                            {generatePlan.isPending ? "Creating Demo PDCA…" : "Create PDCA Demo Plan"}
                         </Button>
                         <Link href={`/clients/${clientId}/implementation/create`}>
                             <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20">
@@ -116,7 +152,7 @@ export default function ImplementationDashboard() {
                                 <Card
                                     key={plan.id}
                                     className="group hover:border-blue-400 hover:shadow-xl transition-all duration-300 border-slate-200 cursor-pointer overflow-hidden relative"
-                                    onClick={() => setLocation(`/clients/${clientId}/implementation/kanban/${plan.id}`)}
+                                    onClick={() => setLocation(`/clients/${clientId}/implementation/plan/${plan.id}`)}
                                 >
                                     <div className="absolute top-0 right-0 p-4 flex gap-2">
                                         <Badge variant="outline" className="bg-white/80 backdrop-blur-sm text-[10px] uppercase">
@@ -147,7 +183,7 @@ export default function ImplementationDashboard() {
                                                 {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString() : 'N/A'}
                                             </div>
                                             <div className="flex items-center text-blue-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                                                Manage Board <ArrowRight className="ml-1.5 w-4 h-4" />
+                                                Manage Phase Plan <ArrowRight className="ml-1.5 w-4 h-4" />
                                             </div>
                                         </div>
                                     </CardContent>
@@ -170,10 +206,8 @@ export default function ImplementationDashboard() {
                             </Link>
                         </div>
                     )}
-
                 </div>
 
-                {/* IMPLEMENTATION REPORT HISTORY */}
                 <div className="pt-8 border-t">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-medium text-slate-900">Generate Reports</h3>
@@ -218,6 +252,3 @@ export default function ImplementationDashboard() {
         </DashboardLayout>
     );
 }
-
-// Implementation Report History Component
-

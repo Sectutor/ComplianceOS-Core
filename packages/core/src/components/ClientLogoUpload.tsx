@@ -72,32 +72,47 @@ export default function ClientLogoUpload({ clientId, currentLogoUrl, clientName 
     try {
       // Convert to base64
       const reader = new FileReader();
+
       reader.onload = async () => {
-        const base64 = reader.result as string;
-        const base64Data = base64.split(",")[1];
+        try {
+          const base64 = reader.result as string;
+          const base64Data = base64.split(",")[1];
 
-        // Upload to server
-        const response = await fetch("/api/upload-client-logo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId,
-            filename: `logo-${clientId}-${Date.now()}.${file.name.split(".").pop()}`,
-            data: base64Data,
-            contentType: file.type,
-          }),
-        });
+          // Upload to server using the correct endpoint
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              // filename logic updated to be cleaner
+              filename: `logo-${clientId}-${Date.now()}.${file.name.split(".").pop()}`,
+              data: base64Data,
+              contentType: file.type,
+              folder: "branding" // Organized storage
+            }),
+          });
 
-        if (!response.ok) {
-          throw new Error("Upload failed");
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => "Unknown error");
+            throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+          }
+
+          const { url } = await response.json();
+
+          // Update client with logo URL
+          await uploadLogoMutation.mutateAsync({ clientId, logoUrl: url });
+
+          setPreviewUrl(url);
+          // Success toast is handled by mutation onSuccess
+        } catch (error: any) {
+          console.error("Logo upload error:", error);
+          toast.error(error.message || "Failed to upload logo");
+        } finally {
+          setIsUploading(false);
+          // Reset input so same file can be selected again if needed
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
         }
-
-        const { url } = await response.json();
-
-        // Update client with logo URL
-        await uploadLogoMutation.mutateAsync({ clientId, logoUrl: url });
-        setPreviewUrl(url);
-        setIsUploading(false);
       };
 
       reader.onerror = () => {
@@ -107,7 +122,7 @@ export default function ClientLogoUpload({ clientId, currentLogoUrl, clientName 
 
       reader.readAsDataURL(file);
     } catch (error) {
-      toast.error("Failed to upload logo");
+      toast.error("Failed to initiate upload");
       setIsUploading(false);
     }
   };

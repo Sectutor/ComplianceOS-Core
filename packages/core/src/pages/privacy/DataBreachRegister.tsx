@@ -24,6 +24,7 @@ import { FileText, Plus, Search, AlertTriangle, ShieldAlert, CheckCircle, Edit, 
 import { useParams } from "wouter";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function DataBreachRegister() {
     const { id } = useParams<{ id: string }>();
@@ -159,11 +160,17 @@ export default function DataBreachRegister() {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold">Data Breach Register</h1>
-                    <p className="text-muted-foreground">GDPR Article 33(5) - Records of Personal Data Breaches</p>
-                </div>
+            <div className="flex justify-between items-center animate-slide-down">
+                <PageGuide
+                    title="Data Breach Register"
+                    description="Log, track, and manage personal data breaches."
+                    rationale="GDPR Art. 33 requires documenting all breaches, even non-notifiable ones."
+                    howToUse={[
+                        { step: "Log", description: "Record facts, effects, and remedial actions immediately." },
+                        { step: "Assess", description: "Determine risk to rights and freedoms of individuals." },
+                        { step: "Notify", description: "Report to DPA (72h) and data subjects if high risk." }
+                    ]}
+                />
                 <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
                     <Plus className="mr-2 h-4 w-4" /> Log New Breach
                 </Button>

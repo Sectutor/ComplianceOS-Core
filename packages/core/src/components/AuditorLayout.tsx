@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBranding, BrandLogo } from "@/config/branding";
 import { Button } from "@complianceos/ui/ui/button";
 import { Avatar, AvatarFallback } from "@complianceos/ui/ui/avatar";
 import {
@@ -17,6 +18,7 @@ interface AuditorLayoutProps {
 
 export default function AuditorLayout({ children }: AuditorLayoutProps) {
     const { user, signOut } = useAuth();
+    const { appName } = useBranding();
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -24,10 +26,10 @@ export default function AuditorLayout({ children }: AuditorLayoutProps) {
             <header className="h-16 bg-[#001B2B] text-white flex items-center justify-between px-6 shrink-0 shadow-md">
                 <div className="flex items-center gap-3">
                     <div className="bg-white/10 p-2 rounded-lg">
-                        <ShieldCheck className="h-6 w-6 text-emerald-400" />
+                        <BrandLogo className="text-white" showText={false} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg tracking-tight">ComplianceOS</h1>
+                        <h1 className="font-bold text-lg tracking-tight">{appName}</h1>
                         <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Auditor Portal</div>
                     </div>
                 </div>
