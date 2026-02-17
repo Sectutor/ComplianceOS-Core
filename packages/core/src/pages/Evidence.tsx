@@ -9,7 +9,7 @@ import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Plus, Trash2, CheckCircle2, Paperclip, Upload, X, Search, ChevronRight, Filter, Info, AlertCircle, Clock, Shield, User, BarChart3, Download, BookOpen } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, CheckCircle2, Paperclip, Upload, X, Search, ChevronRight, Filter, Info, AlertCircle, Clock, Shield, User, BarChart3, Download, BookOpen, LayoutGrid } from "lucide-react";
 import EvidenceFileUpload from "@/components/EvidenceFileUpload";
 import EvidenceAnalysisButton from "@/components/EvidenceAnalysisButton";
 import { Breadcrumb } from "@/components/Breadcrumb";
@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
+import { Separator } from "@complianceos/ui/ui/separator";
 
 export default function Evidence() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +48,7 @@ export default function Evidence() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [frameworkFilter, setFrameworkFilter] = useState("all");
+  const [frameworkFilter, setFrameworkFilter] = useState("NIST 800-53");
 
   const { data: client } = trpc.clients.get.useQuery(
     { id: clientId },
@@ -547,52 +548,124 @@ export default function Evidence() {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="relative w-full max-w-xs min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search all documents"
-              className="pl-9 h-9 border-slate-200 focus:ring-[#5844ED]"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        {/* Framework Selector - High Assurance Implementation */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-8">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-[#5844ED]/10 text-[#5844ED] border border-[#5844ED]/20 shadow-inner">
+                <Shield className="h-7 w-7" />
+              </div>
+              <div>
+                <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-2 block leading-none">Compliance Identity</Label>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+                    {frameworkFilter === 'all' ? 'Consolidated Frameworks' : frameworkFilter}
+                  </h2>
+                  <Badge className="bg-[#5844ED]/5 text-[#5844ED] border-[#5844ED]/10 shadow-none h-6 px-2.5 text-[10px] font-bold animate-pulse">LIVE VIEW</Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                <div className="relative group ml-1">
+                  <LayoutGrid className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Select value={frameworkFilter} onValueChange={setFrameworkFilter}>
+                    <SelectTrigger className="w-[300px] h-10 pl-10 bg-white border-slate-200 hover:border-slate-300 transition-all rounded-lg font-bold text-slate-700 shadow-sm">
+                      <SelectValue placeholder="Switch Framework..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-2xl">
+                      <SelectItem value="all" className="font-bold text-[#5844ED]">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4" /> All Frameworks (Consolidated)
+                        </div>
+                      </SelectItem>
+                      <Separator className="my-2" />
+                      {uniqueFrameworks.map(fw => (
+                        <SelectItem key={fw} value={fw} className="rounded-lg mb-1 focus:bg-[#5844ED]/5 focus:text-[#5844ED]">
+                          {fw}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="h-6 w-[1px] bg-slate-200 mx-1" />
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px] h-10 bg-transparent border-transparent hover:bg-white transition-all rounded-lg font-bold text-slate-500 gap-2">
+                    <Filter className="h-4 w-4 opacity-50" />
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="all">All Documents</SelectItem>
+                    <SelectItem value="need_documents">Need Docs</SelectItem>
+                    <SelectItem value="ok">Verified OK</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="relative group w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search in view..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-12 md:h-10 pl-10 border-slate-200 bg-white rounded-xl shadow-sm focus:ring-[#5844ED]/10 transition-shadow"
+                />
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div className="h-6 w-[1px] bg-slate-200 mx-1 hidden sm:block" />
-
-          <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by</span>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-fit gap-2 border-slate-200 font-medium">
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Status:</span>
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="need_documents">Need documents</SelectItem>
-              <SelectItem value="ok">OK</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={frameworkFilter} onValueChange={setFrameworkFilter}>
-            <SelectTrigger className="h-9 w-fit gap-2 border-slate-200 font-medium">
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Framework:</span>
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Frameworks</SelectItem>
-              {uniqueFrameworks.map(fw => (
-                <SelectItem key={fw} value={fw}>{fw}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Placeholders for other filters based on image */}
-          <Button variant="outline" size="sm" className="h-9 text-slate-600 border-slate-200">Category</Button>
-          <Button variant="outline" size="sm" className="h-9 text-slate-600 border-slate-200">Frequency</Button>
-          <Button variant="outline" size="sm" className="h-9 text-slate-600 border-slate-200">Priority</Button>
-          <Button variant="outline" size="sm" className="h-9 text-slate-600 border-slate-200">Owner</Button>
+        {/* Global Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card className="border-none bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Controls</div>
+                <div className="text-xl font-bold text-slate-900">{groupedData.reduce((acc, cat) => acc + cat.totalItems, 0)}</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-none bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verified OK</div>
+                <div className="text-xl font-bold text-slate-900">{groupedData.reduce((acc, cat) => acc + cat.okItems, 0)}</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-none bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Missing Docs</div>
+                <div className="text-xl font-bold text-slate-900">{groupedData.reduce((acc, cat) => acc + (cat.totalItems - cat.okItems), 0)}</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-none bg-[#5844ED]/5 border border-[#5844ED]/10 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-10 w-10 rounded-lg bg-[#5844ED] flex items-center justify-center">
+                <BarChart3 className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-[#5844ED] uppercase tracking-wider">Completion</div>
+                <div className="text-xl font-bold text-slate-900">
+                  {Math.round((groupedData.reduce((acc, cat) => acc + cat.okItems, 0) / (groupedData.reduce((acc, cat) => acc + cat.totalItems, 0) || 1)) * 100)}%
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content - Categories */}
@@ -617,23 +690,23 @@ export default function Evidence() {
                   <Accordion type="multiple" defaultValue={Object.keys(category.subgroups)} className="divide-y divide-slate-100">
                     {Object.values(category.subgroups).map((subgroup: any) => (
                       <AccordionItem key={subgroup.name} value={subgroup.name} className="border-none">
-                        <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 transition-colors group">
+                        <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-slate-50 transition-all group border-b border-transparent data-[state=open]:border-slate-100">
                           <div className="flex items-center justify-between w-full pr-6">
                             <div className="flex items-center gap-3">
-                              <span className="h-2 w-2 rounded-full bg-slate-300 group-data-[state=open]:bg-[#5844ED]" />
-                              <span className="font-semibold text-slate-700">{subgroup.name}</span>
+                              <div className="flex items-center justify-center h-6 w-6 rounded-md bg-slate-100 group-data-[state=open]:bg-[#5844ED]/10 group-data-[state=open]:text-[#5844ED] transition-colors">
+                                <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]:rotate-90" />
+                              </div>
+                              <span className="font-bold text-slate-700 tracking-tight">{subgroup.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {subgroup.items.some((i: any) => i.evidence.length === 0) && (
-                                <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-medium px-2 py-0 h-6 border-slate-200 border">
-                                  {subgroup.items.filter((i: any) => i.evidence.length === 0).length} Need documents
+                                <Badge variant="secondary" className="bg-amber-50 text-amber-700 font-bold px-2 py-0 h-6 border-amber-100 border shadow-sm">
+                                  {subgroup.items.filter((i: any) => i.evidence.length === 0).length} Action Required
                                 </Badge>
                               )}
-                              {subgroup.items.filter((i: any) => i.evidence.some((e: any) => e.evidence.status === 'verified')).length > 0 && (
-                                <Badge className="bg-green-50 text-green-700 font-medium px-2 py-0 h-6 border-green-200 border shadow-none">
-                                  {subgroup.items.filter((i: any) => i.evidence.some((e: any) => e.evidence.status === 'verified')).length} OK
-                                </Badge>
-                              )}
+                              <Badge className="bg-slate-50 text-slate-500 font-medium px-2 py-0 h-6 border-slate-100 border shadow-none">
+                                {subgroup.items.length} Controls
+                              </Badge>
                             </div>
                           </div>
                         </AccordionTrigger>
@@ -642,8 +715,8 @@ export default function Evidence() {
                             <Table>
                               <TableBody>
                                 {subgroup.items.map((item: any) => (
-                                  <TableRow key={item.clientControl.id} className="hover:bg-white border-b border-slate-100 last:border-0">
-                                    <TableCell className="w-12 text-center text-slate-400 font-mono text-xs">
+                                  <TableRow key={item.clientControl.id} className="hover:bg-white group/row border-b border-slate-100 last:border-0 transition-colors">
+                                    <TableCell className="w-12 text-center text-slate-400 font-mono text-[10px] opacity-50 group-hover/row:opacity-100">
                                       {item.clientControl.clientControlId}
                                     </TableCell>
                                     <TableCell className="max-w-[300px]">

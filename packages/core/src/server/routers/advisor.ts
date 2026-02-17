@@ -282,7 +282,7 @@ export function createAdvisorRouter(t: any, protectedProcedure: any) {
                 const dbConn = await getDb();
                 const { IndexingService } = await import('../../lib/advisor/indexing');
 
-                let stats = {
+                const stats = {
                     policies: 0,
                     evidence: 0,
                     knowledge_base: 0,

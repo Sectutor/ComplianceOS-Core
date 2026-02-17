@@ -70,11 +70,31 @@ export default function PolicyExceptionsTab({ clientId }: PolicyExceptionsTabPro
                     </div>
                     <div className="mt-4">
                         <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
-                            <TabsList>
-                                <TabsTrigger value="pending">Pending Review</TabsTrigger>
-                                <TabsTrigger value="approved">Approved</TabsTrigger>
-                                <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                                <TabsTrigger value="all">All Requests</TabsTrigger>
+                            <TabsList className="bg-[#1C4D8D] p-1 rounded-xl h-auto flex-wrap md:flex-nowrap">
+                                <TabsTrigger
+                                    value="pending"
+                                    className="flex-1 py-2 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                                >
+                                    Pending Review
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="approved"
+                                    className="flex-1 py-2 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                                >
+                                    Approved
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="rejected"
+                                    className="flex-1 py-2 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                                >
+                                    Rejected
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="all"
+                                    className="flex-1 py-2 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                                >
+                                    All Requests
+                                </TabsTrigger>
                             </TabsList>
                         </Tabs>
                     </div>
@@ -94,14 +114,14 @@ export default function PolicyExceptionsTab({ clientId }: PolicyExceptionsTabPro
                     ) : (
                         <Table>
                             <TableHeader>
-                                <TableRow>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Policy</TableHead>
-                                    <TableHead>Reason</TableHead>
-                                    <TableHead>Expiration</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Date Requested</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                    <TableHead className="text-white font-bold h-12">Employee</TableHead>
+                                    <TableHead className="text-white font-bold h-12">Policy</TableHead>
+                                    <TableHead className="text-white font-bold h-12">Reason</TableHead>
+                                    <TableHead className="text-white font-bold h-12">Expiration</TableHead>
+                                    <TableHead className="text-white font-bold h-12">Status</TableHead>
+                                    <TableHead className="text-white font-bold h-12">Date Requested</TableHead>
+                                    <TableHead className="text-right text-white font-bold h-12">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

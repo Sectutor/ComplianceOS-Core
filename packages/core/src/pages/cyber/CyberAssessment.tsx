@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@complianceos/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@complianceos/ui/ui/card";
 import { Progress } from "@complianceos/ui/ui/progress";
+import { Badge } from "@complianceos/ui/ui/badge";
 import { Save, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,7 +17,6 @@ import {
     SelectValue,
 } from "@complianceos/ui/ui/select";
 import { Textarea } from "@complianceos/ui/ui/textarea";
-import CyberLayout from "./CyberLayout";
 import { PageGuide } from "@/components/PageGuide";
 
 const NIS2_CHECKLIST = [
@@ -177,106 +177,141 @@ export default function CyberAssessment() {
     if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <CyberLayout>
-            <div className="space-y-6">
-                {/* Header */}
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <PageGuide
-                        title="NIS2 Compliance Checklist"
-                        description="Assess your readiness against Article 21 requirements."
-                        rationale="Regular self-assessment is mandatory to ensure ongoing compliance with NIS2 security measures."
-                        howToUse={[
-                            { step: "Assess", description: "Answer questions across all 10 categories." },
-                            { step: "Evidence", description: "Add notes or links to evidence for verification." },
-                            { step: "Track", description: "Monitor your compliance score and progress." }
-                        ]}
-                    />
-                    <div className="flex items-center gap-4">
-                        <div className="text-right">
-                            <div className="text-2xl font-bold">{score}%</div>
-                            <div className="text-xs text-muted-foreground">Compliance Score</div>
-                        </div>
-                        <Button onClick={handleSave} disabled={saveMutation.isLoading}>
-                            {saveMutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <Save className="mr-2 h-4 w-4" /> Save Progress
-                        </Button>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <PageGuide
+                    title="NIS2 Compliance Checklist"
+                    description="Assess your readiness against Article 21 requirements."
+                    rationale="Regular self-assessment is mandatory to ensure ongoing compliance with NIS2 security measures."
+                    howToUse={[
+                        { step: "Assess", description: "Answer questions across all 10 categories." },
+                        { step: "Evidence", description: "Add notes or links to evidence for verification." },
+                        { step: "Track", description: "Monitor your compliance score and progress." }
+                    ]}
+                />
+                <div className="flex items-center gap-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                    <div className="text-right">
+                        <div className="text-3xl font-extrabold text-slate-900">{score}%</div>
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Compliance</div>
                     </div>
-                </div>
-
-                {/* Progress */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <span>Overall Progress</span>
-                                <span className={score >= 100 ? "text-green-600 font-medium" : "text-muted-foreground"}>
-                                    {score >= 100 ? "Compliant" : `${score}%`}
-                                </span>
-                            </div>
-                            <Progress value={score} className="h-3" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Checklist */}
-                <div className="space-y-6">
-                    {NIS2_CHECKLIST.map((category) => (
-                        <Card key={category.id}>
-                            <CardHeader className="bg-muted/30 pb-4">
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    {category.category}
-                                    {category.questions.every(q => responses[q.id]?.answer === 'yes') && (
-                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                    )}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-0 pt-0">
-                                <div className="divide-y">
-                                    {category.questions.map((q, idx) => (
-                                        <div key={q.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 hover:bg-slate-50 transition-colors">
-                                            <div className="md:col-span-6">
-                                                <div className="flex gap-3">
-                                                    <span className="text-muted-foreground text-xs font-mono mt-1 w-6 shrink-0">{idx + 1}.</span>
-                                                    <p className="text-sm font-medium leading-relaxed">{q.text}</p>
-                                                </div>
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <Select
-                                                    value={responses[q.id]?.answer || "not_started"}
-                                                    onValueChange={(val) => handleAnswerChange(q.id, val)}
-                                                >
-                                                    <SelectTrigger className={cn("h-8 text-xs font-medium border-0 ring-1 ring-inset",
-                                                        responses[q.id]?.answer === 'yes' ? "bg-green-50 text-green-700 ring-green-600/20" :
-                                                            responses[q.id]?.answer === 'partial' ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
-                                                                "bg-slate-50 text-slate-600 ring-slate-400/20"
-                                                    )}>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="not_started">Gap / Not Started</SelectItem>
-                                                        <SelectItem value="partial">In Progress</SelectItem>
-                                                        <SelectItem value="yes">Implemented</SelectItem>
-                                                        <SelectItem value="na">N/A</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="md:col-span-4">
-                                                <Textarea
-                                                    placeholder="Add implementation notes or evidence links..."
-                                                    className="min-h-[2.5rem] text-xs resize-y"
-                                                    value={responses[q.id]?.notes || ""}
-                                                    onChange={(e) => handleNotesChange(q.id, e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    <Button
+                        onClick={handleSave}
+                        disabled={saveMutation.isLoading}
+                        className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold h-12 px-6 rounded-xl shadow-lg shadow-sky-100 transition-all active:scale-95"
+                    >
+                        {saveMutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Save className="mr-2 h-4 w-4" /> Save Progress
+                    </Button>
                 </div>
             </div>
-        </CyberLayout>
+
+            {/* Progress Visualization */}
+            <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-white overflow-hidden ring-1 ring-slate-200/50">
+                <CardContent className="p-8">
+                    <div className="flex flex-col md:flex-row items-center gap-10">
+                        <div className="relative h-32 w-32 flex-shrink-0">
+                            <svg className="h-full w-full" viewBox="0 0 100 100">
+                                <circle className="text-slate-100" strokeWidth="10" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                                <circle
+                                    className="text-[#3ABEF9] transition-all duration-1000 ease-out"
+                                    strokeWidth="10"
+                                    strokeDasharray={2 * Math.PI * 40}
+                                    strokeDashoffset={2 * Math.PI * 40 * (1 - score / 100)}
+                                    strokeLinecap="round"
+                                    stroke="currentColor"
+                                    fill="transparent"
+                                    r="40" cx="50" cy="50"
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center flex-col">
+                                <span className="text-2xl font-black text-slate-900">{score}%</span>
+                            </div>
+                        </div>
+                        <div className="flex-1 space-y-4 w-full">
+                            <div className="flex justify-between items-end">
+                                <div className="space-y-1">
+                                    <h3 className="font-bold text-lg text-slate-900">Overall Readiness</h3>
+                                    <p className="text-sm text-slate-500">Based on {NIS2_CHECKLIST.reduce((acc, cat) => acc + cat.questions.length, 0)} mandatory measures.</p>
+                                </div>
+                                <span className={cn(
+                                    "text-sm font-bold px-3 py-1 rounded-full uppercase tracking-wider",
+                                    score >= 100 ? "bg-green-100 text-green-700" : "bg-sky-100 text-sky-700"
+                                )}>
+                                    {score >= 100 ? "Compliant" : "In Progress"}
+                                </span>
+                            </div>
+                            <Progress value={score} className="h-4 rounded-full bg-slate-100" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Checklist */}
+            <div className="space-y-8 pb-12">
+                {NIS2_CHECKLIST.map((category, catIdx) => (
+                    <Card key={category.id} className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-white overflow-hidden ring-1 ring-slate-200/50 animate-in fade-in slide-in-from-bottom-4" style={{ animationDelay: `${catIdx * 100}ms` }}>
+                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
+                            <CardTitle className="text-xl font-bold flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-lg bg-[#1C4D8D] text-white flex items-center justify-center text-sm">
+                                        {catIdx + 1}
+                                    </div>
+                                    {category.category}
+                                </div>
+                                {category.questions.every(q => responses[q.id]?.answer === 'yes') ? (
+                                    <Badge className="bg-green-500 text-white border-none font-bold">COMPLETED</Badge>
+                                ) : (
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Section {catIdx + 1}</div>
+                                )}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="divide-y divide-slate-100">
+                                {category.questions.map((q, qIdx) => (
+                                    <div key={q.id} className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 hover:bg-slate-50/50 transition-colors">
+                                        <div className="md:col-span-6">
+                                            <div className="flex gap-4">
+                                                <span className="text-slate-300 text-sm font-black mt-0.5">{qIdx + 1}.</span>
+                                                <p className="text-[15px] font-bold text-slate-800 leading-relaxed">{q.text}</p>
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <Select
+                                                value={responses[q.id]?.answer || "not_started"}
+                                                onValueChange={(val) => handleAnswerChange(q.id, val)}
+                                            >
+                                                <SelectTrigger className={cn(
+                                                    "h-10 text-xs font-bold rounded-xl border-none ring-1 ring-inset transition-all",
+                                                    responses[q.id]?.answer === 'yes' ? "bg-green-50 text-green-700 ring-green-200" :
+                                                        responses[q.id]?.answer === 'partial' ? "bg-amber-50 text-amber-700 ring-amber-200" :
+                                                            "bg-slate-50 text-slate-500 ring-slate-200"
+                                                )}>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="rounded-xl border-slate-200">
+                                                    <SelectItem value="not_started">Gap / Not Started</SelectItem>
+                                                    <SelectItem value="partial">In Progress</SelectItem>
+                                                    <SelectItem value="yes">Implemented</SelectItem>
+                                                    <SelectItem value="na">N/A</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="md:col-span-4">
+                                            <Textarea
+                                                placeholder="Add implementation notes or evidence links..."
+                                                className="min-h-[2.5rem] h-10 text-sm py-2 px-4 rounded-xl border-slate-200 focus:border-[#3ABEF9] focus:ring-[#3ABEF9]/20 transition-all"
+                                                value={responses[q.id]?.notes || ""}
+                                                onChange={(e) => handleNotesChange(q.id, e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
     );
 }

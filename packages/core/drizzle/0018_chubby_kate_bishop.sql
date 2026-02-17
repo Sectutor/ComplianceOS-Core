@@ -1,0 +1,1 @@
+ALTER TABLE "federal_nist_800_53_assessments" ADD COLUMN "rmf_workflow_id" integer;

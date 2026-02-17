@@ -4,6 +4,8 @@ import { NextFunction, Request, Response } from 'express';
 import { getDb } from './db';
 import { users } from './schema';
 import { eq } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
@@ -65,22 +67,26 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
             if (parts.length === 3) {
                 const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
                 (req as any).aal = payload?.aal || null;
+                if (!payload?.sub) {
+                    console.warn('[Auth Debug] Token payload is missing "sub" claim! This will cause MFA issues.');
+                }
             }
-        } catch { }
+        } catch (e: any) {
+            console.error('[Auth Debug] Failed to decode JWT payload:', e.message);
+        }
         next();
     } catch (error: any) {
         console.error('[AuthMiddleware] Exception:', error.message);
         // Log details to help debug the 500 error
-        const fs = await import('fs');
-        const path = await import('path');
         const logFile = path.resolve(process.cwd(), 'auth_error.log');
         const logEntry = `[${new Date().toISOString()}] ${error.stack}\n`;
         fs.appendFile(logFile, logEntry, () => { });
 
         // If DB connection fails, we should probably fail hard for API requests
         // instead of letting it pass as unauthorized/undefined
-        if (error.name === 'DatabaseConnectionError' || error.message.includes('connect')) {
-            res.status(503).json({ error: 'Database connection failed' });
+        if (error.name === 'DatabaseConnectionError' || error.message.includes('connect') || error.message.includes('getaddrinfo')) {
+            console.error('[AuthMiddleware] Database/Network Error:', error.message);
+            res.status(503).json({ error: 'Database connection failed', details: error.message });
             return;
         }
 

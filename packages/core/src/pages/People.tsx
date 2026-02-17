@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useRoute, useLocation, useSearch, Link } from "wouter";
 import { PageGuide } from "@/components/PageGuide";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@complianceos/ui/ui/button";
@@ -13,7 +13,7 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
 import { Textarea } from "@complianceos/ui/ui/textarea";
-import { Trash2, Edit2, Plus, Users, Network, GitGraph, RotateCw, HelpCircle, Search, GraduationCap, FileCheck, CheckCircle2, AlertCircle, Clock, Laptop } from "lucide-react";
+import { Trash2, Edit2, Plus, Users, Network, GitGraph, RotateCw, HelpCircle, Search, GraduationCap, FileCheck, CheckCircle2, AlertCircle, Clock, Laptop, ArrowLeft, Briefcase } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { OrgChart } from "@/components/OrgChart";
@@ -59,6 +59,27 @@ export function PeoplePage() {
     { enabled: clientId > 0 }
   );
 
+  const search = useSearch();
+  const queryParams = new URLSearchParams(search);
+  const action = queryParams.get("action");
+  const returnTo = queryParams.get("returnTo");
+  const tabParam = queryParams.get("tab");
+
+  const [activeTab, setActiveTab] = useState("roles");
+
+  useEffect(() => {
+    if (action === "add-role") {
+      setActiveTab("roles");
+      setIsRoleAddOpen(true);
+    }
+  }, [action]);
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
   // -- State: Employees --
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -93,13 +114,29 @@ export function PeoplePage() {
   const [isAssetAssignmentOpen, setIsAssetAssignmentOpen] = useState(false);
   const [assetAssignmentEmployee, setAssetAssignmentEmployee] = useState<any>(null);
 
+  // Stakeholder State
+  const [isAddStakeholderOpen, setIsAddStakeholderOpen] = useState(false);
+
   // -- Queries --
   const { data: employees = [], isLoading, refetch } = trpc.employees.list.useQuery({ clientId });
 
   const cleanSearchQuery = searchQuery.toLowerCase().trim();
-  const filteredEmployees = employees.filter((employee: any) => {
+
+  const allEmployees = employees || [];
+
+  // Separate Internal Employees and External Stakeholders
+  const internalEmployees = allEmployees.filter((e: any) => e.employmentStatus !== 'stakeholder');
+  const externalStakeholders = allEmployees.filter((e: any) => e.employmentStatus === 'stakeholder');
+
+  const filteredEmployees = internalEmployees.filter((employee: any) => {
     if (!cleanSearchQuery) return true;
     const searchString = `${employee.firstName} ${employee.lastName} ${employee.email} ${employee.jobTitle || ""} ${employee.orgRoleTitle || ""} ${employee.department || ""}`.toLowerCase();
+    return searchString.includes(cleanSearchQuery);
+  });
+
+  const filteredStakeholders = externalStakeholders.filter((s: any) => {
+    if (!cleanSearchQuery) return true;
+    const searchString = `${s.firstName} ${s.lastName} ${s.email} ${s.jobTitle || ""} ${s.department || ""}`.toLowerCase();
     return searchString.includes(cleanSearchQuery);
   });
   const { data: orgRoles = [], refetch: refetchRoles } = trpc.orgRoles.list.useQuery({ clientId });
@@ -242,6 +279,26 @@ export function PeoplePage() {
     setIsAddOpen(true);
   };
 
+  const handleOpenAddStakeholder = () => {
+    resetEmployeeForm();
+    setFormData(prev => ({ ...prev, employmentStatus: "stakeholder" }));
+    setIsAddStakeholderOpen(true);
+  };
+
+  const handleAddStakeholderSubmit = async () => {
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    await createMutation.mutateAsync({
+      clientId,
+      ...formData, // employmentStatus is already 'stakeholder'
+      orgRoleId: undefined, // Stakeholders usually don't have Org Role IDs
+      managerId: undefined
+    });
+    setIsAddStakeholderOpen(false);
+  };
+
   const handleOpenAssetAssignment = (employee: any) => {
     setAssetAssignmentEmployee(employee);
     setIsAssetAssignmentOpen(true);
@@ -334,6 +391,15 @@ export function PeoplePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
+            <div className="flex items-center gap-4 mb-1">
+              {returnTo && (
+                <Link href={returnTo}>
+                  <Button variant="ghost" size="sm" className="gap-2 text-slate-500 hover:text-slate-900 -ml-2">
+                    <ArrowLeft className="w-4 h-4" /> Back to Prepare
+                  </Button>
+                </Link>
+              )}
+            </div>
             <h1 className="text-3xl font-bold">People & Organization</h1>
             <p className="text-muted-foreground mt-1">Manage team members, roles, and responsibilities</p>
           </div>
@@ -409,7 +475,7 @@ export function PeoplePage() {
           </Alert>
         )}
 
-        <Tabs defaultValue="roles" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-[600px] grid-cols-3">
             <TabsTrigger value="roles" className="flex items-center gap-2">
               <Network className="w-4 h-4" />
@@ -418,6 +484,10 @@ export function PeoplePage() {
             <TabsTrigger value="employees" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Team Members
+            </TabsTrigger>
+            <TabsTrigger value="stakeholders" className="flex items-center gap-2">
+              <Briefcase className="w-4 h-4" />
+              Stakeholders
             </TabsTrigger>
             <TabsTrigger value="chart" className="flex items-center gap-2">
               <GitGraph className="w-4 h-4" />
@@ -565,6 +635,70 @@ export function PeoplePage() {
                                   onClick={() => handleDeleteEmployee(employee.id)}
                                   className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors duration-200"
                                 >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* STAKEHOLDERS TAB */}
+          <TabsContent value="stakeholders" className="mt-6">
+            <div className="flex justify-end mb-4">
+              <Button onClick={handleOpenAddStakeholder} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+                <Plus className="w-4 h-4" />
+                Add External Stakeholder
+              </Button>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>External Stakeholders ({filteredStakeholders.length})</CardTitle>
+                <CardDescription>
+                  Manage external parties, board members, or consultants who have an interest in the system but are not employees.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredStakeholders.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No stakeholders added yet</p>
+                    <Button variant="outline" onClick={handleOpenAddStakeholder} className="mt-4">
+                      Add First Stakeholder
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50 border-b border-slate-200">
+                          <TableHead className="font-semibold py-4">Name</TableHead>
+                          <TableHead className="font-semibold py-4">Email</TableHead>
+                          <TableHead className="font-semibold py-4">Title</TableHead>
+                          <TableHead className="font-semibold py-4">Organization / Dept</TableHead>
+                          <TableHead className="w-20 font-semibold py-4">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStakeholders.map((s: any) => (
+                          <TableRow key={s.id} className="bg-white border-b border-slate-100 hover:bg-slate-50">
+                            <TableCell className="font-medium text-black py-4">
+                              {s.firstName} {s.lastName}
+                            </TableCell>
+                            <TableCell className="text-gray-600 py-4">{s.email}</TableCell>
+                            <TableCell className="py-4">{s.jobTitle || "-"}</TableCell>
+                            <TableCell className="py-4">{s.department || "-"}</TableCell>
+                            <TableCell className="py-4">
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(s)}>
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-50" onClick={() => handleDeleteEmployee(s)}>
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
@@ -759,6 +893,46 @@ export function PeoplePage() {
             <div>
               <Label>Phone</Label>
               <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+            </div>
+          </div>
+        </EnhancedDialog>
+
+        {/* Add Stakeholder Dialog */}
+        <EnhancedDialog
+          open={isAddStakeholderOpen}
+          onOpenChange={setIsAddStakeholderOpen}
+          title="Add External Stakeholder"
+          footer={
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsAddStakeholderOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddStakeholderSubmit}>Add Stakeholder</Button>
+            </div>
+          }
+        >
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>First Name *</Label>
+                <Input value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Jane" />
+              </div>
+              <div>
+                <Label>Last Name *</Label>
+                <Input value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Doe" />
+              </div>
+            </div>
+            <div>
+              <Label>Email *</Label>
+              <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jane@external.com" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Title / Role</Label>
+                <Input value={formData.jobTitle || ""} onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })} placeholder="Consultant" />
+              </div>
+              <div>
+                <Label>Organization (Dept)</Label>
+                <Input value={formData.department || ""} onChange={(e) => setFormData({ ...formData, department: e.target.value })} placeholder="Acme Corp" />
+              </div>
             </div>
           </div>
         </EnhancedDialog>

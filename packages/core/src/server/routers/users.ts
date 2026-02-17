@@ -17,7 +17,7 @@ export const usersSubRouter = router({
         .input(z.object({
             token: z.string(),
             name: z.string(),
-            password: z.string().min(6),
+            password: z.string().min(12, "Password must be at least 12 characters for security compliance."),
             email: z.string().email().or(z.literal("")).optional(),
             clientId: z.number().nullish()
         }))
@@ -175,7 +175,7 @@ export const usersSubRouter = router({
         .input(z.object({
             token: z.string(),
             name: z.string(),
-            password: z.string().min(6)
+            password: z.string().min(12, "Password must be at least 12 characters for security compliance.")
         }))
         .mutation(async ({ input }: any) => {
             const dbConn = await db.getDb();

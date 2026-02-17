@@ -13,7 +13,11 @@ import {
     CheckCircle2,
     Shield,
     FileSearch,
-    Archive
+    Archive,
+    Target,
+    Layers,
+    Activity,
+    TrendingUp
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
@@ -127,6 +131,96 @@ export default function AssuranceOverview() {
                 "Control-level maturity scores",
                 "Target-driven improvement tasks",
                 "Evidence-driven verification"
+            ]
+        },
+        {
+            title: "NIST CSF 2.0",
+            headerTitle: "Cybersecurity Framework",
+            description: "Assess your cybersecurity posture against the NIST CSF 2.0. Covering Govern, Identify, Protect, Detect, Respond, and Recover.",
+            icon: Shield,
+            color: "from-slate-600 to-slate-400",
+            textColor: "text-slate-600",
+            bgLight: "bg-slate-50",
+            path: `/clients/${clientId}/nist-csf-2`,
+            benefits: [
+                "6 functions & 22 categories",
+                "Maturity tier tracking",
+                "Implementation guidance"
+            ]
+        },
+        {
+            title: "Zero Trust Maturity",
+            headerTitle: "CISA ZTMM 2.0",
+            description: "Evaluate your Zero Trust maturity across the five pillars: Identity, Devices, Networks, Applications, and Data.",
+            icon: Target,
+            color: "from-blue-600 to-indigo-500",
+            textColor: "text-blue-600",
+            bgLight: "bg-blue-50",
+            path: `/clients/${clientId}/cisa-ztmm-2`,
+            benefits: [
+                "5 pillars of Zero Trust",
+                "Automation level tracking",
+                "Cross-cutting visibility"
+            ]
+        },
+        {
+            title: "CMMC 2.0 Maturity",
+            headerTitle: "Defense Supply Chain",
+            description: "Assess readiness for CMMC 2.0 certification. Track compliance across Level 1 (Foundational) and Level 2 (Advanced).",
+            icon: Shield,
+            color: "from-orange-600 to-amber-500",
+            textColor: "text-orange-600",
+            bgLight: "bg-orange-50",
+            path: `/clients/${clientId}/cmmc-2`,
+            benefits: [
+                "Domain-based assessment",
+                "FCI & CUI protection",
+                "Certification readiness"
+            ]
+        },
+        {
+            title: "C2M2 V2.1 Maturity",
+            headerTitle: "Energy & Infrastructure",
+            description: "Evaluate cybersecurity maturity using the C2M2 V2.1 model. Tailored for energy sector organizations and critical infrastructure.",
+            icon: Shield,
+            color: "from-blue-700 to-cyan-600",
+            textColor: "text-blue-700",
+            bgLight: "bg-blue-50",
+            path: `/clients/${clientId}/c2m2-2.1`,
+            benefits: [
+                "10 specialized domains",
+                "MIL 1-3 progression",
+                "Strategic resilience toolkit"
+            ]
+        },
+        {
+            title: "ISO 27001 Implementation",
+            headerTitle: "Information Security Standard",
+            description: "Manage your ISO 27001:2022 implementation. Track Annex A controls, link evidence, and prepare for certification.",
+            icon: Shield,
+            color: "from-blue-500 to-indigo-600",
+            textColor: "text-blue-600",
+            bgLight: "bg-blue-50",
+            path: `/clients/${clientId}/assurance/iso-27001`,
+            benefits: [
+                "93 Annex A controls",
+                "Domain-based grouping",
+                "Certification readiness tracking"
+            ]
+        },
+        {
+            title: "Cloud Controls Matrix (CCM)",
+            headerTitle: "Cloud Security Alliance",
+            description: "Assess cloud security posture against the CSA CCM v4.0. Covering 17 domains of cloud security excellence.",
+            icon: Shield,
+            color: "from-sky-500 to-blue-500",
+            textColor: "text-sky-600",
+            bgLight: "bg-sky-50",
+            path: `/clients/${clientId}/assurance/ccm`,
+            benefits: [
+                "197 control specifications",
+                "Cloud-native security",
+                "Shared responsibility mapping"
             ]
         }
     ];
@@ -334,6 +428,72 @@ export default function AssuranceOverview() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Meta Maturity Features */}
+                <div className="bg-slate-900 rounded-3xl p-12 mt-12 text-white overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
+                    <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
+                        <div className="space-y-6">
+                            <h2 className="text-3xl font-black">Meta Maturity Analytics</h2>
+                            <p className="text-slate-400 font-medium">
+                                Go beyond individual assessments with cross-framework intelligence and strategic simulation.
+                            </p>
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                                    <div className="p-2 bg-primary/20 rounded-lg">
+                                        <TrendingUp className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold">Roadmap Simulation</h3>
+                                        <p className="text-sm text-slate-500">Model the impact of security investments before you commit resources.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                                        <Layers className="w-5 h-5 text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold">Cross-Framework Mapping</h3>
+                                        <p className="text-sm text-slate-500">Automatically correlate evidence across NIST, CISA, and CMMC to reduce audit fatigue.</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
+                                    <div className="p-2 bg-emerald-500/20 rounded-lg">
+                                        <Activity className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold">Peer Benchmarking</h3>
+                                        <p className="text-sm text-slate-500">Compare your maturity levels against anonymous industry peer data.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="hidden md:block">
+                            <div className="p-8 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-sm">
+                                <div className="flex items-center justify-between mb-8">
+                                    <span className="text-xs font-black uppercase tracking-widest text-primary">Strategic Outlook</span>
+                                    <Badge className="bg-primary/20 text-primary border-primary/30">Early Access</Badge>
+                                </div>
+                                <div className="space-y-6">
+                                    {[70, 45, 90].map((w, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                                <span>Scenario {i + 1}</span>
+                                                <span>{w}% ROI</span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary rounded-full" style={{ width: `${w}%` }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button className="w-full mt-8 bg-white text-slate-900 hover:bg-slate-100 font-bold py-6 rounded-xl">
+                                    Request Features
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </DashboardLayout>
     );

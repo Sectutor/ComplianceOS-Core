@@ -538,19 +538,19 @@ export default function QuestionnaireWorkspace() {
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[3%]">#</TableHead>
-                    <TableHead className="w-[10%]">Question ID</TableHead>
-                    <TableHead className="w-[20%]">Question</TableHead>
-                    <TableHead className="w-[20%]">Answer</TableHead>
-                    <TableHead className="w-[8%]">Confidence</TableHead>
-                    <TableHead className="w-[10%]">Sources</TableHead>
-                    <TableHead className="w-[15%]">Comment</TableHead>
-                    <TableHead className="w-[8%]">Tags</TableHead>
-                    <TableHead className="w-[8%]">Access</TableHead>
-                    <TableHead className="w-[8%]">Assignee</TableHead>
-                    <TableHead className="w-[8%]">Last Modified</TableHead>
-                    <TableHead className="w-[3%]"></TableHead>
+                  <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                    <TableHead className="w-[3%] text-white font-semibold py-4">#</TableHead>
+                    <TableHead className="w-[10%] text-white font-semibold py-4">Question ID</TableHead>
+                    <TableHead className="w-[20%] text-white font-semibold py-4">Question</TableHead>
+                    <TableHead className="w-[20%] text-white font-semibold py-4">Answer</TableHead>
+                    <TableHead className="w-[8%] text-white font-semibold py-4">Confidence</TableHead>
+                    <TableHead className="w-[10%] text-white font-semibold py-4">Sources</TableHead>
+                    <TableHead className="w-[15%] text-white font-semibold py-4">Comment</TableHead>
+                    <TableHead className="w-[8%] text-white font-semibold py-4">Tags</TableHead>
+                    <TableHead className="w-[8%] text-white font-semibold py-4">Access</TableHead>
+                    <TableHead className="w-[8%] text-white font-semibold py-4">Assignee</TableHead>
+                    <TableHead className="w-[8%] text-white font-semibold py-4">Last Modified</TableHead>
+                    <TableHead className="w-[3%] text-white font-semibold py-4"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

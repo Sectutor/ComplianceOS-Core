@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PageGuide } from "@/components/PageGuide";
 import { trpc } from "@/lib/trpc";
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow
 } from "@complianceos/ui/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Button } from "@complianceos/ui/ui/button";
 import {
   Plus,
@@ -46,9 +47,29 @@ export default function QuestionnairesDashboard() {
   const [location, setLocation] = useLocation();
   const clientId = parseInt(id || "0");
   const [file, setFile] = useState<File | null>(null);
+  const queryParams = new URLSearchParams(window.location.search);
+  const initialStatus = queryParams.get("status") || "all";
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [questionnaireToDelete, setQuestionnaireToDelete] = useState<any>(null);
 
   const { data: questionnaires, refetch } = trpc.questionnaire.list.useQuery({ clientId });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (statusFilter !== "all") {
+      params.set("status", statusFilter);
+    } else {
+      params.delete("status");
+    }
+    const newRelativePathQuery = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+    window.history.replaceState(null, "", newRelativePathQuery);
+  }, [statusFilter]);
+
+  const filteredQuestionnaires = questionnaires?.filter(q => {
+    if (statusFilter === "all") return true;
+    return q.status === statusFilter;
+  });
+
   const deleteMutation = trpc.questionnaire.delete.useMutation({
     onSuccess: () => refetch()
   });
@@ -91,40 +112,80 @@ export default function QuestionnairesDashboard() {
               <Filter className="w-4 h-4 mr-2" />
               Filter
             </Button>
-            <Button onClick={() => setLocation(`/clients/${clientId}/questionnaire-workspace`)}>
+            <Button
+              className="bg-[#1C4D8D] hover:bg-[#1C4D8D]/90 text-white font-bold shadow-md transition-all hover:scale-[1.02]"
+              onClick={() => setLocation(`/clients/${clientId}/questionnaire-workspace`)}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Upload Questionnaire
             </Button>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border shadow-sm">
-          <div className="p-4 border-b flex gap-2">
+        <div className="space-y-4 mb-6">
+          <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+            <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl">
+              <TabsTrigger
+                value="all"
+                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+              >
+                All Assessments
+              </TabsTrigger>
+              <TabsTrigger
+                value="open"
+                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+              >
+                Open
+              </TabsTrigger>
+              <TabsTrigger
+                value="in_progress"
+                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+              >
+                In Progress
+              </TabsTrigger>
+              <TabsTrigger
+                value="completed"
+                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+              >
+                Completed
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex gap-4 items-center">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search questionnaires..." className="pl-9" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search questionnaires..."
+                className="pl-10 border-[#1C4D8D]/20 focus-visible:ring-[#3ABEF9]"
+              />
+            </div>
+            <div className="text-sm text-muted-foreground ml-auto">
+              {filteredQuestionnaires?.length || 0} assessment{filteredQuestionnaires?.length !== 1 ? 's' : ''}
             </div>
           </div>
+        </div>
 
+        <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Questionnaire</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Account / Sender</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Date Added</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+              <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                <TableHead className="text-white font-semibold py-4">Questionnaire</TableHead>
+                <TableHead className="text-white font-semibold py-4">Progress</TableHead>
+                <TableHead className="text-white font-semibold py-4">Status</TableHead>
+                <TableHead className="text-white font-semibold py-4">Account / Sender</TableHead>
+                <TableHead className="text-white font-semibold py-4">Product</TableHead>
+                <TableHead className="text-white font-semibold py-4">Date Added</TableHead>
+                <TableHead className="text-white font-semibold py-4">Due Date</TableHead>
+                <TableHead className="w-[50px] text-white font-semibold py-4"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {questionnaires?.map((q) => (
+              {filteredQuestionnaires?.map((q) => (
                 <TableRow
                   key={q.id}
                   onClick={() => setLocation(`/clients/${clientId}/questionnaires/${q.id}`)}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer hover:bg-muted/30 transition-colors border-slate-100"
                 >
                   <TableCell className="font-medium">
                     <div className="font-semibold">{q.name}</div>
@@ -135,14 +196,14 @@ export default function QuestionnairesDashboard() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${q.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      q.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-700'
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${q.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                      q.status === 'in_progress' ? 'bg-[#3ABEF9]/10 text-[#1C4D8D]' :
+                        'bg-slate-100 text-slate-600'
                       }`}>
-                      {q.status === 'completed' && <div className="w-2 h-2 rounded-full bg-green-500 mr-2" />}
-                      {q.status === 'in_progress' && <div className="w-2 h-2 rounded-full bg-primary mr-2" />}
+                      {q.status === 'completed' && <div className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />}
+                      {q.status === 'in_progress' && <div className="w-2 h-2 rounded-full bg-[#3ABEF9] mr-2" />}
                       {q.status === 'open' && <div className="w-2 h-2 rounded-full bg-slate-400 mr-2" />}
-                      {q.status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      {q.status?.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                     </span>
                   </TableCell>
                   <TableCell>{q.senderName || '-'}</TableCell>

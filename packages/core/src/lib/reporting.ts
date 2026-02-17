@@ -5,10 +5,10 @@ import { getDb } from '../db';
 import * as schema from '../schema';
 import { clients, controls, clientControls, clientPolicies, evidence, reportLogs } from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { nis2 } from '../data/regulations/nis2';
-import { dora } from '../data/regulations/dora';
-import { gdpr } from '../data/regulations/gdpr';
-import { euAiAct } from '../data/regulations/eu_ai_act';
+// import { nis2 } from '../data/regulations/nis2';
+// import { dora } from '../data/regulations/dora';
+// import { gdpr } from '../data/regulations/gdpr';
+// import { euAiAct } from '../data/regulations/eu_ai_act';
 import { llmService } from './llm/service';
 import { getClientStats, getClientComplianceScore, getClientControls } from '../db';
 import { generateSoADocx } from './soaExport';
@@ -79,9 +79,9 @@ export async function generateGapAnalysisReport(clientId: number): Promise<Buffe
         doc.moveDown();
     };
 
-    verifyRegulation('NIS2 Directive', nis2.articles.length);
-    verifyRegulation('DORA', dora.articles.length);
-    verifyRegulation('GDPR', gdpr.articles.length);
+    // verifyRegulation('NIS2 Directive', nis2.articles.length);
+    // verifyRegulation('DORA', dora.articles.length);
+    // verifyRegulation('GDPR', gdpr.articles.length);
 
     // 4. Critical Gaps
     doc.addPage();
@@ -126,10 +126,10 @@ export async function generateReadinessReport(clientId: number, regulationId: st
 
     // Fetch Regulation Data
     let regulation: any;
-    if (regulationId === 'nis2') regulation = nis2;
-    else if (regulationId === 'dora') regulation = dora;
-    else if (regulationId === 'gdpr') regulation = gdpr;
-    else if (regulationId === 'eu-ai-act') regulation = euAiAct;
+    // if (regulationId === 'nis2') regulation = nis2;
+    // else if (regulationId === 'dora') regulation = dora;
+    // else if (regulationId === 'gdpr') regulation = gdpr;
+    // else if (regulationId === 'eu-ai-act') regulation = euAiAct;
 
     if (!regulation) throw new Error("Regulation not found");
 
@@ -149,7 +149,7 @@ export async function generateReadinessReport(clientId: number, regulationId: st
 
     // Calculate Score
     let yesCount = 0;
-    let totalQuestions = regulation.questions?.length || 0;
+    const totalQuestions = regulation.questions?.length || 0;
 
     if (totalQuestions === 0) throw new Error("No questions for this regulation");
 

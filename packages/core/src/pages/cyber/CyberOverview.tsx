@@ -1,8 +1,7 @@
-
 import React from 'react';
-import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
+import { Badge } from "@complianceos/ui/ui/badge";
 import {
     ShieldCheck,
     ListTodo,
@@ -14,7 +13,8 @@ import {
     Globe
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
-import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
+import { cn } from "@/lib/utils";
 
 export default function CyberOverview() {
     const { id } = useParams<{ id: string }>();
@@ -27,9 +27,9 @@ export default function CyberOverview() {
             headerTitle: "EU Directive Compliance",
             description: "Evaluate your organization's compliance with the NIS2 Directive, including entity classification and cybersecurity requirements.",
             icon: ShieldCheck,
-            color: "from-blue-500 to-cyan-400",
-            textColor: "text-blue-600",
-            bgLight: "bg-blue-50",
+            color: "from-[#3ABEF9] to-[#1C4D8D]",
+            textColor: "text-[#3ABEF9]",
+            bgLight: "bg-sky-50",
             path: `/clients/${clientId}/cyber/assessment`,
             benefits: [
                 "Essential vs Important entity classification",
@@ -70,217 +70,182 @@ export default function CyberOverview() {
     ];
 
     return (
-        <DashboardLayout>
-            <div className="space-y-10 pb-20 px-6">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: "/dashboard" },
-                        { label: "Cyber Resilience", href: `/clients/${clientId}/cyber` },
-                        { label: "Overview & Guidance" },
+        <div className="space-y-12 animate-in fade-in duration-700">
+            {/* Header / Intro */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <PageGuide
+                    title="NIS2 Implementation Hub"
+                    description="Step-by-step guidance on achieving compliance with the EU NIS2 Directive."
+                    rationale="The NIS2 Directive (EU 2022/2555) requires a high common level of cybersecurity across the Union."
+                    howToUse={[
+                        { step: "Classify", description: "Determine if you are an Essential or Important entity." },
+                        { step: "Assess", description: "Audit your current technical and organizational measures." },
+                        { step: "Implement", description: "Close gaps discovered during the assessment phase." }
                     ]}
                 />
+            </div>
 
-                {/* Hero Section */}
-                <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 md:p-16 text-white shadow-2xl">
-                    <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
+            {/* Hero Section */}
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-[#1C4D8D] p-12 md:p-20 text-white shadow-2xl shadow-sky-900/20">
+                <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-[#3ABEF9]/20 rounded-full blur-[100px] animate-pulse" />
+                <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]" />
 
-                    <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
-                        <div className="space-y-6">
-                            <div className="inline-flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full border border-white/20">
-                                <Globe className="w-4 h-4 text-cyan-400" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-cyan-100">NIS2 Directive</span>
-                            </div>
-                            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-                                Cyber <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-                                    Resilience
-                                </span>
-                            </h1>
-                            <p className="text-lg text-slate-300 leading-relaxed">
-                                Navigate the EU's NIS2 Directive with confidence. Our platform helps you classify your entity, implement required measures, and manage incident reporting obligations.
-                            </p>
-                            <div className="flex flex-wrap gap-4 pt-4">
-                                <div className="flex items-center space-x-2 text-sm text-slate-400">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                    <span>NIS2 Directive (EU) 2022/2555</span>
+                <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-center">
+                    <div className="space-y-8">
+                        <div className="inline-flex items-center space-x-2 bg-white/10 px-4 py-1.5 rounded-full border border-white/20 backdrop-blur-md">
+                            <Globe className="w-4 h-4 text-[#3ABEF9]" />
+                            <span className="text-xs font-black uppercase tracking-[0.2em] text-sky-100">EU REGULATORY COMPLIANCE</span>
+                        </div>
+                        <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.1]">
+                            The NIS2 <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#3ABEF9] via-[#3ABEF9] to-emerald-400">
+                                Directive.
+                            </span>
+                        </h1>
+                        <p className="text-xl text-sky-100/70 leading-relaxed font-medium max-w-lg">
+                            Navigate the complex landscape of EU cybersecurity regulation with integrated workflows and expert guidance.
+                        </p>
+                        <div className="flex flex-wrap gap-6 pt-4">
+                            {[
+                                { label: "Deadlines: Oct 2024", icon: AlertCircle },
+                                { label: "Fines: Up to €10M", icon: AlertCircle },
+                                { label: "18 Critical Sectors", icon: CheckCircle2 },
+                            ].map((item, i) => (
+                                <div key={i} className="flex items-center space-x-2 text-sm font-bold text-sky-100/60 uppercase tracking-wider">
+                                    <item.icon className="w-4 h-4 text-[#3ABEF9]" />
+                                    <span>{item.label}</span>
                                 </div>
-                                <div className="flex items-center space-x-2 text-sm text-slate-400">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                    <span>Enforcement: Oct 2024</span>
-                                </div>
-                                <div className="flex items-center space-x-2 text-sm text-slate-400">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                    <span>18 Critical Sectors</span>
-                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="hidden lg:flex justify-center relative">
+                        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-10 rounded-[3rem] shadow-3xl rotate-3 hover:rotate-0 transition-all duration-700 group cursor-default">
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {[
+                                    { title: "Risk Management", desc: "Technical Measures", icon: ShieldCheck },
+                                    { title: "Incident Reporting", desc: "24h Notification", icon: Activity },
+                                    { title: "Supply Chain", desc: "Vendor Security", icon: Globe },
+                                    { title: "Governance", desc: "Accountability", icon: ListTodo }
+                                ].map((item, i) => (
+                                    <div key={i} className="p-6 bg-white/10 rounded-2xl border border-white/10 text-center group-hover:bg-[#3ABEF9]/20 transition-colors">
+                                        <item.icon className="w-8 h-8 text-[#3ABEF9] mx-auto mb-3" />
+                                        <h3 className="font-black text-sm text-white mb-1">{item.title}</h3>
+                                        <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">{item.desc}</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                        <div className="hidden md:flex justify-center relative">
-                            <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-3xl rotate-3 hover:rotate-0 transition-transform duration-500">
-                                <div className="grid grid-cols-2 gap-4">
-                                    {[ShieldCheck, Activity, FileText, AlertCircle].map((Icon, i) => (
-                                        <div key={i} className="p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center">
-                                            <Icon className="w-8 h-8 text-cyan-400" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Feature Grid */}
+            <div className="grid md:grid-cols-3 gap-8">
+                {sections.map((section, idx) => (
+                    <Card key={idx} className="group overflow-hidden border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] bg-white ring-1 ring-slate-200/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-sky-900/5">
+                        <CardContent className="p-0">
+                            <div className={`h-2 bg-gradient-to-r ${section.color}`} />
+                            <div className="p-10">
+                                <div className="flex justify-between items-start mb-8">
+                                    <div className={`h-16 w-16 rounded-2xl ${section.bgLight} ${section.textColor} flex items-center justify-center shadow-inner`}>
+                                        <section.icon className="w-8 h-8" />
+                                    </div>
+                                    <Badge variant="outline" className="font-black text-[10px] tracking-widest text-slate-400 uppercase border-slate-200 px-3 py-1 rounded-full">
+                                        {section.headerTitle}
+                                    </Badge>
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-900 mb-4">{section.title}</h2>
+                                <p className="text-slate-500 mb-8 leading-relaxed font-medium text-sm">
+                                    {section.description}
+                                </p>
+                                <div className="space-y-4 mb-10">
+                                    {section.benefits.map((benefit, bIdx) => (
+                                        <div key={bIdx} className="flex items-center text-xs font-bold text-slate-700 uppercase tracking-tight">
+                                            <div className={cn("w-1.5 h-1.5 rounded-full mr-3 bg-gradient-to-r", section.color)} />
+                                            {benefit}
                                         </div>
                                     ))}
                                 </div>
-                                <div className="mt-6 p-4 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 rounded-xl border border-white/10">
-                                    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                                        <div className="h-full w-3/5 bg-cyan-400 rounded-full" />
-                                    </div>
-                                    <p className="text-[10px] mt-2 text-cyan-200 font-mono">NIS2 READINESS: 60%</p>
-                                </div>
+                                <Button
+                                    onClick={() => setLocation(section.path)}
+                                    className={cn(
+                                        "w-full bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-900 font-bold py-6 rounded-2xl border border-slate-200 transition-all duration-300 flex items-center justify-between px-6"
+                                    )}
+                                >
+                                    <span>Access Module</span>
+                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                </Button>
                             </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            {/* Quick Start Guide */}
+            <Card className="border-none shadow-xl border-dashed border-sky-300 bg-sky-50 shadow-slate-200/50 rounded-[3rem] overflow-hidden">
+                <CardContent className="p-12 md:p-16">
+                    <div className="grid lg:grid-cols-2 gap-16">
+                        <div className="space-y-8">
+                            <div className="h-16 w-16 bg-[#3ABEF9] rounded-3xl flex items-center justify-center text-white shadow-lg shadow-sky-200">
+                                <Globe className="w-8 h-8" />
+                            </div>
+                            <div>
+                                <h3 className="text-3xl font-black text-[#1C4D8D] mb-4">New to NIS2?</h3>
+                                <p className="text-slate-600 text-lg font-medium leading-relaxed">
+                                    If your organization is subject to NIS2, follow this standardized compliance trajectory to avoid sanctions and ensure business continuity.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={() => setLocation(`/clients/${clientId}/cyber/assessment`)}
+                                className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold h-14 px-10 rounded-2xl shadow-lg shadow-sky-200 transition-all active:scale-95"
+                            >
+                                Start Implementation Journey <ArrowRight className="w-5 h-5 ml-2" />
+                            </Button>
+                        </div>
+                        <div className="bg-white/50 backdrop-blur-sm rounded-[2.5rem] p-10 space-y-6 ring-1 ring-sky-100">
+                            {[
+                                { step: "01", title: "Determine Classification", desc: "Essential vs Important entity status." },
+                                { step: "02", title: "Complete Assessment", desc: "Audit current security maturity levels." },
+                                { step: "03", title: "Implement Measures", desc: "Deploy required technical controls." },
+                                { step: "04", title: "Formalize Reporting", desc: "Configure 24-hour notification workflows." }
+                            ].map((item, i) => (
+                                <div key={i} className="flex gap-6 items-start">
+                                    <div className="text-2xl font-black text-[#3ABEF9] opacity-30 mt-1">{item.step}</div>
+                                    <div>
+                                        <h4 className="font-black text-slate-900 uppercase tracking-wider">{item.title}</h4>
+                                        <p className="text-slate-500 font-medium text-sm">{item.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                </div>
+                </CardContent>
+            </Card>
 
-                {/* Feature Grid */}
-                <div className="grid md:grid-cols-3 gap-8">
-                    {sections.map((section, idx) => (
-                        <Card key={idx} className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.01]">
-                            <CardContent className="p-0">
-                                <div className={`h-2 bg-gradient-to-r ${section.color}`} />
-                                <div className="p-8">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className={`p-4 rounded-2xl ${section.bgLight} ${section.textColor}`}>
-                                            <section.icon className="w-8 h-8" />
-                                        </div>
-                                        <Badge variant="outline" className="font-mono text-[10px] opacity-70">
-                                            {section.headerTitle}
-                                        </Badge>
-                                    </div>
-                                    <h2 className="text-2xl font-bold mb-3">{section.title}</h2>
-                                    <p className="text-muted-foreground mb-6 leading-relaxed">
-                                        {section.description}
-                                    </p>
-                                    <div className="space-y-3 mb-8">
-                                        {section.benefits.map((benefit, bIdx) => (
-                                            <div key={bIdx} className="flex items-center text-sm font-medium">
-                                                <div className={`w-1.5 h-1.5 rounded-full mr-3 bg-gradient-to-r ${section.color}`} />
-                                                {benefit}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <Button
-                                        onClick={() => setLocation(section.path)}
-                                        className={`w-full bg-gradient-to-r ${section.color} hover:opacity-90 transition-opacity text-white font-bold py-6 rounded-xl`}
-                                    >
-                                        Access Module
-                                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+            {/* Why it Matters Section - Consistency */}
+            <div className="relative overflow-hidden rounded-[3rem] bg-slate-900 p-12 md:p-20 text-white mt-8 shadow-2xl">
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(58,190,249,0.1),transparent)]" />
+                <div className="relative z-10 text-center max-w-3xl mx-auto space-y-6">
+                    <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">Beyond Compliance: <br /><span className="text-[#3ABEF9]">Systemic Integrity.</span></h2>
+                    <p className="text-slate-400 text-lg font-medium leading-relaxed">
+                        Cyber resilience is not just a regulatory hurdle; it's the foundation of trust in the digital age. Compliance ensures your organization remains a strong link in the global supply chain.
+                    </p>
 
-                {/* NIS2 Requirements */}
-                <div className="bg-gradient-to-br from-slate-50 to-cyan-50 rounded-3xl p-12 border border-slate-200">
-                    <div className="text-center space-y-4 mb-12">
-                        <h2 className="text-3xl font-extrabold tracking-tight">NIS2 Key Requirements</h2>
-                        <p className="text-muted-foreground max-w-2xl mx-auto">
-                            The NIS2 Directive introduces mandatory cybersecurity measures for essential and important entities across 18 sectors.
-                        </p>
-                    </div>
-                    <div className="grid md:grid-cols-4 gap-6">
+                    <div className="grid md:grid-cols-3 gap-12 mt-16 text-left border-t border-white/10 pt-16">
                         {[
-                            { title: "Risk Management", desc: "Implement appropriate security measures", icon: ShieldCheck },
-                            { title: "Incident Reporting", desc: "24-hour notification to CSIRT", icon: Activity },
-                            { title: "Supply Chain", desc: "Assess third-party risks", icon: Globe },
-                            { title: "Governance", desc: "Management accountability", icon: ListTodo }
+                            { title: "Sanctions", desc: "Avoid fines of up to €10M or 2% of annual turnover." },
+                            { title: "Security", desc: "Stronger supply chain and incident response capabilities." },
+                            { title: "Market", desc: "Meet the growing customer demand for compliance proof." }
                         ].map((item, i) => (
-                            <div key={i} className="p-6 bg-white rounded-xl border border-slate-200 text-center">
-                                <div className="w-12 h-12 rounded-full bg-cyan-100 flex items-center justify-center mx-auto mb-4">
-                                    <item.icon className="w-6 h-6 text-cyan-600" />
-                                </div>
-                                <h3 className="font-bold mb-2">{item.title}</h3>
-                                <p className="text-sm text-slate-600">{item.desc}</p>
+                            <div key={i} className="space-y-3">
+                                <div className="h-1 w-12 bg-[#3ABEF9] rounded-full" />
+                                <h3 className="font-black text-xl">{item.title}</h3>
+                                <p className="text-slate-500 text-sm font-medium italic">"{item.desc}"</p>
                             </div>
                         ))}
                     </div>
                 </div>
-
-                {/* Why it Matters */}
-                <div className="bg-slate-50 rounded-3xl p-12 mt-12 border border-slate-200 border-dashed">
-                    <div className="text-center space-y-4">
-                        <h2 className="text-3xl font-extrabold tracking-tight">Why NIS2 Compliance Matters</h2>
-                        <p className="text-muted-foreground">
-                            Non-compliance can result in fines up to €10M or 2% of global turnover for essential entities.
-                        </p>
-                    </div>
-                    <div className="grid md:grid-cols-3 gap-8 mt-12 text-center italic">
-                        <div className="p-6">
-                            <h3 className="font-bold text-slate-900 not-italic mb-2 text-lg">Avoid Penalties</h3>
-                            <p className="text-slate-500 text-sm">"NIS2 enforcement started October 2024. Early compliance saved us from potential multi-million euro fines."</p>
-                        </div>
-                        <div className="p-6 border-x border-slate-200">
-                            <h3 className="font-bold text-slate-900 not-italic mb-2 text-lg">Improve Security</h3>
-                            <p className="text-slate-500 text-sm">"NIS2 requirements forced us to strengthen supply chain security and incident response capabilities."</p>
-                        </div>
-                        <div className="p-6">
-                            <h3 className="font-bold text-slate-900 not-italic mb-2 text-lg">Market Access</h3>
-                            <p className="text-slate-500 text-sm">"EU customers now require NIS2 compliance proof. It's become a competitive requirement, not just regulatory."</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick Start */}
-                <Card className="border-2 border-dashed border-cyan-300 bg-cyan-50/50">
-                    <CardContent className="p-8">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-cyan-600 rounded-xl">
-                                <Globe className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-xl font-bold mb-2">New to NIS2? Start Here</h3>
-                                <p className="text-muted-foreground mb-4">
-                                    If you're subject to NIS2, follow this compliance path:
-                                </p>
-                                <ol className="space-y-2 text-sm">
-                                    <li className="flex items-start gap-2">
-                                        <span className="font-bold text-cyan-600 min-w-[20px]">1.</span>
-                                        <span><strong>Determine Classification</strong> - Are you an Essential or Important entity?</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="font-bold text-cyan-600 min-w-[20px]">2.</span>
-                                        <span><strong>Complete Assessment</strong> - Evaluate current cybersecurity measures</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="font-bold text-cyan-600 min-w-[20px]">3.</span>
-                                        <span><strong>Implement Measures</strong> - Deploy required security controls</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="font-bold text-cyan-600 min-w-[20px]">4.</span>
-                                        <span><strong>Setup Incident Response</strong> - Configure 24-hour reporting workflows</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <span className="font-bold text-cyan-600 min-w-[20px]">5.</span>
-                                        <span><strong>Register with Authority</strong> - Notify your national CSIRT</span>
-                                    </li>
-                                </ol>
-                                <div className="mt-6">
-                                    <Button
-                                        onClick={() => setLocation(`/clients/${clientId}/cyber/assessment`)}
-                                        className="bg-cyan-600 hover:bg-cyan-700"
-                                    >
-                                        Start NIS2 Assessment
-                                        <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
-        </DashboardLayout>
-    );
-}
-
-function Badge({ children, variant, className }: any) {
-    return (
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${className} border`}>
-            {children}
-        </span>
+        </div>
     );
 }

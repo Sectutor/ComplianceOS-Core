@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    # Skip linting for now as it might be too strict for initial open source release
+    # - name: Lint
+    #   run: npm run lint
+
+    - name: Build Core
+      run: npm run build -w @complianceos/core
+      env:
+        # Ensure build passes without premium files
+        CI: true

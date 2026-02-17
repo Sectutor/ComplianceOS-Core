@@ -248,17 +248,29 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const limit = fullUser?.maxClients || 2;
 
                     // Admins/Internal Owners/Super Admins bypass limit
-                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
-                        throw new TRPCError({
-                            code: 'FORBIDDEN',
-                            message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
-                        });
+                    const isGlobalAdmin = ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin';
+
+                    // ARCHITECTURE ENFORCEMENT: Community Edition strict limit
+                    if (process.env.VITE_ENABLE_PREMIUM === 'false') {
+                        if (currentCount >= 1 && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: 'Community Edition is limited to a single workspace. Please upgrade to Enterprise for multi-tenancy.'
+                            });
+                        }
+                    } else {
+                        if (currentCount >= limit && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
+                            });
+                        }
                     }
 
                     // 2. Determine Owner User (Create if needed)
                     let ownerUserId = ctx.user.id;
                     let isNewUser = false;
-                    let targetEmail = input.adminEmail;
+                    const targetEmail = input.adminEmail;
 
                     if (input.adminEmail && input.adminEmail !== ctx.user.email) {
                         let existingUser = await db.getUserByEmail(input.adminEmail);
@@ -368,11 +380,23 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const currentCount = Number(userOrgs[0]?.count || 0);
                     const limit = fullUser?.maxClients || 2;
 
-                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
-                        throw new TRPCError({
-                            code: 'FORBIDDEN',
-                            message: `Organization Limit Reached: Your current plan allows for ${limit} organizations.`
-                        });
+                    const isGlobalAdmin = ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin';
+
+                    // ARCHITECTURE ENFORCEMENT: Community Edition strict limit
+                    if (process.env.VITE_ENABLE_PREMIUM === 'false') {
+                        if (currentCount >= 1 && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: 'Community Edition is limited to a single workspace. Please upgrade to Enterprise for multi-tenancy.'
+                            });
+                        }
+                    } else {
+                        if (currentCount >= limit && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: `Organization Limit Reached: Your current plan allows for ${limit} organizations.`
+                            });
+                        }
                     }
 
                     // Transactional Onboarding
@@ -422,11 +446,23 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const currentCount = Number(userOrgs[0]?.count || 0);
                     const limit = fullUser?.maxClients || 2;
 
-                    if (currentCount >= limit && ctx.user.role !== 'admin' && ctx.user.role !== 'owner' && ctx.user.role !== 'super_admin') {
-                        throw new TRPCError({
-                            code: 'FORBIDDEN',
-                            message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
-                        });
+                    const isGlobalAdmin = ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin';
+
+                    // ARCHITECTURE ENFORCEMENT: Community Edition strict limit
+                    if (process.env.VITE_ENABLE_PREMIUM === 'false') {
+                        if (currentCount >= 1 && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: 'Community Edition is limited to a single workspace. Please upgrade to Enterprise for multi-tenancy.'
+                            });
+                        }
+                    } else {
+                        if (currentCount >= limit && !isGlobalAdmin) {
+                            throw new TRPCError({
+                                code: 'FORBIDDEN',
+                                message: `Organization Limit Reached: Your current plan allows for ${limit} organizations. Please upgrade to add more.`
+                            });
+                        }
                     }
 
                     const selectedFrameworks = Array.isArray(input.frameworks)
@@ -464,10 +500,13 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     });
 
                     try {
-                        await db.seedSampleData(ctx.user.id, {
-                            name: `${input.name} DEMO`,
-                            industry: input.industry
-                        });
+                        // Skip duplicate "DEMO" org creation in Community Edition to save the slot
+                        if (process.env.VITE_ENABLE_PREMIUM !== 'false') {
+                            await db.seedSampleData(ctx.user.id, {
+                                name: `${input.name} DEMO`,
+                                industry: input.industry
+                            });
+                        }
                     } catch (err) {
                         console.error("Failed to create secondary demo organization:", err);
                     }
@@ -625,6 +664,23 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 }
                 await db.deleteClient(input.id);
                 return { success: true };
+            }),
+        grantSelfAccess: publicProcedure.use(isAuthed).use(requiresMFA)
+            .input(z.object({ clientId: z.number(), role: z.enum(['owner', 'admin', 'editor']).default('owner') }))
+            .mutation(async ({ input, ctx }: any) => {
+                const d = await db.getDb();
+                const hasAccess = await db.isUserAllowedForClient(ctx.user.id, input.clientId);
+                if (hasAccess) return { success: true, message: 'Already a member' };
+                const owners = await d.select().from(schema.userClients)
+                    .where(and(eq(schema.userClients.clientId, input.clientId), eq(schema.userClients.role, 'owner')));
+                if (owners.length === 0 || ctx.user.role === 'admin' || ctx.user.role === 'super_admin') {
+                    await db.assignUserToClient(ctx.user.id, input.clientId, input.role as any);
+                    return { success: true, message: 'Access granted' };
+                }
+                throw new TRPCError({
+                    code: 'FORBIDDEN',
+                    message: 'An owner already exists for this workspace. Only admins can add themselves.'
+                });
             }),
         stats: publicProcedure
             .input(z.object({ clientId: z.number() }))

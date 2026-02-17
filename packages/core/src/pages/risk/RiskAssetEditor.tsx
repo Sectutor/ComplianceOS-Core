@@ -6,7 +6,7 @@ import { Input } from '@complianceos/ui/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@complianceos/ui/ui/select';
 import { Textarea } from '@complianceos/ui/ui/textarea';
 import { trpc } from '@/lib/trpc';
-import { Database, Loader2, Save, ArrowLeft, Calendar, Shield, Info, AlertTriangle } from 'lucide-react';
+import { Database, Loader2, Save, ArrowLeft, Calendar, Shield, Info, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@complianceos/ui/ui/card';
 import { Separator } from '@complianceos/ui/ui/separator';
@@ -25,10 +25,17 @@ const ASSET_TYPES = [
     'Site / Facility'
 ];
 
-export default function RiskAssetEditor() {
+export default function RiskAssetEditor(props: any) {
     const [location, setLocation] = useLocation();
-    const [_, params] = useRoute('/clients/:clientId/risks/assets/:assetId');
+    const [match, localParams] = useRoute('/clients/:clientId/risks/assets/:assetId');
+
+    // Prefer props from parent router, fallback to local route match
+    const params = props.clientId ? props : (match ? localParams : null);
+
     const clientId = params?.clientId ? parseInt(params.clientId) : 0;
+
+    console.log('[RiskAssetEditor] Params Debug:', { props, match, localParams, finalParams: params, parsedClientId: clientId });
+
     const assetIdParam = params?.assetId;
     const isNew = assetIdParam === 'new';
     const dbId = !isNew && assetIdParam ? parseInt(assetIdParam) : null;
@@ -64,6 +71,11 @@ export default function RiskAssetEditor() {
         {
             enabled: !!dbId && !!clientId
         }
+    );
+
+    const { data: assetRisks } = trpc.risks.getRiskAssessments.useQuery(
+        { clientId, assetId: dbId || undefined },
+        { enabled: !!dbId }
     );
 
     const existingAsset = assets?.find(a => a.id === dbId);
@@ -136,18 +148,22 @@ export default function RiskAssetEditor() {
             };
 
             if (dbId) {
+                console.log('[RiskAssetEditor] Updating asset', { dbId, clientId, commonData });
                 await updateMutation.mutateAsync({
                     id: dbId,
+                    clientId: clientId, // Ensuring clientId is passed
                     ...commonData,
                 });
             } else {
+                console.log('[RiskAssetEditor] Creating asset', { clientId, commonData });
                 await createMutation.mutateAsync({
                     clientId,
                     ...commonData,
                 });
             }
         } catch (error) {
-            console.error(error);
+            console.error('[RiskAssetEditor] Submit error:', error);
+            toast.error(`Submit failed: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -225,6 +241,7 @@ export default function RiskAssetEditor() {
                                 ...(!isNew && ['Software', 'Hardware'].includes(formData.type)
                                     ? [{ id: 'threatIntel', label: 'Threat Intel', icon: AlertTriangle, desc: 'Vulnerabilities' }]
                                     : []),
+                                ...(!isNew ? [{ id: 'risks', label: 'Linked Risks', icon: ShieldAlert, desc: 'Risk Scenarios' }] : []),
                             ].map((section) => (
                                 <button
                                     key={section.id}
@@ -486,6 +503,59 @@ export default function RiskAssetEditor() {
                                     assetVendor={formData.vendor}
                                     assetProduct={formData.productName}
                                 />
+                            </div>
+                        )}
+
+                        {/* Linked Risks Section */}
+                        {!isNew && dbId && (
+                            <div className={activeTab === 'risks' ? 'block' : 'hidden'}>
+                                <Card>
+                                    <CardHeader>
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <CardTitle>Linked Risks</CardTitle>
+                                                <CardDescription>Risks associated with this asset.</CardDescription>
+                                            </div>
+                                            <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${clientId}/risks/register?assetId=${dbId}`)}>
+                                                Manage in Risk Register
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="rounded-md border">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                    {assetRisks?.length === 0 ? (
+                                                        <tr>
+                                                            <td className="px-6 py-4 text-center text-sm text-gray-500">
+                                                                No risks linked to this asset.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        assetRisks?.map((risk) => (
+                                                            <tr key={risk.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setLocation(`/clients/${clientId}/risks/register?openRiskId=${risk.id}&assetId=${dbId}`)}>
+                                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                                                    {risk.threatDescription || 'Attributes-based Risk'}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${risk.riskLevel === 'High' || risk.riskLevel === 'Critical' ? 'bg-red-100 text-red-800' :
+                                                                        risk.riskLevel === 'Medium' ? 'bg-amber-100 text-amber-800' :
+                                                                            'bg-blue-100 text-blue-800'
+                                                                        }`}>
+                                                                        {risk.riskLevel || 'Unrated'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-gray-500">
+                                                                    {risk.status}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </div>
                         )}
                     </div>

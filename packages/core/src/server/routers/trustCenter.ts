@@ -110,7 +110,7 @@ export const createTrustCenterRouter = (t: any, publicProcedure: any, protectedP
                 }
 
                 // 1. Get or Create Visitor for this User/Email
-                let [visitor] = await dbConn.select().from(schema.trustCenterVisitors)
+                const [visitor] = await dbConn.select().from(schema.trustCenterVisitors)
                     .where(and(
                         eq(schema.trustCenterVisitors.clientId, input.clientId),
                         eq(schema.trustCenterVisitors.email, checkEmail)

@@ -416,7 +416,7 @@ Output JSON array: [{"questionId": "optional-id", "question": "Question text"}]`
           .where(eq(schema.questionnaireQuestions.questionnaireId, input.id));
 
         // 4. Index valid answers
-        let indexedCount = 0;
+        const indexedCount = 0;
         const validQuestions = questions.filter((q: any) =>
           q.answer &&
           q.answer.trim().length > 10 &&

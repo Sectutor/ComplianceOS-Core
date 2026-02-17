@@ -27,7 +27,7 @@ export default function PersonnelComplianceHub() {
 
     return (
         <DashboardLayout>
-            <div className="p-8 max-w-7xl mx-auto space-y-8">
+            <div className="pl-4 pr-4 py-8 md:pl-20 md:pr-8 space-y-8 w-full max-w-full animate-in fade-in duration-700">
                 <div className="flex items-center gap-4">
                     <Button variant="outline" size="sm" className="gap-2" onClick={() => window.history.back()}>
                         <ArrowLeft className="h-4 w-4" />
@@ -66,28 +66,46 @@ export default function PersonnelComplianceHub() {
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                    <TabsList className="grid w-full max-w-4xl grid-cols-6">
-                        <TabsTrigger value="training" className="gap-2">
+                    <TabsList className="bg-[#1C4D8D] p-1 rounded-xl h-auto flex-wrap md:flex-nowrap">
+                        <TabsTrigger
+                            value="training"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                        >
                             <GraduationCap className="h-4 w-4" />
                             Training
                         </TabsTrigger>
-                        <TabsTrigger value="documents" className="gap-2">
+                        <TabsTrigger
+                            value="documents"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                        >
                             <ClipboardList className="h-4 w-4" />
                             Documents
                         </TabsTrigger>
-                        <TabsTrigger value="policies" className="gap-2">
+                        <TabsTrigger
+                            value="policies"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                        >
                             <FileCheck className="h-4 w-4" />
                             Policies
                         </TabsTrigger>
-                        <TabsTrigger value="exceptions" className="gap-2">
+                        <TabsTrigger
+                            value="exceptions"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                        >
                             <AlertOctagon className="h-4 w-4" />
                             Exceptions
                         </TabsTrigger>
-                        <TabsTrigger value="assets" className="gap-2">
+                        <TabsTrigger
+                            value="assets"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
+                        >
                             <Package className="h-4 w-4" />
                             Assets
                         </TabsTrigger>
-                        <TabsTrigger value="tracking" className="gap-2">
+                        <TabsTrigger
+                            value="tracking"
+                            className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold border-none"
+                        >
                             <Users className="h-4 w-4" />
                             Tracking
                         </TabsTrigger>
@@ -158,12 +176,12 @@ function ComplianceTrackingTab({ clientId }: { clientId: number }) {
                 <div className="border rounded-lg overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Employee</TableHead>
-                                <TableHead>Training</TableHead>
-                                <TableHead>Documents</TableHead>
-                                <TableHead>Overall</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
+                            <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                <TableHead className="text-white font-bold h-12">Employee</TableHead>
+                                <TableHead className="text-white font-bold h-12">Training</TableHead>
+                                <TableHead className="text-white font-bold h-12">Documents</TableHead>
+                                <TableHead className="text-white font-bold h-12">Overall</TableHead>
+                                <TableHead className="text-right text-white font-bold h-12">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Breadcrumb } from "@/components/Breadcrumb";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
@@ -41,7 +40,7 @@ export default function VendorDetails() {
 
     // Optimized consolidated vendor data endpoint
     const { data: vendorData, isLoading } = trpc.vendorAssessments.getVendorDetails.useQuery(
-        { vendorId: vId, clientId }, 
+        { vendorId: vId, clientId },
         { enabled: !!vId && !!clientId }
     );
 
@@ -581,14 +580,8 @@ export default function VendorDetails() {
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
-                <Breadcrumb
-                    items={[
-                        { label: "Vendors", href: `/clients/${clientId}/vendors/overview` },
-                        { label: vendor.name },
-                    ]}
-                />
                 <div className="flex gap-2">
                     <Button variant="outline" size="sm" asChild>
                         <a href={`/clients/${clientId}/vendors/all`}>Back</a>
@@ -674,22 +667,22 @@ export default function VendorDetails() {
 
 
 // Force Reload: debug-marker-v1
-            <div className="bg-indigo-600 text-white p-2 rounded text-xs font-bold text-center mb-4">
+            <Card className="bg-[#1C4D8D] text-white p-2 rounded text-xs font-bold text-center mb-4 border-none shadow-md">
                 DPA SYSTEM ACTIVE
-            </div>
+            </Card>
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="flex flex-wrap h-auto bg-slate-100 p-1 mb-2">
-                    <TabsTrigger value="legal" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+                <TabsList className="flex flex-wrap h-auto bg-[#1C4D8D] p-1 mb-2 gap-1 rounded-xl">
+                    <TabsTrigger value="legal" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">
                         Legal & DPAs
-                        <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 border-indigo-200 scale-75 origin-left font-bold">NEW</Badge>
+                        <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-white/30 scale-75 origin-left font-bold">NEW</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="documents">Documents</TabsTrigger>
-                    <TabsTrigger value="assessments">Assessments</TabsTrigger>
-                    <TabsTrigger value="trust-center">Trust Center</TabsTrigger>
-                    <TabsTrigger value="risk-scan">Risk Scan</TabsTrigger>
-                    <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                    <TabsTrigger value="contracts">Contracts</TabsTrigger>
+                    <TabsTrigger value="overview" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Overview</TabsTrigger>
+                    <TabsTrigger value="documents" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Documents</TabsTrigger>
+                    <TabsTrigger value="assessments" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Assessments</TabsTrigger>
+                    <TabsTrigger value="trust-center" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Trust Center</TabsTrigger>
+                    <TabsTrigger value="risk-scan" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Risk Scan</TabsTrigger>
+                    <TabsTrigger value="contacts" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Contacts</TabsTrigger>
+                    <TabsTrigger value="contracts" className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-4 py-2 font-bold">Contracts</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="legal" className="pt-4 space-y-4">

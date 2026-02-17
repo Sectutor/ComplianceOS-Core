@@ -19,6 +19,10 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
   const [factors, setFactors] = useState<Factor[]>([]);
   const [selectedFactorId, setSelectedFactorId] = useState<string | undefined>(initialFactorId);
   const [showFactorList, setShowFactorList] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollFactorId, setEnrollFactorId] = useState<string | undefined>(undefined);
+  const [enrollQrSvg, setEnrollQrSvg] = useState<string | undefined>(undefined);
+  const [enrollCode, setEnrollCode] = useState("");
 
   useEffect(() => {
     const fetchFactors = async () => {
@@ -57,12 +61,31 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
     }
 
     if (!selectedFactorId) {
-      toast.error("No authenticator factor found. Please enroll in Settings.");
+      toast.error("No authenticator found. Enroll below to continue.");
       return;
     }
 
     setLoading(true);
     try {
+      console.log("[MFA Verify Debug] Attempting verify with factor:", selectedFactorId);
+
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        console.error("[MFA Verify Debug] No active session found. User might have been signed out.");
+      } else {
+        // Basic JWT check for sub claim
+        const parts = currentSession.access_token.split('.');
+        if (parts.length === 3) {
+          try {
+            const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+            console.log("[MFA Verify Debug] Token Payload:", { sub: payload.sub, aal: payload.aal, aud: payload.aud });
+            if (!payload.sub) console.warn("[MFA Verify Debug] CRITICAL: sub claim is MISSING in access_token!");
+          } catch (e) {
+            console.error("[MFA Verify Debug] Failed to decode JWT payload safely.");
+          }
+        }
+      }
+
       const { data, error } = await supabase.auth.mfa.challengeAndVerify({
         factorId: selectedFactorId,
         code: cleanCode
@@ -88,6 +111,64 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
     await supabase.auth.signOut();
     onOpenChange(false);
     window.location.href = '/auth/login';
+  };
+
+  const startEnrollInline = async () => {
+    setLoading(true);
+    setEnrolling(true);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: `Authenticator-${Math.random().toString(36).slice(2, 6)}`
+      });
+      if (error) {
+        toast.error(error.message);
+        setEnrolling(false);
+        return;
+      }
+      setEnrollFactorId(data.id);
+      setEnrollQrSvg((data as any).totp?.qr_code);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to start enrollment");
+      setEnrolling(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmEnrollInline = async () => {
+    if (!enrollFactorId) return;
+    const clean = enrollCode.replace(/[^0-9]/g, '');
+    if (clean.length !== 6) {
+      toast.error("Enter the 6-digit code");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: enrollFactorId,
+        code: clean
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await supabase.auth.refreshSession();
+      toast.success("MFA enabled");
+      setEnrolling(false);
+      setEnrollCode("");
+      setEnrollFactorId(undefined);
+      setEnrollQrSvg(undefined);
+      const { data } = await supabase.auth.mfa.listFactors();
+      const verified = (data as any)?.factors?.filter((f: any) => f.status === 'verified') || [];
+      setFactors(verified);
+      setSelectedFactorId(verified[0]?.id);
+      setShowFactorList(false);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to verify");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const currentFactor = factors.find(f => f.id === selectedFactorId);
@@ -118,15 +199,55 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
         <div className="p-8 space-y-6 bg-white dark:bg-slate-950">
           {!showFactorList ? (
             <div className="space-y-4">
-              <Input
-                placeholder="000 000"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="text-center text-3xl h-16 tracking-[0.5em] font-mono border-2 focus-visible:ring-blue-500"
-                maxLength={7} // Allowance for space
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
-              />
+              {factors.length > 0 ? (
+                <Input
+                  placeholder="000 000"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="text-center text-3xl h-16 tracking-[0.5em] font-mono border-2 focus-visible:ring-blue-500"
+                  maxLength={7}
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {!enrolling ? (
+                    <>
+                      <div className="text-sm text-slate-600">
+                        You don’t have an authenticator yet. Enroll TOTP to continue.
+                      </div>
+                      <Button className="w-full h-12" onClick={startEnrollInline} disabled={loading}>
+                        {loading ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" />Starting…</>) : "Enroll Authenticator"}
+                      </Button>
+                      <Button variant="ghost" className="w-full" onClick={() => { window.location.href = '/settings/security?mfa=enroll'; }}>
+                        Open Security Settings
+                      </Button>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      {enrollQrSvg ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="p-3 rounded-xl border bg-white" dangerouslySetInnerHTML={{ __html: enrollQrSvg }} />
+                          <Input
+                            placeholder="Enter code from app"
+                            value={enrollCode}
+                            onChange={(e) => setEnrollCode(e.target.value)}
+                            className="text-center text-xl h-12 font-mono"
+                            maxLength={7}
+                          />
+                          <Button className="w-full h-12" onClick={confirmEnrollInline} disabled={loading}>
+                            {loading ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" />Verifying…</>) : "Verify & Enable"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center py-6 text-slate-500">
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Preparing enrollment…
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {factors.length > 1 && (
                 <button
@@ -138,18 +259,20 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
               )}
 
               <div className="flex flex-col gap-3 pt-2">
-                <Button
-                  onClick={handleVerify}
-                  disabled={code.replace(/[^0-9]/g, '').length < 6 || loading}
-                  className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : "Authorize Session"}
-                </Button>
+                {factors.length > 0 && (
+                  <Button
+                    onClick={handleVerify}
+                    disabled={code.replace(/[^0-9]/g, '').length < 6 || loading}
+                    className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : "Authorize Session"}
+                  </Button>
+                )}
 
                 <Button
                   variant="ghost"
@@ -202,4 +325,3 @@ export default function MFAChallengeModal({ open, onOpenChange, factorId: initia
     </Dialog>
   );
 }
-

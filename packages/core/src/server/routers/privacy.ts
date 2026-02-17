@@ -7,10 +7,11 @@ import {
     businessProcesses,
     employees,
     privacyAssessments,
+    remediationTasks,
     InsertProcessDataFlow
 } from "../../schema";
 import { getDb } from "../../db";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { eq, and, desc, count, sql, like } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
 export const createPrivacyRouter = (t: any, clientProcedure: any) => {
@@ -381,10 +382,36 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
             }),
         // ==================== ASSESSMENTS ====================
 
+        listAssessments: clientProcedure
+            .input(z.object({
+                clientId: z.number().optional(),
+                typePrefix: z.string().optional()
+            }))
+            .query(async ({ ctx, input }: any) => {
+                const db = await getDb();
+                const clientId = ctx.clientId || input?.clientId;
+                if (!clientId) throw new TRPCError({ code: "BAD_REQUEST", message: "Client ID required" });
+
+                if (input.typePrefix) {
+                    return await db.select()
+                        .from(privacyAssessments)
+                        .where(and(
+                            eq(privacyAssessments.clientId, clientId),
+                            like(privacyAssessments.type, `${input.typePrefix}%`)
+                        ))
+                        .orderBy(desc(privacyAssessments.updatedAt));
+                }
+
+                return await db.select()
+                    .from(privacyAssessments)
+                    .where(eq(privacyAssessments.clientId, clientId))
+                    .orderBy(desc(privacyAssessments.updatedAt));
+            }),
+
         getAssessment: clientProcedure
             .input(z.object({
                 clientId: z.number().optional(),
-                type: z.enum(["gdpr", "ccpa"])
+                type: z.string()
             }))
             .query(async ({ ctx, input }: { ctx: any, input: any }) => {
                 const db = await getDb();
@@ -405,14 +432,8 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
         saveAssessment: clientProcedure
             .input(z.object({
                 clientId: z.number(),
-                type: z.enum(["gdpr", "ccpa"]),
-                responses: z.record(z.object({
-                    answer: z.string(),
-                    notes: z.string().optional(),
-                    owner: z.string().optional(),
-                    dueDate: z.string().optional(),
-                    lastReviewed: z.string().optional()
-                })),
+                type: z.string(),
+                responses: z.any().optional(),
                 status: z.enum(["not_started", "in_progress", "completed"]),
                 score: z.number().optional()
             }))
@@ -455,6 +476,42 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
                             status: input.status,
                             score: input.score
                         });
+                    }
+
+                    // --- TASK INTEGRATION ---
+                    // Automatically create remediation tasks for "No" or "Partial" answers
+                    console.log("[PrivacyRouter] Checking for gaps to create tasks...");
+                    const gapEntries = Object.entries(input.responses).filter(
+                        ([_, res]: [string, any]) => res.answer === "No" || res.answer === "Partial"
+                    );
+
+                    if (gapEntries.length > 0) {
+                        // Check for existing tasks to avoid duplicates? 
+                        // For simplicity, we'll search by title pattern for now.
+                        for (const [qId, res] of gapEntries as [string, any][]) {
+                            const taskTitle = `[Privacy Gap - ${input.type.toUpperCase()}] Resolve ${qId}`;
+
+                            // Check if task already exists
+                            const existingTask = await db.query.remediationTasks.findFirst({
+                                where: and(
+                                    eq(remediationTasks.clientId, assessmentClientId),
+                                    eq(remediationTasks.title, taskTitle),
+                                    sql`status NOT IN ('resolved', 'closed')`
+                                )
+                            });
+
+                            if (!existingTask) {
+                                console.log(`[PrivacyRouter] Creating task for gap: ${qId}`);
+                                await db.insert(remediationTasks).values({
+                                    clientId: assessmentClientId,
+                                    title: taskTitle,
+                                    description: `Privacy gap identified in ${input.type} assessment for question ${qId}.\n\nNotes: ${res.notes || 'No notes provided'}.`,
+                                    priority: res.answer === "No" ? "high" : "medium",
+                                    status: "open",
+                                    dueDate: res.dueDate ? new Date(res.dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days default
+                                });
+                            }
+                        }
                     }
 
                     return { success: true };

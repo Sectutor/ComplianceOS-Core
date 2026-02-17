@@ -99,7 +99,7 @@ export default function OnboardingSettings({ hideLayout = false, clientId: propC
     };
 
     const content = (
-        <div className={hideLayout ? "" : "space-y-6"}>
+        <div className={hideLayout ? "space-y-6" : "pl-4 pr-4 py-8 md:pl-20 md:pr-8 space-y-6 w-full max-w-full animate-in fade-in duration-700"}>
             {!hideLayout && (
                 <>
                     <Breadcrumb items={[{ label: 'Settings', href: '/settings' }, { label: 'Onboarding', active: true }]} />

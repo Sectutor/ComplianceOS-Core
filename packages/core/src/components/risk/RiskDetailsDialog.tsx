@@ -13,6 +13,7 @@ interface RiskDetailsDialogProps {
     onOpenChange: (open: boolean) => void;
     risk: any;
     clientId: number;
+    assets?: any[];
 }
 
 // Risk level color mapping
@@ -28,7 +29,7 @@ const riskColors: Record<string, string> = {
     'Insignificant': 'bg-green-200 text-black',
 };
 
-export function RiskDetailsDialog({ open, onOpenChange, risk, clientId }: RiskDetailsDialogProps) {
+export function RiskDetailsDialog({ open, onOpenChange, risk, clientId, assets }: RiskDetailsDialogProps) {
     // Fetch treatments for the selected risk
     const { data: treatments } = trpc.risks.getRiskTreatments.useQuery(
         { riskAssessmentId: risk?.id },
@@ -105,9 +106,21 @@ export function RiskDetailsDialog({ open, onOpenChange, risk, clientId }: RiskDe
                     <div>
                         <h4 className="font-semibold mb-2">Affected Assets</h4>
                         <div className="flex flex-wrap gap-1">
-                            {parseAffectedAssets(risk.affectedAssets).map((asset, i) => (
-                                <Badge key={i} variant="secondary">{asset}</Badge>
-                            ))}
+                            {(() => {
+                                // Try to find the asset ID
+                                const assetId = risk.contextSnapshot?.assetId || risk.assetId;
+                                if (assetId && assets) {
+                                    const asset = assets.find((a: any) => a.id === Number(assetId));
+                                    if (asset) {
+                                        return <Badge variant="secondary">{asset.name}</Badge>;
+                                    }
+                                }
+
+                                // Fallback
+                                return parseAffectedAssets(risk.affectedAssets).map((asset, i) => (
+                                    <Badge key={i} variant="secondary">{asset}</Badge>
+                                ));
+                            })()}
                         </div>
                     </div>
                     <div>

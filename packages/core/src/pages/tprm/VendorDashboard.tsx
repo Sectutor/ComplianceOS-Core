@@ -8,7 +8,6 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Link } from "wouter";
 import { Button } from "@complianceos/ui/ui/button";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Breadcrumb } from "@/components/Breadcrumb";
 import { ProgressIndicator } from "@complianceos/ui/ui/ProgressIndicator";
 import { StatusBadge } from "@complianceos/ui/ui/StatusBadge";
 import { PageGuide } from "@/components/PageGuide";
@@ -25,12 +24,6 @@ export default function VendorDashboard() {
 
     return (
         <div className="space-y-6 page-transition">
-            <Breadcrumb
-                items={[
-                    { label: "Vendors", href: `/clients/${id}/vendors/overview` },
-                    { label: "Dashboard" },
-                ]}
-            />
 
             {/* Header */}
             <div className="animate-slide-down">

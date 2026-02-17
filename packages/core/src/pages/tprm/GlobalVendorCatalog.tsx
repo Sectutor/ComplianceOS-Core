@@ -8,8 +8,6 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Loader2, Search, ArrowLeft, Plus, ExternalLink, Globe, ShieldCheck, Zap } from "lucide-react";
 import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
-import { Breadcrumb } from "@/components/Breadcrumb";
-
 export default function GlobalVendorCatalog() {
     const { id } = useParams<{ id: string }>();
     const clientId = parseInt(id || "0");
@@ -50,11 +48,7 @@ export default function GlobalVendorCatalog() {
     };
 
     return (
-        <div className="p-6 space-y-6 page-transition">
-            <Breadcrumb items={[
-                { label: "Vendors", href: `/clients/${clientId}/vendors/all` },
-                { label: "Global Catalog", active: true }
-            ]} />
+        <div className="space-y-6 page-transition">
 
             <div className="flex justify-between items-end animate-slide-down">
                 <PageGuide

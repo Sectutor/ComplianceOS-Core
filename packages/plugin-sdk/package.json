@@ -1,0 +1,20 @@
+{
+  "name": "@complianceos/plugin-sdk",
+  "version": "0.1.0",
+  "description": "Plugin SDK for locked-box, single-tenant ComplianceOS with OpenClaw.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "sbom": "node ./scripts/sbom.js",
+    "sign": "node ./scripts/sign.js",
+    "test": "node ./scripts/harness.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

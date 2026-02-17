@@ -1,0 +1,12 @@
+﻿{
+  "id": 1,
+  "name": "DeepSeek Production",
+  "provider": "deepseek",
+  "model": "deepseek-chat",
+  "apiKey": "c475334ea60f505c43cc6276470dd07f:71fb05cfe0c40efd7ab9e34f271a8a9779ccd5109e2b20b7eb1eb43e65fa87c9cdcbfe0e2788ddf168a65428553a3c7a",
+  "baseUrl": "https://api.deepseek.com",
+  "priority": 1,
+  "isEnabled": true,
+  "supportsEmbeddings": false,
+  "createdAt": "2025-12-20T11:17:05.161Z"
+}

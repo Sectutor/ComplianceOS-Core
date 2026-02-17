@@ -17,7 +17,7 @@ export const createFindingsRouter = (
             .query(async ({ input, ctx }: any) => {
                 const dbConn = await getDb();
 
-                let conditions = [eq(schema.auditFindings.clientId, input.clientId)];
+                const conditions = [eq(schema.auditFindings.clientId, input.clientId)];
 
                 if (input.status && input.status !== 'all') {
                     conditions.push(eq(schema.auditFindings.status, input.status));

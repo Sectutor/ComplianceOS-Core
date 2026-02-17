@@ -103,11 +103,11 @@ export default function EquipmentAssignmentTab({ clientId }: EquipmentAssignment
                 <div className="border rounded-lg overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Employee</TableHead>
-                                <TableHead>Assigned Equipment</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                            <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                <TableHead className="text-white font-bold h-12">Employee</TableHead>
+                                <TableHead className="text-white font-bold h-12">Assigned Equipment</TableHead>
+                                <TableHead className="text-white font-bold h-12">Status</TableHead>
+                                <TableHead className="text-right text-white font-bold h-12">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

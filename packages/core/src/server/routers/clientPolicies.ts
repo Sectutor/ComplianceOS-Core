@@ -75,7 +75,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         isAiGenerated: z.boolean().optional(),
       }))
       .mutation(async ({ input }: any) => {
-        let data = { ...input };
+        const data = { ...input };
 
         // Check Plan Limits
         const client = await db.getClientById(data.clientId);
@@ -147,7 +147,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
         return newPolicy;
       }),
 
-    suggestSections: publicProcedure
+    suggestSections: clientProcedure
       .input(z.object({
         policyName: z.string(),
         industry: z.string().optional()

@@ -15,6 +15,10 @@ interface RiskRegisterProps {
     clientId: number;
     onEditRisk: (risk: any) => void;
     heatmapFilter?: { likelihood?: string; impact?: string; type?: string } | null;
+    framework?: string;
+    selectedAssetId?: string | null;
+    onAssetChange?: (id: string | null) => void;
+
 }
 
 // Risk level color mapping
@@ -82,7 +86,8 @@ import {
     AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
 
-export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegisterProps) {
+export function RiskRegister({ clientId, onEditRisk, heatmapFilter, framework, selectedAssetId: propAssetId, onAssetChange }: RiskRegisterProps) {
+
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -92,6 +97,15 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
     const [aiActionRisk, setAiActionRisk] = useState<any>(null);
     const [aiTriageResults, setAiTriageResults] = useState<any>(null);
+    // Internal fallback if not provided via props
+    const [internalAssetId, setInternalAssetId] = useState<string | null>(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('assetId') || null;
+    });
+
+    const selectedAssetId = propAssetId !== undefined ? propAssetId : internalAssetId;
+    const setSelectedAssetId = onAssetChange || setInternalAssetId;
+
 
     // Sorting state
     type SortField = 'assessmentId' | 'threatDescription' | 'likelihood' | 'impact' | 'inherentRisk' | 'residualRisk' | 'treatmentOption' | 'riskOwner' | 'priority' | 'status';
@@ -99,7 +113,13 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     // Fetch risk assessments with treatment counts
+    // Fetch risk assessments with treatment counts
     const { data: risks, isLoading } = trpc.risks.getRiskAssessments.useQuery(
+        { clientId, assetId: selectedAssetId ? Number(selectedAssetId) : undefined },
+        { enabled: !!clientId }
+    );
+
+    const { data: assets } = trpc.risks.getAssets.useQuery(
         { clientId },
         { enabled: !!clientId }
     );
@@ -270,7 +290,7 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
                         risk.assessmentId,
                         `"${(risk.threatDescription || '').replace(/"/g, '""')}"`,
                         `"${(risk.vulnerabilityDescription || '').replace(/"/g, '""')}"`,
-                        `"${parseAffectedAssets(risk.affectedAssets).join('; ')}"`,
+                        `"${(() => { const aId = risk.contextSnapshot?.assetId || (risk as any).assetId; if (aId && assets) { const asset = assets.find((a: any) => a.id === Number(aId)); if (asset) return asset.name; } return parseAffectedAssets(risk.affectedAssets).join('; '); })()}"`,
                         risk.likelihood,
                         risk.impact,
                         risk.inherentRisk,
@@ -372,6 +392,20 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
                             <SelectItem value="closed">Closed</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    <Select value={selectedAssetId || 'all'} onValueChange={(val) => setSelectedAssetId(val === 'all' ? null : val)}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="All Assets" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Assets</SelectItem>
+                            {assets?.map((asset: any) => (
+                                <SelectItem key={asset.id} value={asset.id.toString()}>
+                                    {asset.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     {/* 
                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                         <SelectTrigger className="w-[140px]">
@@ -411,7 +445,7 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
                                 <SortableHeader field="assessmentId" className="text-left text-white">Risk ID</SortableHeader>
                                 <SortableHeader field="threatDescription" className="text-left max-w-[250px] text-white">Description</SortableHeader>
                                 <th className="px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Source</th>
-                                {/* <th className="px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Affected Assets</th> */}
+                                <th className="px-4 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Asset</th>
                                 <SortableHeader field="likelihood" className="text-center text-white">Likelihood</SortableHeader>
                                 <SortableHeader field="impact" className="text-center text-white">Impact</SortableHeader>
                                 <SortableHeader field="inherentRisk" className="text-center text-white">Inherent</SortableHeader>
@@ -466,20 +500,44 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
                                                     {risk.contextSnapshot?.source || 'Manual'}
                                                 </Badge>
                                             </td>
-                                            {/* <td className="px-4 py-4">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {parseAffectedAssets(risk.affectedAssets).slice(0, 2).map((asset, i) => (
-                                                        <Badge key={i} variant="secondary" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
-                                                            {asset}
-                                                        </Badge>
-                                                    ))}
-                                                    {parseAffectedAssets(risk.affectedAssets).length > 2 && (
-                                                        <Badge variant="outline" className="text-xs bg-white text-gray-500 border-gray-300">
-                                                            +{parseAffectedAssets(risk.affectedAssets).length - 2}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </td> */}
+                                            <td className="px-4 py-4">
+                                                {(() => {
+                                                    // Try to find the asset ID in contextSnapshot first
+                                                    const assetId = risk.contextSnapshot?.assetId || (risk as any).assetId;
+
+                                                    if (assetId && assets) {
+                                                        const asset = assets.find((a: any) => a.id === Number(assetId));
+                                                        if (asset) {
+                                                            return (
+                                                                <Badge variant="outline" className="text-xs font-medium bg-white">
+                                                                    {asset.name}
+                                                                </Badge>
+                                                            );
+                                                        }
+                                                    }
+
+                                                    // Fallback to old affectedAssets string array
+                                                    const manualAssets = parseAffectedAssets(risk.affectedAssets);
+                                                    if (manualAssets.length > 0) {
+                                                        return (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {manualAssets.slice(0, 2).map((asset, i) => (
+                                                                    <Badge key={i} variant="secondary" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
+                                                                        {asset}
+                                                                    </Badge>
+                                                                ))}
+                                                                {manualAssets.length > 2 && (
+                                                                    <Badge variant="outline" className="text-xs bg-white text-gray-500 border-gray-300">
+                                                                        +{manualAssets.length - 2}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return <span className="text-xs text-gray-400">-</span>;
+                                                })()}
+                                            </td>
                                             <td className="px-4 py-4 text-center">
                                                 <span className="text-sm text-gray-600">{risk.likelihood || '-'}</span>
                                             </td>
@@ -752,6 +810,7 @@ export function RiskRegister({ clientId, onEditRisk, heatmapFilter }: RiskRegist
                 onOpenChange={(open) => !open && setSelectedRisk(null)}
                 risk={selectedRisk}
                 clientId={clientId}
+                assets={assets}
             />
 
             {/* Delete Confirmation Alert */}

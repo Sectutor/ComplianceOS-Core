@@ -115,7 +115,7 @@ export default function AuditHub() {
         });
     };
 
-    const isAdmin = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'owner';
+    const isAdmin = user?.user_metadata?.role === 'admin' || user?.user_metadata?.role === 'owner' || user?.user_metadata?.role === 'super_admin';
 
     // Live Data Fetching
     const { data: frameworksData } = trpc.evidence.getFrameworks.useQuery();
@@ -446,15 +446,15 @@ export default function AuditHub() {
             <div className="flex flex-col h-[calc(100vh-64px)] w-full bg-slate-50/50 overflow-hidden">
 
                 {/* 1. Universal Header (Audit Context) - Professionally Redesigned */}
-                <header className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-40 relative shadow-sm">
+                <header className="h-16 bg-white border-b flex items-center justify-between pl-4 pr-4 md:pl-20 md:pr-8 shrink-0 z-40 relative shadow-sm">
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-3">
-                            <div className="bg-[#0f172a] h-9 w-9 rounded-lg flex items-center justify-center shadow-sm ring-1 ring-slate-900/5">
+                            <div className="bg-[#1C4D8D] h-9 w-9 rounded-lg flex items-center justify-center shadow-sm ring-1 ring-slate-900/5">
                                 <Shield className="h-5 w-5 text-emerald-400" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-slate-900 leading-tight tracking-tight">AuditWorkspace™</h1>
-                                <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Secure Clean Room</div>
+                                <h1 className="font-bold text-[#1C4D8D] leading-tight tracking-tight">AuditWorkspace™</h1>
+                                <div className="text-[10px] font-bold text-[#1C4D8D]/60 uppercase tracking-wider">Secure Clean Room</div>
                             </div>
                         </div>
                         <div className="h-8 w-px bg-slate-200" />
@@ -1917,18 +1917,18 @@ function NavButton({ active, onClick, icon: Icon, label, count }: { active: bool
         <button
             onClick={onClick}
             className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all group border-l-2",
+                "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-bold transition-all group",
                 active
-                    ? "bg-indigo-50 text-indigo-700 border-indigo-600 shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-transparent hover:border-slate-200"
+                    ? "bg-[#3ABEF9] text-white shadow-sm ring-1 ring-[#3ABEF9]/50"
+                    : "bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]"
             )}
         >
-            <Icon className={cn("h-4.5 w-4.5 transition-colors", active ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} />
+            <Icon className={cn("h-4.5 w-4.5 transition-colors", active ? "text-white" : "text-white/80 group-hover:text-white")} />
             <span>{label}</span>
             {count !== undefined && (
                 <span className={cn(
                     "ml-auto text-[10px] font-bold py-0.5 px-2 rounded-full",
-                    active ? "bg-indigo-100/50 text-indigo-700" : "bg-slate-100 text-slate-500"
+                    active ? "bg-white/20 text-white" : "bg-white/10 text-white/90"
                 )}>
                     {count}
                 </span>

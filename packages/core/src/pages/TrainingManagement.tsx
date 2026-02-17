@@ -107,7 +107,7 @@ export default function TrainingManagement({ hideLayout = false, clientId: propC
     };
 
     const content = (
-        <div className={hideLayout ? "" : "p-8 max-w-7xl mx-auto space-y-8"}>
+        <div className={hideLayout ? "space-y-8" : "pl-4 pr-4 py-8 md:pl-20 md:pr-8 space-y-8 w-full max-w-full animate-in fade-in duration-700"}>
             {!hideLayout && (
                 <div className="flex items-center justify-between">
                     <div>
@@ -157,12 +157,12 @@ export default function TrainingManagement({ hideLayout = false, clientId: propC
                 <CardContent>
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Progress</TableHead>
-                                <TableHead>Visibility</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                            <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                <TableHead className="text-white font-bold h-12">Title</TableHead>
+                                <TableHead className="text-white font-bold h-12">Type</TableHead>
+                                <TableHead className="text-white font-bold h-12">Progress</TableHead>
+                                <TableHead className="text-white font-bold h-12">Visibility</TableHead>
+                                <TableHead className="text-right text-white font-bold h-12">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

@@ -97,6 +97,10 @@ export default function POAMTracker() {
     // Plan Management State
     const [selectedPoamId, setSelectedPoamId] = useState<number | null>(null);
 
+    // Filter & Search State
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
     // Reset selection on client change
     useEffect(() => {
         setSelectedPoamId(null);
@@ -317,10 +321,6 @@ export default function POAMTracker() {
             </DashboardLayout>
         );
     }
-
-    // Filter & Search State
-    const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
     const items = poamData?.items || [];
 

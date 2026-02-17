@@ -27,6 +27,7 @@ export default function ASVSView() {
     const [activeCategoryCode, setActiveCategoryCode] = useState<string | null>(null);
     const [filterLevel, setFilterLevel] = useState<string>("all");
     const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string>("all");
 
     // Queries
     const { data: categories, isLoading: loadingCategories } = trpc.asvs.getCategories.useQuery();
@@ -94,27 +95,34 @@ export default function ASVSView() {
 
     // Calculate completion stats for current category using optimistic data
     const stats = useMemo(() => {
-        if (!categoryData) return { total: 0, completed: 0, passed: 0, percent: 0 };
+        if (!categoryData) return { total: 0, completed: 0, pass: 0, fail: 0, na: 0, pending: 0, percent: 0 };
         const total = categoryData.length;
 
-        let completed = 0;
-        let passed = 0;
+        let pass = 0;
+        let fail = 0;
+        let na = 0;
+        let pending = 0;
 
         categoryData.forEach(item => {
-            // Use optimistic assessment if available, otherwise fall back to fetched data (which might be null)
             const assessment = optimisticAssessments[item.requirementId] || item.assessment;
+            const status = assessment?.status || "unanswered";
 
-            if (assessment && assessment.status !== "unanswered") {
-                completed++;
-                if (assessment.status === "pass" || assessment.status === "na") passed++;
-            }
+            if (status === "pass") pass++;
+            else if (status === "fail") fail++;
+            else if (status === "na") na++;
+            else pending++;
         });
+
+        // Current calc for percentage: (Pass + N/A) / Total
+        const passedForCalc = pass + na;
 
         return {
             total,
-            completed,
-            passed,
-            percent: total > 0 ? Math.round((passed / total) * 100) : 0
+            pass,
+            fail,
+            na,
+            pending,
+            percent: total > 0 ? Math.round((passedForCalc / total) * 100) : 0
         };
     }, [categoryData, optimisticAssessments]);
 
@@ -128,6 +136,13 @@ export default function ASVSView() {
                 if (filterLevel === "2" && !req.level2) return false;
                 if (filterLevel === "3" && !req.level3) return false;
             }
+            // Filter by Status
+            if (statusFilter !== "all") {
+                const assessment = optimisticAssessments[req.requirementId] || req.assessment;
+                const status = assessment?.status || "unanswered";
+                if (statusFilter === "pending" && status !== "unanswered") return false;
+                if (statusFilter !== "pending" && status !== statusFilter) return false;
+            }
             // Filter by Search
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
@@ -137,7 +152,7 @@ export default function ASVSView() {
             }
             return true;
         });
-    }, [categoryData, filterLevel, searchQuery]);
+    }, [categoryData, filterLevel, searchQuery, statusFilter, optimisticAssessments]);
 
 
     if (loadingCategories) {
@@ -249,6 +264,73 @@ export default function ASVSView() {
 
                     {/* Main Content */}
                     <div className="col-span-12 lg:col-span-9 space-y-6">
+                        {/* Verdict Dashboard */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button
+                                onClick={() => setStatusFilter(statusFilter === "pass" ? "all" : "pass")}
+                                className={`p-4 rounded-3xl border transition-all text-left group ${statusFilter === "pass"
+                                    ? "bg-emerald-500 border-emerald-600 shadow-lg shadow-emerald-200"
+                                    : "bg-white border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/30"
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className={`p-2 rounded-xl ${statusFilter === "pass" ? "bg-white/20" : "bg-emerald-100"}`}>
+                                        <CheckCircle2 className={`w-5 h-5 ${statusFilter === "pass" ? "text-white" : "text-emerald-600"}`} />
+                                    </div>
+                                    <span className={`text-2xl font-black ${statusFilter === "pass" ? "text-white" : "text-slate-900"}`}>{stats.pass}</span>
+                                </div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${statusFilter === "pass" ? "text-white/80" : "text-slate-400 group-hover:text-emerald-600"}`}>Pass</p>
+                            </button>
+
+                            <button
+                                onClick={() => setStatusFilter(statusFilter === "fail" ? "all" : "fail")}
+                                className={`p-4 rounded-3xl border transition-all text-left group ${statusFilter === "fail"
+                                    ? "bg-red-500 border-red-600 shadow-lg shadow-red-200"
+                                    : "bg-white border-slate-200 hover:border-red-200 hover:bg-red-50/30"
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className={`p-2 rounded-xl ${statusFilter === "fail" ? "bg-white/20" : "bg-red-100"}`}>
+                                        <Target className={`w-5 h-5 ${statusFilter === "fail" ? "text-white" : "text-red-600"}`} />
+                                    </div>
+                                    <span className={`text-2xl font-black ${statusFilter === "fail" ? "text-white" : "text-slate-900"}`}>{stats.fail}</span>
+                                </div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${statusFilter === "fail" ? "text-white/80" : "text-slate-400 group-hover:text-red-600"}`}>Fail</p>
+                            </button>
+
+                            <button
+                                onClick={() => setStatusFilter(statusFilter === "na" ? "all" : "na")}
+                                className={`p-4 rounded-3xl border transition-all text-left group ${statusFilter === "na"
+                                    ? "bg-slate-700 border-slate-800 shadow-lg shadow-slate-200"
+                                    : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className={`p-2 rounded-xl ${statusFilter === "na" ? "bg-white/20" : "bg-slate-100"}`}>
+                                        <Info className={`w-5 h-5 ${statusFilter === "na" ? "text-white" : "text-slate-600"}`} />
+                                    </div>
+                                    <span className={`text-2xl font-black ${statusFilter === "na" ? "text-white" : "text-slate-900"}`}>{stats.na}</span>
+                                </div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${statusFilter === "na" ? "text-white/80" : "text-slate-400 group-hover:text-slate-600"}`}>N/A</p>
+                            </button>
+
+                            <button
+                                onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
+                                className={`p-4 rounded-3xl border transition-all text-left group ${statusFilter === "pending"
+                                    ? "bg-primary border-primary shadow-lg shadow-primary/20"
+                                    : "bg-white border-slate-200 hover:border-primary/30 hover:bg-primary/5"
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className={`p-2 rounded-xl ${statusFilter === "pending" ? "bg-white/20" : "bg-blue-100"}`}>
+                                        <ListChecks className={`w-5 h-5 ${statusFilter === "pending" ? "text-white" : "text-primary"}`} />
+                                    </div>
+                                    <span className={`text-2xl font-black ${statusFilter === "pending" ? "text-white" : "text-slate-900"}`}>{stats.pending}</span>
+                                </div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${statusFilter === "pending" ? "text-white/80" : "text-slate-400 group-hover:text-primary"}`}>Pending</p>
+                            </button>
+                        </div>
+
                         {activeCategory && (
                             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                                 {/* Header Stats */}
@@ -265,10 +347,21 @@ export default function ASVSView() {
                                     <div className="flex flex-col items-end gap-2">
                                         <div className="text-right">
                                             <span className="text-xs uppercase tracking-widest font-black text-slate-400 block mb-1">Compliance</span>
-                                            <span className="text-4xl font-black text-primary">{stats.percent}%</span>
+                                            <div className="flex items-center gap-3">
+                                                {statusFilter !== "all" && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="cursor-pointer hover:bg-slate-100"
+                                                        onClick={() => setStatusFilter("all")}
+                                                    >
+                                                        Filter: {statusFilter.toUpperCase()} ×
+                                                    </Badge>
+                                                )}
+                                                <span className="text-4xl font-black text-primary">{stats.percent}%</span>
+                                            </div>
                                         </div>
                                         <div className="flex gap-2 text-xs font-bold text-slate-400">
-                                            <span>{stats.passed} Passed</span>
+                                            <span>{stats.pass} Passed</span>
                                             <span>/</span>
                                             <span>{stats.total} Total</span>
                                         </div>
@@ -350,17 +443,18 @@ function RequirementItem({ data, clientId, onUpdate }: {
     const [notes, setNotes] = useState(assessment?.notes || "");
     const [saving, setSaving] = useState(false);
 
+    // Initial sync
     useEffect(() => {
-        setStatus(assessment?.status || "unanswered");
-        setNotes(assessment?.notes || "");
+        if (assessment) {
+            setStatus(assessment.status || "unanswered");
+            setNotes(assessment.notes || "");
+        }
     }, [assessment]);
 
     const updateMutation = trpc.asvs.updateAssessment.useMutation({
         onSuccess: () => {
             onUpdate(requirement.requirementId, status, notes);
-            toast.success("Assessment updated");
             setSaving(false);
-            setIsExpanded(false);
         },
         onError: (err) => {
             toast.error(`Failed to update: ${err.message}`);
@@ -368,15 +462,25 @@ function RequirementItem({ data, clientId, onUpdate }: {
         }
     });
 
-    const handleSave = () => {
-        setSaving(true);
-        updateMutation.mutate({
-            clientId,
-            requirementId: requirement.requirementId,
-            status,
-            notes
-        });
-    };
+    // Autosave effect with debounce
+    useEffect(() => {
+        // Skip if nothing changed from current remote state
+        if (status === (assessment?.status || "unanswered") && notes === (assessment?.notes || "")) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setSaving(true);
+            updateMutation.mutate({
+                clientId,
+                requirementId: requirement.requirementId,
+                status,
+                notes
+            });
+        }, 800);
+
+        return () => clearTimeout(timer);
+    }, [status, notes, clientId, requirement.requirementId, assessment]);
 
     const StatusBadge = ({ s }: { s: RequirementStatus }) => {
         switch (s) {
@@ -409,7 +513,8 @@ function RequirementItem({ data, clientId, onUpdate }: {
                     </div>
                 </div>
 
-                <div className="min-w-[80px] flex justify-end">
+                <div className="min-w-[80px] flex justify-end items-center gap-2">
+                    {saving && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>}
                     <StatusBadge s={status} />
                 </div>
             </div>
@@ -423,7 +528,7 @@ function RequirementItem({ data, clientId, onUpdate }: {
                                 <Button
                                     size="sm"
                                     variant={status === "pass" ? "default" : "outline"}
-                                    onClick={() => setStatus("pass")}
+                                    onClick={(e) => { e.stopPropagation(); setStatus("pass"); }}
                                     className={status === "pass" ? "bg-emerald-500 hover:bg-emerald-600 border-none" : "hover:text-emerald-600 hover:border-emerald-200"}
                                 >
                                     Pass
@@ -431,7 +536,7 @@ function RequirementItem({ data, clientId, onUpdate }: {
                                 <Button
                                     size="sm"
                                     variant={status === "fail" ? "default" : "outline"}
-                                    onClick={() => setStatus("fail")}
+                                    onClick={(e) => { e.stopPropagation(); setStatus("fail"); }}
                                     className={status === "fail" ? "bg-red-500 hover:bg-red-600 border-none" : "hover:text-red-600 hover:border-red-200"}
                                 >
                                     Fail
@@ -439,7 +544,7 @@ function RequirementItem({ data, clientId, onUpdate }: {
                                 <Button
                                     size="sm"
                                     variant={status === "na" ? "default" : "outline"}
-                                    onClick={() => setStatus("na")}
+                                    onClick={(e) => { e.stopPropagation(); setStatus("na"); }}
                                 >
                                     N/A
                                 </Button>
@@ -455,12 +560,6 @@ function RequirementItem({ data, clientId, onUpdate }: {
                                 onChange={(e) => setNotes(e.target.value)}
                             />
                         </div>
-                    </div>
-                    <div className="flex justify-end gap-2 mt-4">
-                        <Button variant="ghost" size="sm" onClick={() => setIsExpanded(false)}>Cancel</Button>
-                        <Button size="sm" onClick={handleSave} disabled={saving} className="bg-primary shadow-lg shadow-primary/20">
-                            {saving ? "Saving..." : "Save Assessment"}
-                        </Button>
                     </div>
                 </div>
             )}

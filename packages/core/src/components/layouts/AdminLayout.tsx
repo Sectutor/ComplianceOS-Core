@@ -41,8 +41,7 @@ const adminMenuItems = [
     { icon: History, label: "Audit Logs", path: "/admin/audit" },
     { icon: Variable, label: "LLM Settings", path: "/admin/llm" },
     // { icon: CloudCog, label: "Cloud Integrations", path: "/admin/cloud" },
-    { icon: Bug, label: "Issue Trackers", path: "/admin/issue-tracker" },
-    { icon: CreditCard, label: "Billing", path: "/admin/billing" },
+    { icon: CreditCard, label: "Billing", path: "/clients/730/settings?tab=billing" },
     { icon: Users, label: "Waitlist", path: "/sales/waitlist" },
     { icon: Contact2, label: "Global CRM", path: "/admin/crm" },
 ];
@@ -239,11 +238,11 @@ function AdminLayoutContent({
             </div>
 
             <SidebarInset>
-                <header className="flex h-14 items-center gap-4 border-b bg-background px-6">
+                <header className="flex h-14 items-center gap-4 border-b bg-background pl-4 pr-4 md:pl-20 md:pr-8">
                     {isMobile && <SidebarTrigger />}
                     <div className="font-semibold">Administration</div>
                 </header>
-                <main className="flex-1 p-6 overflow-auto">
+                <main className="flex-1 pl-4 pr-4 py-8 md:pl-20 md:pr-8 overflow-auto">
                     {children}
                 </main>
             </SidebarInset>

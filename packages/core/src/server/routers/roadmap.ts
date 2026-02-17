@@ -56,7 +56,7 @@ export const createRoadmapRouter = (t: any, publicProcedure: any, adminProcedure
 
                 for (const gapRow of gaps) {
                     const gap = gapRow.gap_responses;
-                    let matchingPlaybook = playbooks.find((p: typeof schema.remediationPlaybooks.$inferSelect) => {
+                    const matchingPlaybook = playbooks.find((p: typeof schema.remediationPlaybooks.$inferSelect) => {
                         try {
                             return new RegExp(p.gapPattern, 'i').test(gap.controlId);
                         } catch { return false; }

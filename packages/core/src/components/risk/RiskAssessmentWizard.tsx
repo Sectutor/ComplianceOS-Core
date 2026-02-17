@@ -24,9 +24,10 @@ interface RiskAssessmentWizardProps {
     clientId: number;
     onSuccess: () => void;
     initialData?: any;
+    framework?: string;
 }
 
-export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, initialData }: RiskAssessmentWizardProps) {
+export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, initialData, framework }: RiskAssessmentWizardProps) {
     const [step, setStep] = useState<WizardStep>('method');
     const [loading, setLoading] = useState(false);
 
@@ -52,6 +53,7 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
 
     // Mutations
     const upsertRiskMutation = trpc.risks.upsert.useMutation();
+    const saveTreatmentMutation = trpc.risks.saveTreatmentPlan.useMutation();
     const linkControlMutation = trpc.risks.linkControl.useMutation();
     const suggestControlsMutation = trpc.risks.suggestControls.useMutation();
 
@@ -63,7 +65,7 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
     const { data: assets } = trpc.risks.getAssets.useQuery({ clientId }, { enabled: open && step === 'scope' }); // Legacy? Might need new router
     const { data: threats } = trpc.risks.getThreats.useQuery({ clientId }, { enabled: open && step === 'scope' }); // Legacy?
     const { data: vulnerabilities } = trpc.risks.getVulnerabilities.useQuery({ clientId }, { enabled: open && step === 'scope' }); // Legacy?
-    const { data: controls } = trpc.clientControls.list.useQuery({ clientId }, { enabled: open && step === 'treatment' });
+    const { data: controls } = trpc.clientControls.list.useQuery({ clientId, framework }, { enabled: open && step === 'treatment' });
 
     // Computed
     const inherentScore = formData.likelihood * formData.impact;
@@ -119,6 +121,10 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
                     riskOwner: initialData.riskOwner || '',
                     priority: initialData.priority || 'Medium',
                 });
+                // If this is a new risk being created via a deep link/pre-fill, 
+                // skip the method selection and jump to scope definition
+                const isQuickStart = !initialData.id && (initialData.title || initialData.description || initialData.assetId);
+                setStep(isQuickStart ? 'scope' : 'method');
             } else {
                 setFormData({
                     assessmentType: 'asset',
@@ -193,24 +199,16 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
                 }
             });
 
-            // 2. Link Controls if Mitigate strategy and controls selected
-            if (formData.treatmentStrategy === 'mitigate' && formData.selectedControlIds.length > 0) {
-                // Loop for now, ideal to have bulk link endpoint
-                for (const cid of formData.selectedControlIds) {
-                    // We need a treatment ID. The upsert currently just creates assessment.
-                    // IMPORTANT: The treatment model structure implies we need to create a treatment entry first?
-                    // For this MVP step, we might be skipping explicit treatment creation in the Wizard and just linking control to assessment?
-                    // Re-reading schema: `treatment_controls` links `treatmentId` and `controlId`.
-                    // `riskTreatments` links to `riskAssessmentId`.
-
-                    // We need to create a treatment record first. 
-                    // Since `upsert` in `risks` router was simplified, let's assume valid flow:
-                    // We should add `treatments` handling to `upsert` or make a separate call.
-                    // For now, let's just complete the Assessment creation. Full treatment logic might need `riskTreatments` creation.
-
-                    // Simplification: We just save the assessment. Linking controls requires a treatment record which we haven't created here.
-                    // TODO: Post-MVP, create `risk_treatment` record then link controls.
-                }
+            // 2. Link Controls / Save Treatment Plan
+            if (formData.treatmentStrategy) {
+                await saveTreatmentMutation.mutateAsync({
+                    riskAssessmentId: risk.id,
+                    clientId,
+                    treatmentType: formData.treatmentStrategy as any,
+                    strategy: formData.description || 'Mitigation via selected controls',
+                    owner: formData.riskOwner,
+                    controlIds: formData.selectedControlIds
+                });
             }
 
             onSuccess();
@@ -282,12 +280,44 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
                     <div className="space-y-6">
                         <div className="space-y-4">
                             <Label className="text-base">1. Define Scope ({formData.assessmentType})</Label>
+
+                            {formData.assessmentType === 'asset' && (
+                                <div className="space-y-2">
+                                    <Label>Select Asset *</Label>
+                                    <Select
+                                        value={formData.assetId?.toString()}
+                                        onValueChange={(val) => {
+                                            const asset = assets?.find((a: any) => a.id.toString() === val);
+                                            if (asset) {
+                                                setFormData({
+                                                    ...formData,
+                                                    assetId: asset.id,
+                                                    title: formData.title || `Risk to ${asset.name}`,
+                                                    description: formData.description || `Potential compromise of ${asset.name} (${asset.type}).`,
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Choose an asset..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {assets?.map((a: any) => (
+                                                <SelectItem key={a.id} value={a.id.toString()}>
+                                                    {a.name} ({a.type})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <Label>Title *</Label>
                                 <Input placeholder="Risk Title (e.g. Data Breach)" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             </div>
-                            {/* Simplified Scope Selection */}
                         </div>
+
                         <div className="space-y-4">
                             <Label className="text-base">2. Risk Context</Label>
                             <div className="grid grid-cols-2 gap-4">
@@ -457,7 +487,8 @@ export function RiskAssessmentWizard({ open, onOpenChange, clientId, onSuccess, 
                                                     const result = await suggestControlsMutation.mutateAsync({
                                                         clientId,
                                                         threat: formData.threatCategory || formData.description || 'Unknown threat',
-                                                        vulnerability: formData.vulnerability || formData.description || 'Unknown vulnerability'
+                                                        vulnerability: formData.vulnerability || formData.description || 'Unknown vulnerability',
+                                                        framework
                                                     });
                                                     setAiSuggestions(result.suggestions || []);
                                                 } catch (e) {

@@ -12,6 +12,7 @@ import { RiskReportGenerateAllButton } from '@/components/risk/RiskReportGenerat
 import { GapAnalysisAIButton } from '@/components/gap-analysis/GapAnalysisAIButton';
 import PolicyRewriteButton from '@/components/policy/PolicyRewriteButton';
 import PolicySectionDraftButton from '@/components/policy/PolicySectionDraftButton';
+import SecurityAdvisorStatus from '@/components/security/SecurityAdvisorStatus';
 
 export function registerPremium() {
     console.log('[Registry] Registering PREMIUM AI components...');
@@ -37,6 +38,9 @@ export function registerPremium() {
 
     // Gap Analysis
     registry.register(SlotNames.GAP_ANALYSIS_AI_BUTTON, GapAnalysisAIButton);
+    
+    // Dashboard
+    registry.register(SlotNames.DASHBOARD_WIDGETS, SecurityAdvisorStatus);
     
     console.log('[Registry] Premium AI components registered.');
 }

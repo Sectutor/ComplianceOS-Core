@@ -3,6 +3,8 @@ import { TRPCError } from '@trpc/server';
 import { eq, and } from 'drizzle-orm';
 import * as db from '../../db';
 
+import * as schema from '../../schema';
+
 export const createSammV2Router = (t: any, clientProcedure: any) => {
     return t.router({
         // ============================================================================
@@ -17,17 +19,16 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 clientId: z.number().optional(),
                 businessFunction: z.string().optional(), // Filter by function
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { clientId?: number, businessFunction?: string } }) => {
                 const dbConn = await db.getDb();
-                const { sammPractices } = await import('../../schema');
 
-                let query = dbConn.select().from(sammPractices);
+                let query = dbConn.select().from(schema.sammPractices);
 
                 if (input.businessFunction) {
-                    query = query.where(eq(sammPractices.businessFunction, input.businessFunction)) as any;
+                    query = query.where(eq(schema.sammPractices.businessFunction, input.businessFunction)) as any;
                 }
 
-                const practices = await query.orderBy(sammPractices.order);
+                const practices = await query.orderBy(schema.sammPractices.order);
 
                 return practices;
             }),
@@ -41,25 +42,24 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 streamId: z.enum(['A', 'B']),
                 level: z.number().min(0).max(3).optional(), // If not provided, get all levels
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { practiceId: string, streamId: 'A' | 'B', level?: number } }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamQuestions } = await import('../../schema');
 
-                let query = dbConn.select().from(sammStreamQuestions)
+                let query = dbConn.select().from(schema.sammStreamQuestions)
                     .where(and(
-                        eq(sammStreamQuestions.practiceId, input.practiceId),
-                        eq(sammStreamQuestions.streamId, input.streamId)
+                        eq(schema.sammStreamQuestions.practiceId, input.practiceId),
+                        eq(schema.sammStreamQuestions.streamId, input.streamId)
                     ));
 
                 if (input.level !== undefined) {
                     query = query.where(and(
-                        eq(sammStreamQuestions.practiceId, input.practiceId),
-                        eq(sammStreamQuestions.streamId, input.streamId),
-                        eq(sammStreamQuestions.level, input.level)
+                        eq(schema.sammStreamQuestions.practiceId, input.practiceId),
+                        eq(schema.sammStreamQuestions.streamId, input.streamId),
+                        eq(schema.sammStreamQuestions.level, input.level)
                     )) as any;
                 }
 
-                const questions = await query.orderBy(sammStreamQuestions.level);
+                const questions = await query.orderBy(schema.sammStreamQuestions.level);
 
                 return questions;
             }),
@@ -71,7 +71,7 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
             .input(z.object({
                 practiceId: z.string(),
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { practiceId: string } }) => {
                 const dbConn = await db.getDb();
                 const { sammStreamQuestions } = await import('../../schema');
 
@@ -103,18 +103,17 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 clientId: z.number(),
                 practiceId: z.string().optional(),
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { clientId: number, practiceId?: string } }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments } = await import('../../schema');
 
                 let query = dbConn.select()
-                    .from(sammStreamAssessments)
-                    .where(eq(sammStreamAssessments.clientId, input.clientId));
+                    .from(schema.sammStreamAssessments)
+                    .where(eq(schema.sammStreamAssessments.clientId, input.clientId));
 
                 if (input.practiceId) {
                     query = query.where(and(
-                        eq(sammStreamAssessments.clientId, input.clientId),
-                        eq(sammStreamAssessments.practiceId, input.practiceId)
+                        eq(schema.sammStreamAssessments.clientId, input.clientId),
+                        eq(schema.sammStreamAssessments.practiceId, input.practiceId)
                     )) as any;
                 }
 
@@ -132,16 +131,15 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 practiceId: z.string(),
                 streamId: z.enum(['A', 'B']),
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { clientId: number, practiceId: string, streamId: 'A' | 'B' } }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments } = await import('../../schema');
 
                 const [assessment] = await dbConn.select()
-                    .from(sammStreamAssessments)
+                    .from(schema.sammStreamAssessments)
                     .where(and(
-                        eq(sammStreamAssessments.clientId, input.clientId),
-                        eq(sammStreamAssessments.practiceId, input.practiceId),
-                        eq(sammStreamAssessments.streamId, input.streamId)
+                        eq(schema.sammStreamAssessments.clientId, input.clientId),
+                        eq(schema.sammStreamAssessments.practiceId, input.practiceId),
+                        eq(schema.sammStreamAssessments.streamId, input.streamId)
                     ));
 
                 return assessment || null;
@@ -163,23 +161,23 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 notes: z.string().optional(),
                 improvementNotes: z.string().optional(),
                 levelNotes: z.record(z.string()).optional(),
+                criteriaNotes: z.record(z.record(z.string())).optional(),
             }))
-            .mutation(async ({ input, ctx }) => {
+            .mutation(async ({ input, ctx }: { input: any, ctx: any }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments } = await import('../../schema');
 
                 // Check if assessment exists
                 const [existing] = await dbConn.select()
-                    .from(sammStreamAssessments)
+                    .from(schema.sammStreamAssessments)
                     .where(and(
-                        eq(sammStreamAssessments.clientId, input.clientId),
-                        eq(sammStreamAssessments.practiceId, input.practiceId),
-                        eq(sammStreamAssessments.streamId, input.streamId)
+                        eq(schema.sammStreamAssessments.clientId, input.clientId),
+                        eq(schema.sammStreamAssessments.practiceId, input.practiceId),
+                        eq(schema.sammStreamAssessments.streamId, input.streamId)
                     ));
 
                 if (existing) {
                     // Update existing
-                    await dbConn.update(sammStreamAssessments)
+                    await dbConn.update(schema.sammStreamAssessments)
                         .set({
                             maturityLevel: input.maturityLevel,
                             targetLevel: input.targetLevel,
@@ -189,16 +187,17 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                             notes: input.notes,
                             improvementNotes: input.improvementNotes,
                             levelNotes: input.levelNotes as any,
+                            criteriaNotes: input.criteriaNotes as any,
                             assessmentDate: new Date(),
                             assessedBy: ctx.user?.id,
                             updatedAt: new Date(),
                         })
-                        .where(eq(sammStreamAssessments.id, existing.id));
+                        .where(eq(schema.sammStreamAssessments.id, existing.id));
 
                     return { success: true, id: existing.id, action: 'updated' };
                 } else {
                     // Create new
-                    const [inserted] = await dbConn.insert(sammStreamAssessments)
+                    const [inserted] = await dbConn.insert(schema.sammStreamAssessments)
                         .values({
                             clientId: input.clientId,
                             practiceId: input.practiceId,
@@ -211,6 +210,7 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                             notes: input.notes,
                             improvementNotes: input.improvementNotes,
                             levelNotes: input.levelNotes as any,
+                            criteriaNotes: input.criteriaNotes as any,
                             assessmentDate: new Date(),
                             assessedBy: ctx.user?.id,
                         })
@@ -232,15 +232,14 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 clientId: z.number(),
                 practiceId: z.string(),
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { clientId: number, practiceId: string } }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments } = await import('../../schema');
 
                 const streams = await dbConn.select()
-                    .from(sammStreamAssessments)
+                    .from(schema.sammStreamAssessments)
                     .where(and(
-                        eq(sammStreamAssessments.clientId, input.clientId),
-                        eq(sammStreamAssessments.practiceId, input.practiceId)
+                        eq(schema.sammStreamAssessments.clientId, input.clientId),
+                        eq(schema.sammStreamAssessments.practiceId, input.practiceId)
                     ));
 
                 if (streams.length === 0) {
@@ -281,17 +280,16 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
             .input(z.object({
                 clientId: z.number(),
             }))
-            .query(async ({ input }) => {
+            .query(async ({ input }: { input: { clientId: number } }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments, sammPractices } = await import('../../schema');
 
                 // Get all assessments
                 const assessments = await dbConn.select()
-                    .from(sammStreamAssessments)
-                    .where(eq(sammStreamAssessments.clientId, input.clientId));
+                    .from(schema.sammStreamAssessments)
+                    .where(eq(schema.sammStreamAssessments.clientId, input.clientId));
 
                 // Get all practices
-                const practices = await dbConn.select().from(sammPractices);
+                const practices = await dbConn.select().from(schema.sammPractices);
 
                 if (assessments.length === 0) {
                     return {
@@ -326,7 +324,7 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 // Group by business function
                 const functionScores: Record<string, { current: number; target: number; count: number }> = {};
 
-                practices.forEach(practice => {
+                practices.forEach((practice: any) => {
                     const func = practice.businessFunction;
                     if (!functionScores[func]) {
                         functionScores[func] = { current: 0, target: 0, count: 0 };
@@ -379,14 +377,13 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
             .input(z.object({
                 clientId: z.number(),
             }))
-            .mutation(async ({ input, ctx }) => {
+            .mutation(async ({ input, ctx }: { input: { clientId: number }, ctx: any }) => {
                 const dbConn = await db.getDb();
-                const { sammStreamAssessments, sammStreamQuestions, implementationPlans, implementationTasks } = await import('../../schema');
 
                 // Get all assessments
                 const assessments = await dbConn.select()
-                    .from(sammStreamAssessments)
-                    .where(eq(sammStreamAssessments.clientId, input.clientId));
+                    .from(schema.sammStreamAssessments)
+                    .where(eq(schema.sammStreamAssessments.clientId, input.clientId));
 
                 if (assessments.length === 0) {
                     throw new TRPCError({
@@ -411,11 +408,11 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 for (const gap of gaps) {
                     // Get questions for the target level
                     const questions = await dbConn.select()
-                        .from(sammStreamQuestions)
+                        .from(schema.sammStreamQuestions)
                         .where(and(
-                            eq(sammStreamQuestions.practiceId, gap.practiceId),
-                            eq(sammStreamQuestions.streamId, gap.streamId),
-                            eq(sammStreamQuestions.level, gap.targetLevel)
+                            eq(schema.sammStreamQuestions.practiceId, gap.practiceId),
+                            eq(schema.sammStreamQuestions.streamId, gap.streamId),
+                            eq(schema.sammStreamQuestions.level, gap.targetLevel)
                         ));
 
                     const question = questions[0];
@@ -445,7 +442,7 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                 }
 
                 // Create implementation plan
-                const [plan] = await dbConn.insert(implementationPlans).values({
+                const [plan] = await dbConn.insert(schema.implementationPlans).values({
                     clientId: input.clientId,
                     title: 'SAMM v2 Improvement Plan',
                     description: `Generated from SAMM v2 stream-based assessment. ${gaps.length} ${gaps.length === 1 ? 'stream' : 'streams'} identified for improvement out of ${assessments.length} assessed streams.`,
@@ -467,7 +464,7 @@ export const createSammV2Router = (t: any, clientProcedure: any) => {
                     createdById: ctx.user?.id || 1,
                 }));
 
-                await dbConn.insert(implementationTasks).values(tasksToInsert);
+                await dbConn.insert(schema.implementationTasks).values(tasksToInsert);
 
                 return {
                     success: true,

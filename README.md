@@ -2,13 +2,11 @@
 
 <div align="center">
 
-<img width="2385" height="1054" alt="image" src="https://github.com/user-attachments/assets/0aea91ee-a5c7-4abc-b1ee-2c25a259b28b" />
-
 ![GRCompliance Dashboard](./docs/assets/screenshots/dashboard.png)
 
 **The Open Source Operating System for Governance, Risk, and Compliance.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.0-61DAFB.svg)](https://reactjs.org/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
@@ -84,16 +82,30 @@ Prepare for and respond to cyber incidents.
 - **Cyber Assessments**: Regular maturity assessments against cyber frameworks.
 
 
-## ⚖️ Why GRCompliance?
+## ⚖️ Core vs Enterprise
+GRCompliance operates on an **Open Core** model. We believe security should be accessible to everyone, but advanced automation and specialized frameworks require sustained development.
 
-| Feature | 🚀 GRCompliance | 📉 Spreadsheets | 🏢 Commercial (Vanta/Drata) |
+| Feature | 🟢 Community (Core) | 💎 Enterprise (Premium) |
+| :--- | :---: | :---: |
+| **Frameworks** | ISO 27001, SOC 2, HIPAA, GDPR | **+ FedRAMP, CMMC, NIST 800-53** |
+| **Risk Management** | ISO 31000 Risk Engine | **+ Threat Intelligence, AI Analysis** |
+| **Multi-Tenancy** | Single Workspace | **Unlimited Workspaces (MSP Mode)** |
+| **Automation** | Standard Evidence Collection | **Advanced API Integrations** |
+| **Support** | Community via GitHub | **SLA + Dedicated Success Manager** |
+| **Release Cycle** | Stable Quarterly Releases | **Continuous "Edge" Updates** |
+
+### 🎓 The "Feature Graduation" Philosophy
+We use a time-delayed open source model. New, cutting-edge features (like AI Governance or new Federal standards) are initially released to **Premium** users to fund development. After a stabilization period (typically 3-6 months), these features are "graduated" into the **Community** edition, ensuring the open source platform gets more powerful over time.
+
+## 🏆 Why GRCompliance?
+
+| Metric | 🚀 GRCompliance | 📉 Spreadsheets | 🏢 Commercial (Vanta/Drata) |
 | :--- | :---: | :---: | :---: |
-| **Cost** | **Free (Open Source)** | Free | $15,000+ / year |
-| **Data Privacy** | **Your Cloud / On-Prem** | Local Files | Third-Party Cloud |
-| **Customization** | **Unlimited (Code access)** | High | Rigid / Restricted |
-| **Extensibility** | **Open Addon System** | None | Closed Ecosystem |
-| **Lock-in** | **None** | None | High (Proprietary Data) |
-| **Automation** | **Automated Evidence** | Manual | Automated |
+| **Cost** | **Free (Self-Hosted)** | Free | $15,000+ / year |
+| **Data Privacy** | **On-Prem / Private Cloud** | Local Files | Third-Party SaaS |
+| **Customization** | **Full Code Access** | High | Rigid |
+| **Vendor Lock-in** | **None (Open Data)** | None | High |
+| **Speed** | **Instant Setup** | Manual | Weeks of Sales Calls |
 
 ## 🏗️ Architecture
 
@@ -162,6 +174,7 @@ Visit `http://localhost:5173` to start using GRCompliance.
 Detailed documentation is available in the [`docs/`](./docs) directory:
 
 - [**Addon Development Guide**](./docs/ADDON_SYSTEM.md)
+- [**Strategic Differentiators**](./docs/STRATEGIC_DIFFERENTIATORS.md)
 - [**Architecture Overview**](./docs/architecture.md)
 - [**API Reference**](./docs/api-reference.md)
 - [**Database Schema**](./docs/database-schema.md)
@@ -174,7 +187,29 @@ Please read our [Contributing Guide](./CONTRIBUTING.md) to get started.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+ComplianceOS uses a dual-licensing model:
+
+### Community Edition (AGPLv3)
+The core ComplianceOS platform is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. This allows you to:
+- Use, modify, and distribute the software for free
+- Self-host for personal or business use
+- Contribute improvements back to the community
+
+**Important**: The AGPLv3 requires that if you modify the software and make it available as a network service, you must make your modifications available under the same license.
+
+### Enterprise Edition (Commercial)
+For organizations requiring advanced features, enterprise support, or commercial use rights, we offer a **Commercial License** that includes:
+- AI-Powered Intelligence Suite
+- Advisor & MSP Features (white-labeling)
+- Enterprise Scalability
+- Professional Support & SLA
+- Commercial use rights
+
+For commercial licensing inquiries, please contact us at [sales@complianceos.com](mailto:sales@complianceos.com).
+
+### License Files
+- [AGPLv3 License](./LICENSE) - Community Edition
+- [Commercial License Template](./LICENSE-COMMERCIAL.md) - Enterprise Edition
 
 ---
 

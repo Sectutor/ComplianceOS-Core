@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { router, clientProcedure } from "../../routers";
+import { router, clientProcedure } from "../../server/trpc";
 import * as schema from "../../schema";
 import { eq, desc, and, ilike, or } from "drizzle-orm";
 import * as db from "../../db";
@@ -80,7 +80,7 @@ export const createKnowledgeBaseRouter = (t: any, clientProcedure: any) =>
       .mutation(async ({ input }: any) => {
         const dbConn = await db.getDb();
         const { id, ...updates } = input;
-        
+
         await dbConn
           .update(schema.knowledgeBaseEntries)
           .set({
@@ -88,7 +88,7 @@ export const createKnowledgeBaseRouter = (t: any, clientProcedure: any) =>
             updatedAt: new Date(),
           })
           .where(eq(schema.knowledgeBaseEntries.id, id));
-          
+
         return { success: true };
       }),
 

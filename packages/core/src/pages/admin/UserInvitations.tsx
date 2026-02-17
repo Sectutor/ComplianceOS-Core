@@ -116,9 +116,21 @@ export default function UserInvitations() {
             </div>
 
             <Tabs defaultValue="direct" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-                    <TabsTrigger value="direct">Direct Invites</TabsTrigger>
-                    <TabsTrigger value="magic">Magic Links</TabsTrigger>
+                <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl mb-6">
+                    <TabsTrigger
+                        value="direct"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        <Mail className="w-4 h-4" />
+                        Direct Invites
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="magic"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        <LinkIcon className="w-4 h-4" />
+                        Magic Links
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="direct" className="space-y-4">
@@ -223,7 +235,7 @@ export default function UserInvitations() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {invitations && invitations.length > 0 ? (
+                                            {Array.isArray(invitations) && invitations.length > 0 ? (
                                                 invitations.map((invitation) => (
                                                     <TableRow key={invitation.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm group">
                                                         <TableCell className="font-medium text-black py-4">

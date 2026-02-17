@@ -332,7 +332,7 @@ export const createImplementationRouter = (t: any, publicProcedure: any, adminPr
             // Collect all control IDs
             const controlIds = tasksWithId.map((t: any) => t.controlId).filter((id: any) => !!id);
 
-            let controlMap: Record<string, any> = {};
+            const controlMap: Record<string, any> = {};
 
             if (controlIds.length > 0) {
                 // Try fetching from client_controls first (customized/scoped controls)

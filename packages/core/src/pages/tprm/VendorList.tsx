@@ -243,10 +243,18 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="flex justify-between items-center mb-6">
-                    <TabsList>
-                        <TabsTrigger value="active">Active Vendors</TabsTrigger>
-                        <TabsTrigger value="requests" className="relative">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 border border-[#1C4D8D]/20 rounded-xl">
+                        <TabsTrigger
+                            value="active"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-6 py-2.5 rounded-lg font-bold"
+                        >
+                            Active Vendors
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="requests"
+                            className="relative data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all px-6 py-2.5 rounded-lg font-bold"
+                        >
                             Pending Requests
                             {requests?.filter((r: any) => r.status === 'pending').length > 0 && (
                                 <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -301,17 +309,17 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
                                         </TableRow>
                                     )}
                                     {filteredVendors?.map(({ vendor }: { vendor: any }) => (
-                                        <TableRow key={vendor.id} className="hover-lift transition-all cursor-pointer" onClick={() => window.location.href = `/clients/${clientId}/vendors/${vendor.id}`}>
+                                        <TableRow key={vendor.id} className="hover:bg-slate-50 transition-all cursor-pointer" onClick={() => window.location.href = `/clients/${clientId}/vendors/${vendor.id}`}>
                                             <TableCell className="font-medium">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
+                                                    <div className="h-10 w-10 rounded-xl bg-[#1C4D8D]/10 flex items-center justify-center text-[#1C4D8D] font-bold text-sm uppercase border border-[#1C4D8D]/10 shadow-sm">
                                                         {vendor.name.substring(0, 2)}
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <Link href={`/clients/${clientId}/vendors/${vendor.id}`}>
-                                                            <span className="cursor-pointer hover:underline text-indigo-600 font-semibold">{vendor.name}</span>
+                                                            <span className="cursor-pointer hover:underline text-[#1C4D8D] font-bold">{vendor.name}</span>
                                                         </Link>
-                                                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                                        <span className="text-xs text-slate-500 truncate max-w-[200px]">
                                                             {vendor.description || "No description"}
                                                         </span>
                                                     </div>

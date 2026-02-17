@@ -25,7 +25,9 @@ import {
     Key,
     Link as LinkIcon,
     Trash2,
-    ExternalLink
+    ExternalLink,
+    Wand2,
+    Zap
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -83,6 +85,7 @@ export default function SSPEditor() {
     const createControlMutation = trpc.federal.createControl.useMutation();
     const createSSPMutation = trpc.federal.createSSP.useMutation();
     const saveFipsMutation = trpc.federal.saveFipsCategorization.useMutation();
+    const syncPoamMutation = trpc.federal.syncSspToPoam.useMutation();
     const utils = trpc.useUtils();
 
     // Fetch FIPS Categorization
@@ -92,6 +95,8 @@ export default function SSPEditor() {
     }, {
         enabled: !!currentSSP?.id
     });
+
+    const { data: fipsModules } = trpc.federal.listFips140Modules.useQuery({ clientId });
 
     const [activeTab, setActiveTab] = useState("overview");
     const [sectionData, setSectionData] = useState<Record<string, SectionContent>>({});
@@ -186,6 +191,7 @@ export default function SSPEditor() {
                 });
                 toast.success('Control removed from SSP');
             }
+            utils.federal.getSspControls.invalidate({ clientId, sspId: currentSSP.id });
         } catch (error) {
             console.error('Error toggling control:', error);
             toast.error('Failed to update control');
@@ -202,10 +208,28 @@ export default function SSPEditor() {
                 controlId,
                 implementationStatus: status,
             });
+            utils.federal.getSspControls.invalidate({ clientId, sspId: currentSSP.id });
         } catch (error) {
             console.error('Error updating control status:', error);
             toast.error('Failed to update control status');
         }
+    };
+
+    const handleAutoFillFips = (controlId: string) => {
+        if (!fipsModules || fipsModules.length === 0) {
+            toast.error("No FIPS modules found in inventory");
+            return;
+        }
+
+        const tableHeader = "| Module Name | Vendor | Type | Certificate # | Expiry |\n|---|---|---|---|---|\n";
+        const tableRows = fipsModules.map(m =>
+            `| ${m.moduleName} | ${m.vendor} | ${m.type} | ${m.certificateNumber} | ${new Date(m.expiryDate).toLocaleDateString()} |`
+        ).join("\n");
+
+        const content = `The system utilizes the following FIPS 140-validated cryptographic modules:\n\n${tableHeader}${tableRows}\n\n`;
+
+        handleControlDetailsChange(controlId, 'implementationDescription', content);
+        toast.success("FIPS inventory inserted");
     };
 
     const handleControlDetailsChange = async (
@@ -222,6 +246,7 @@ export default function SSPEditor() {
                 controlId,
                 [field]: value,
             });
+            utils.federal.getSspControls.invalidate({ clientId, sspId: currentSSP.id });
         } catch (error) {
             console.error('Error updating control details:', error);
             toast.error('Failed to update control details');
@@ -250,6 +275,7 @@ export default function SSPEditor() {
                 evidenceLinks: newEvidence,
             });
             toast.success("Evidence added");
+            utils.federal.getSspControls.invalidate({ clientId, sspId: currentSSP.id });
         } catch (error) {
             console.error("Error adding evidence:", error);
             toast.error("Failed to add evidence");
@@ -272,6 +298,7 @@ export default function SSPEditor() {
                 evidenceLinks: newEvidence,
             });
             toast.success("Evidence removed");
+            utils.federal.getSspControls.invalidate({ clientId, sspId: currentSSP.id });
         } catch (error) {
             console.error("Error removing evidence:", error);
             toast.error("Failed to remove evidence");
@@ -336,15 +363,16 @@ export default function SSPEditor() {
     };
 
     const getSectionStatus = (section: string) => {
+        // Special handling for controls section - use the separate sspControls data
+        if (section === 'controls') {
+            if (!sspControls || sspControls.length === 0) return "empty";
+            // If we have any controls, check if they are all implemented
+            const allImplemented = sspControls.every(c => c.implementationStatus === 'implemented');
+            return allImplemented ? "complete" : "in-progress";
+        }
+
         const data = sectionData[section];
         if (!data) return "empty";
-
-        // Special handling for controls section
-        if (section === 'controls') {
-            // For controls, we'll consider it "in-progress" if there's any data
-            const hasAnyData = Object.keys(data).some(key => key !== 'lastUpdated');
-            return hasAnyData ? "in-progress" : "empty";
-        }
 
         const requiredFields = {
             overview: ['systemName', 'systemId', 'systemPurpose', 'securityLevel'],
@@ -354,10 +382,37 @@ export default function SSPEditor() {
             attachments: ['attachmentsNotes']
         }[section] || [];
 
-        const filledCount = requiredFields.filter(field => data[field] && data[field].trim().length > 0).length;
-        if (filledCount === 0) return "empty";
-        if (filledCount === requiredFields.length) return "complete";
+        // Calculate filled required fields
+        const filledRequiredCount = requiredFields.filter(field => data[field] && data[field].trim().length > 0).length;
+        
+        // Calculate total filled fields (including optional ones)
+        const totalFilledCount = Object.entries(data)
+            .filter(([key, value]) => key !== 'lastUpdated' && typeof value === 'string' && value.trim().length > 0)
+            .length;
+
+        if (totalFilledCount === 0) return "empty";
+        if (filledRequiredCount === requiredFields.length) return "complete";
         return "in-progress";
+    };
+
+    const handleSyncPoam = async () => {
+        if (!currentSSP?.id) return;
+        
+        try {
+            const result = await syncPoamMutation.mutateAsync({
+                clientId,
+                sspId: currentSSP.id
+            });
+            
+            if (result.addedCount > 0) {
+                toast.success(`Generated ${result.addedCount} POA&M items from gaps`);
+            } else {
+                toast.info("No new gaps found to sync");
+            }
+        } catch (error) {
+            console.error("Error syncing POA&M:", error);
+            toast.error("Failed to sync POA&M");
+        }
     };
 
     const handleSaveSection = async (section: string) => {
@@ -940,6 +995,19 @@ export default function SSPEditor() {
                                                         <Button
                                                             variant="outline"
                                                             className="border-slate-300"
+                                                            onClick={handleSyncPoam}
+                                                            disabled={syncPoamMutation.isPending}
+                                                        >
+                                                            {syncPoamMutation.isPending ? (
+                                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                            ) : (
+                                                                <Zap className="h-4 w-4 mr-2 text-amber-500" />
+                                                            )}
+                                                            Generate POA&M
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            className="border-slate-300"
                                                             onClick={() => setShowCustomControlForm(!showCustomControlForm)}
                                                         >
                                                             <Plus className="h-4 w-4 mr-2" />
@@ -1105,7 +1173,20 @@ export default function SSPEditor() {
                                                                     {isSelected && (
                                                                         <div className="ml-6 space-y-3">
                                                                             <div className="space-y-2">
-                                                                                <label className="text-sm font-bold text-slate-900">Implementation Details</label>
+                                                                                <div className="flex justify-between items-center">
+                                                                                    <label className="text-sm font-bold text-slate-900">Implementation Details</label>
+                                                                                    {['SC-13', '3.13.11'].includes(control.controlId) && (
+                                                                                        <Button
+                                                                                            size="sm"
+                                                                                            variant="outline"
+                                                                                            onClick={() => handleAutoFillFips(control.controlId)}
+                                                                                            className="h-7 text-xs"
+                                                                                        >
+                                                                                            <Wand2 className="h-3 w-3 mr-2" />
+                                                                                            Auto-fill FIPS Data
+                                                                                        </Button>
+                                                                                    )}
+                                                                                </div>
                                                                                 <Textarea
                                                                                     value={sspControl?.implementationDescription || ''}
                                                                                     onChange={(e) => handleControlDetailsChange(control.controlId, 'implementationDescription', e.target.value)}

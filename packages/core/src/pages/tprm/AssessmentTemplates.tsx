@@ -24,7 +24,7 @@ export default function AssessmentTemplates() {
     );
 
     return (
-        <div className="p-8 space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                 <PageGuide
                     title="Assessment Templates"

@@ -1,14 +1,6 @@
-
-import PrivacyAssessment from "../PrivacyAssessment";
-import { gdprChecklist } from "./GdprChecklist";
+import React from "react";
+import DynamicPrivacyAssessmentPage from "./DynamicPrivacyAssessmentPage";
 
 export default function GdprAssessmentPage() {
-    return (
-        <PrivacyAssessment
-            title="GDPR Checklist"
-            type="gdpr"
-            checklist={gdprChecklist}
-            mode="checklist"
-        />
-    );
+    return <DynamicPrivacyAssessmentPage type="gdpr" />;
 }

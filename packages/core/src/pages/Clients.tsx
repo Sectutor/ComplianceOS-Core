@@ -86,13 +86,18 @@ export default function Clients() {
 
   const clientsArray = Array.isArray(clients) ? clients : (clients as any)?.json || [];
 
+  const isCommunityEdition = import.meta.env.VITE_ENABLE_PREMIUM === 'false';
+
   // Count organizations where user is owner
   const ownedClientsLimit = me?.maxClients || 2;
   const ownedClientsCount = clientsArray.filter((c: any) => c.role === 'owner').length;
-  const isAtLimit = ownedClientsCount >= ownedClientsLimit &&
-    me?.role !== 'admin' &&
-    me?.role !== 'owner' &&
-    me?.role !== 'super_admin';
+
+  // Logic identifying if the user can create more clients
+  const isAtLimit = (isCommunityEdition && clientsArray.length >= 1 && me?.role !== 'admin' && me?.role !== 'super_admin') ||
+    (ownedClientsCount >= ownedClientsLimit &&
+      me?.role !== 'admin' &&
+      me?.role !== 'owner' &&
+      me?.role !== 'super_admin');
 
   const filteredClients = clientsArray.filter(client =>
     client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -101,7 +106,9 @@ export default function Clients() {
 
   const handleCreateClient = () => {
     if (isAtLimit) {
-      toast.error(`You have reached your limit of ${ownedClientsLimit} organizations.`);
+      toast.error(isCommunityEdition
+        ? "Community Edition is limited to 1 workspace."
+        : `You have reached your limit of ${ownedClientsLimit} organizations.`);
       return;
     }
     createMutation.mutate(clientData);
@@ -182,7 +189,9 @@ export default function Clients() {
             }
             title="Add New Client"
             description={isAtLimit
-              ? `You have reached the limit for your current plan (${ownedClientsLimit} organizations).`
+              ? (isCommunityEdition
+                ? "Community Edition is limited to 1 workspace."
+                : `You have reached the limit for your current plan (${ownedClientsLimit} organizations).`)
               : "Create a new client workspace to manage."
             }
             footer={
@@ -207,11 +216,20 @@ export default function Clients() {
                   <Plus className="h-6 w-6 text-amber-600 rotate-45" />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="font-bold text-lg">Subscription Limit Reached</h3>
+                  <h3 className="font-bold text-lg">
+                    {isCommunityEdition ? "Community Edition Limit" : "Subscription Limit Reached"}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Your current <strong>Subscription (DIY)</strong> plan allows for up to {ownedClientsLimit} organizations.
-                    Upgrade to Managed or vCISO tiers for unlimited client management and AI-powered evidence triage.
+                    {isCommunityEdition
+                      ? "The Community Edition includes a single workspace. To manage multiple clients, please upgrade to the Enterprise version."
+                      : `Your current Subscription (DIY) plan allows for up to ${ownedClientsLimit} organizations.`
+                    }
                   </p>
+                  {!isCommunityEdition && (
+                    <p className="text-sm text-muted-foreground">
+                      Upgrade to Managed or vCISO tiers for unlimited client management and AI-powered evidence triage.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

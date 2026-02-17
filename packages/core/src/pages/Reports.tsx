@@ -38,17 +38,17 @@ export default function Reports() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 p-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-[1400px] mx-auto">
+      <div className="space-y-8 w-full max-w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50/50 flex items-center gap-1.5 px-3">
+              <Badge variant="outline" className="border-[#3ABEF9]/20 text-[#3ABEF9] bg-[#3ABEF9]/5 flex items-center gap-1.5 px-3">
                 <Sparkles className="w-3.5 h-3.5" />
                 Premium Analytics
               </Badge>
             </div>
-            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">
-              Reporting <span className="text-indigo-600">&</span> Insights
+            <h2 className="text-4xl font-extrabold tracking-tight text-[#1C4D8D]">
+              Reporting <span className="text-[#3ABEF9]">&</span> Insights
             </h2>
             <p className="text-slate-500 max-w-2xl text-lg">
               Intelligence-led compliance oversight. Monitor posture, identify gaps, and generate executive reports.
@@ -59,7 +59,7 @@ export default function Reports() {
               <History className="w-4 h-4 mr-2" />
               Audit Logs
             </Button>
-            <Button className="h-11 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700">
+            <Button className="h-11 shadow-lg shadow-[#1C4D8D]/20 bg-[#1C4D8D] hover:bg-[#3ABEF9] text-white">
               <Download className="w-4 h-4 mr-2" />
               Export Posture
             </Button>
@@ -67,17 +67,17 @@ export default function Reports() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-slate-100/50 p-1 border border-slate-200/60 text-slate-500 mb-8 rounded-xl h-14">
+          <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl mb-8">
             <TabsTrigger
               value="dashboard"
-              className="rounded-lg h-full px-8 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm transition-all"
+              className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-8 py-2.5 rounded-lg flex items-center h-full"
             >
               <LayoutDashboard className="w-4 h-4 mr-2" />
               Executive Dashboard
             </TabsTrigger>
             <TabsTrigger
               value="reports"
-              className="rounded-lg h-full px-8 data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm transition-all"
+              className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-8 py-2.5 rounded-lg flex items-center h-full"
             >
               <History className="w-4 h-4 mr-2" />
               Report Workshop

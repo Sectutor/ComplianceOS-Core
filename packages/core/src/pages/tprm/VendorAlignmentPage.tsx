@@ -169,192 +169,191 @@ export default function VendorAlignmentPage() {
     const currentAreas = framework === 'iso' ? isoAreas : nistAreas;
 
     return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-6">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600 text-white mb-4">
+                        <Users className="w-8 h-8" />
+                    </div>
+                    <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        Third-Party Risk Management
+                    </h1>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        Comprehensive alignment with ISO 27001 and NIST SCRM Guidelines
+                    </p>
 
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-6 lg:p-10">
-                <div className="max-w-7xl mx-auto space-y-8">
-                    {/* Header */}
-                    <div className="text-center space-y-6">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600 text-white mb-4">
-                            <Users className="w-8 h-8" />
-                        </div>
-                        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                            Third-Party Risk Management
-                        </h1>
-                        <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                            Comprehensive alignment with ISO 27001 and NIST SCRM Guidelines
-                        </p>
-
-                        {/* Framework Toggle Tabs */}
-                        <div className="flex justify-center">
-                            <div className="inline-flex p-1 bg-slate-100 rounded-lg shadow-inner">
-                                <button
-                                    onClick={() => setFramework('iso')}
-                                    className={cn(
-                                        "px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200",
-                                        framework === 'iso'
-                                            ? "bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200"
-                                            : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-                                    )}
-                                >
-                                    ISO 27001 Aligned
-                                </button>
-                                <button
-                                    onClick={() => setFramework('nist')}
-                                    className={cn(
-                                        "px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200",
-                                        framework === 'nist'
-                                            ? "bg-white text-purple-600 shadow-sm ring-1 ring-slate-200"
-                                            : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
-                                    )}
-                                >
-                                    NIST SP 800-161 Ready
-                                </button>
-                            </div>
+                    {/* Framework Toggle Tabs */}
+                    <div className="flex justify-center">
+                        <div className="inline-flex p-1 bg-slate-100 rounded-lg shadow-inner">
+                            <button
+                                onClick={() => setFramework('iso')}
+                                className={cn(
+                                    "px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+                                    framework === 'iso'
+                                        ? "bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200"
+                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                )}
+                            >
+                                ISO 27001 Aligned
+                            </button>
+                            <button
+                                onClick={() => setFramework('nist')}
+                                className={cn(
+                                    "px-6 py-2 rounded-md text-sm font-semibold transition-all duration-200",
+                                    framework === 'nist'
+                                        ? "bg-white text-purple-600 shadow-sm ring-1 ring-slate-200"
+                                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                )}
+                            >
+                                NIST SP 800-161 Ready
+                            </button>
                         </div>
                     </div>
+                </div>
 
-                    {/* Overview Card */}
-                    <Card className="border-2 border-indigo-200 bg-white shadow-lg">
-                        <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
-                            <CardTitle className="text-2xl">
-                                {framework === 'iso' ? 'Supplier Relationship Security' : 'Supply Chain Risk Management (SCRM)'}
-                            </CardTitle>
-                            <CardDescription className="text-base">
-                                {framework === 'iso'
-                                    ? "Managing the risks associated with third-party vendors is critical. Our platform provides a structured approach to evaluate, onboard, monitor, and offboard suppliers in alignment with ISO 27001."
-                                    : "NIST SP 800-161 provides guidance on identifying, assessing, responding to, and monitoring supply chain risks. Our platform operationalizes these concepts into a seamless workflow."
-                                }
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="text-center p-4 bg-indigo-50 rounded-lg">
-                                    <div className="text-3xl font-bold text-indigo-600">5</div>
-                                    <div className="text-sm text-muted-foreground">Lifecycle Stages</div>
-                                </div>
-                                <div className="text-center p-4 bg-green-50 rounded-lg">
-                                    <div className="text-3xl font-bold text-green-600">Full</div>
-                                    <div className="text-sm text-muted-foreground">Audit Trail</div>
-                                </div>
-                                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                                    <div className="text-3xl font-bold text-purple-600">Auto</div>
-                                    <div className="text-sm text-muted-foreground">Due Diligence</div>
-                                </div>
+                {/* Overview Card */}
+                <Card className="border-2 border-indigo-200 bg-white shadow-lg">
+                    <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50">
+                        <CardTitle className="text-2xl">
+                            {framework === 'iso' ? 'Supplier Relationship Security' : 'Supply Chain Risk Management (SCRM)'}
+                        </CardTitle>
+                        <CardDescription className="text-base">
+                            {framework === 'iso'
+                                ? "Managing the risks associated with third-party vendors is critical. Our platform provides a structured approach to evaluate, onboard, monitor, and offboard suppliers in alignment with ISO 27001."
+                                : "NIST SP 800-161 provides guidance on identifying, assessing, responding to, and monitoring supply chain risks. Our platform operationalizes these concepts into a seamless workflow."
+                            }
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="text-center p-4 bg-indigo-50 rounded-lg">
+                                <div className="text-3xl font-bold text-indigo-600">5</div>
+                                <div className="text-sm text-muted-foreground">Lifecycle Stages</div>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div className="text-center p-4 bg-green-50 rounded-lg">
+                                <div className="text-3xl font-bold text-green-600">Full</div>
+                                <div className="text-sm text-muted-foreground">Audit Trail</div>
+                            </div>
+                            <div className="text-center p-4 bg-purple-50 rounded-lg">
+                                <div className="text-3xl font-bold text-purple-600">Auto</div>
+                                <div className="text-sm text-muted-foreground">Due Diligence</div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                    {/* Compliance Areas */}
-                    <Tabs defaultValue={currentAreas[0].id} className="space-y-6" key={framework}>
-                        <TabsList className="grid grid-cols-2 lg:grid-cols-4 gap-2 h-auto bg-transparent p-0">
-                            {currentAreas.map((area) => (
-                                <TabsTrigger
-                                    key={area.id}
-                                    value={area.id}
-                                    className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-slate-900 data-[state=inactive]:text-slate-600 flex flex-col items-center gap-1 p-3 border border-transparent data-[state=active]:border-slate-200 hover:bg-white/50 transition-all rounded-lg"
-                                >
-                                    <area.icon className={cn("w-5 h-5", area.color)} />
-                                    <span className="text-xs font-bold">{area.title}</span>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
+                {/* Compliance Areas */}
+                <Tabs defaultValue={currentAreas[0].id} className="space-y-6" key={framework}>
+                    <TabsList className="grid grid-cols-2 lg:grid-cols-4 gap-2 h-auto bg-transparent p-0">
                         {currentAreas.map((area) => (
-                            <TabsContent key={area.id} value={area.id} className="space-y-6 mt-4">
-                                <Card className="border-2 shadow-lg">
-                                    <CardHeader className={`${area.bgColor} border-b`}>
-                                        <div className="flex items-start justify-between">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`p-2 rounded-lg bg-white shadow-sm`}>
-                                                        <area.icon className={`w-6 h-6 ${area.color}`} />
-                                                    </div>
-                                                    <div>
-                                                        <CardTitle className="text-2xl">{area.title}</CardTitle>
-                                                        <CardDescription className="text-sm font-medium">{area.standard}</CardDescription>
-                                                    </div>
+                            <TabsTrigger
+                                key={area.id}
+                                value={area.id}
+                                className="data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-slate-900 data-[state=inactive]:text-slate-600 flex flex-col items-center gap-1 p-3 border border-transparent data-[state=active]:border-slate-200 hover:bg-white/50 transition-all rounded-lg"
+                            >
+                                <area.icon className={cn("w-5 h-5", area.color)} />
+                                <span className="text-xs font-bold">{area.title}</span>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+
+                    {currentAreas.map((area) => (
+                        <TabsContent key={area.id} value={area.id} className="space-y-6 mt-4">
+                            <Card className="border-2 shadow-lg">
+                                <CardHeader className={`${area.bgColor} border-b`}>
+                                    <div className="flex items-start justify-between">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-lg bg-white shadow-sm`}>
+                                                    <area.icon className={`w-6 h-6 ${area.color}`} />
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-2xl">{area.title}</CardTitle>
+                                                    <CardDescription className="text-sm font-medium">{area.standard}</CardDescription>
                                                 </div>
                                             </div>
-                                            <Badge variant="default" className="bg-green-600">
-                                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                Supported
-                                            </Badge>
                                         </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-6 space-y-6">
-                                        {/* Requirements */}
-                                        <div>
-                                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                                <BookOpen className="w-5 h-5 text-slate-600" />
-                                                Standard Requirements
-                                            </h3>
-                                            <ul className="space-y-2">
-                                                {area.requirements.map((req, idx) => (
-                                                    <li key={idx} className="flex items-start gap-2 text-sm">
-                                                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                                        <span>{req}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                        <Badge variant="default" className="bg-green-600">
+                                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                                            Supported
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="pt-6 space-y-6">
+                                    {/* Requirements */}
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                            <BookOpen className="w-5 h-5 text-slate-600" />
+                                            Standard Requirements
+                                        </h3>
+                                        <ul className="space-y-2">
+                                            {area.requirements.map((req, idx) => (
+                                                <li key={idx} className="flex items-start gap-2 text-sm">
+                                                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                                    <span>{req}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
 
-                                        {/* Implementation */}
-                                        <div>
-                                            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                                                <Shield className="w-5 h-5 text-indigo-600" />
-                                                Platform Implementation
-                                            </h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                {area.implementation.map((impl, idx) => (
-                                                    <div key={idx} className="p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors">
-                                                        <div className="flex items-start justify-between mb-2">
-                                                            <h4 className="font-semibold text-sm">{impl.feature}</h4>
-                                                            <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
-                                                                ✓ Supported
-                                                            </Badge>
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground">{impl.detail}</p>
+                                    {/* Implementation */}
+                                    <div>
+                                        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                                            <Shield className="w-5 h-5 text-indigo-600" />
+                                            Platform Implementation
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {area.implementation.map((impl, idx) => (
+                                                <div key={idx} className="p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors">
+                                                    <div className="flex items-start justify-between mb-2">
+                                                        <h4 className="font-semibold text-sm">{impl.feature}</h4>
+                                                        <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+                                                            ✓ Supported
+                                                        </Badge>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-                        ))}
-                    </Tabs>
-
-                    {/* Benefits Section */}
-                    <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-lg">
-                        <CardHeader>
-                            <CardTitle className="text-2xl flex items-center gap-2">
-                                <TrendingUp className="w-6 h-6 text-indigo-600" />
-                                Strategic Value
-                            </CardTitle>
-                            <CardDescription>
-                                Secure your supply chain and reduce third-party risk exposure
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {benefits.map((benefit, idx) => (
-                                    <div key={idx} className="p-4 bg-white rounded-lg shadow-sm border border-indigo-100 hover:shadow-md transition-shadow">
-                                        <div className="flex items-start gap-3">
-                                            <div className="p-2 bg-indigo-100 rounded-lg">
-                                                <benefit.icon className="w-5 h-5 text-indigo-600" />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold text-sm mb-1">{benefit.title}</h4>
-                                                <p className="text-xs text-muted-foreground">{benefit.description}</p>
-                                            </div>
+                                                    <p className="text-xs text-muted-foreground">{impl.detail}</p>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    ))}
+                </Tabs>
+
+                {/* Benefits Section */}
+                <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-lg">
+                    <CardHeader>
+                        <CardTitle className="text-2xl flex items-center gap-2">
+                            <TrendingUp className="w-6 h-6 text-indigo-600" />
+                            Strategic Value
+                        </CardTitle>
+                        <CardDescription>
+                            Secure your supply chain and reduce third-party risk exposure
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {benefits.map((benefit, idx) => (
+                                <div key={idx} className="p-4 bg-white rounded-lg shadow-sm border border-indigo-100 hover:shadow-md transition-shadow">
+                                    <div className="flex items-start gap-3">
+                                        <div className="p-2 bg-indigo-100 rounded-lg">
+                                            <benefit.icon className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-sm mb-1">{benefit.title}</h4>
+                                            <p className="text-xs text-muted-foreground">{benefit.description}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
+        </div>
 
     );
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@complianceos/ui/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@complianceos/ui/ui/card";
@@ -198,381 +197,394 @@ export default function LLMSettings() {
     };
 
     return (
-        <DashboardLayout>
-            <div className="container py-6 max-w-5xl">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">AI & LLM Settings</h1>
-                        <p className="text-muted-foreground mt-1">
-                            Configure and prioritize the AI models used for policy generation and analysis.
-                        </p>
-                    </div>
-                    <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Provider
-                    </Button>
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">AI & LLM Settings</h1>
+                    <p className="text-muted-foreground mt-1">
+                        Configure and prioritize the AI models used for policy generation and analysis.
+                    </p>
                 </div>
+                <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Provider
+                </Button>
+            </div>
 
-                <EnhancedDialog
-                    open={isAddOpen}
-                    onOpenChange={(open) => { setIsAddOpen(open); if (!open) { setEditingId(null); resetForm(); } }}
-                    title={editingId ? "Edit Provider" : "Add LLM Provider"}
-                    description="Add a new AI provider using your own API key. Keys are encrypted at rest."
-                    footer={
-                        <div className="flex justify-end gap-2 w-full">
-                            <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-                            <Button
-                                onClick={(e) => {
-                                    const form = document.getElementById('llm-provider-form') as HTMLFormElement;
-                                    if (form) form.requestSubmit();
-                                }}
-                                disabled={createMutation.isPending || updateMutation.isPending}
-                            >
-                                {editingId ? "Save Changes" : "Create Provider"}
-                            </Button>
-                        </div>
-                    }
-                    size="lg"
-                >
-                    <form id="llm-provider-form" onSubmit={handleSubmit} className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="font-semibold text-foreground/80">Name</Label>
-                                <Input
-                                    placeholder="My OpenAI"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                    className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="font-semibold text-foreground/80">Provider Type</Label>
-                                <Select
-                                    value={formData.provider}
-                                    onValueChange={v => setFormData({ ...formData, provider: v })}
-                                >
-                                    <SelectTrigger className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="openai">OpenAI</SelectItem>
-                                        <SelectItem value="anthropic">Anthropic</SelectItem>
-                                        <SelectItem value="gemini">Gemini (Google)</SelectItem>
-                                        <SelectItem value="deepseek">DeepSeek</SelectItem>
-                                        <SelectItem value="qwen">Qwen / Gwen</SelectItem>
-                                        <SelectItem value="openrouter">OpenRouter</SelectItem>
-                                        <SelectItem value="custom">Custom (OpenAI Compat)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
+            <EnhancedDialog
+                open={isAddOpen}
+                onOpenChange={(open) => { setIsAddOpen(open); if (!open) { setEditingId(null); resetForm(); } }}
+                title={editingId ? "Edit Provider" : "Add LLM Provider"}
+                description="Add a new AI provider using your own API key. Keys are encrypted at rest."
+                footer={
+                    <div className="flex justify-end gap-2 w-full">
+                        <Button type="button" variant="ghost" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={(e) => {
+                                const form = document.getElementById('llm-provider-form') as HTMLFormElement;
+                                if (form) form.requestSubmit();
+                            }}
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                        >
+                            {editingId ? "Save Changes" : "Create Provider"}
+                        </Button>
+                    </div>
+                }
+                size="lg"
+            >
+                <form id="llm-provider-form" onSubmit={handleSubmit} className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="font-semibold text-foreground/80">Model Name</Label>
+                            <Label className="font-semibold text-foreground/80">Name</Label>
                             <Input
-                                placeholder="e.g. gpt-4, deepseek-coder, gemini-1.5-flash"
-                                value={formData.model}
-                                onChange={e => setFormData({ ...formData, model: e.target.value })}
+                                placeholder="My OpenAI"
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 required
                                 className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
                             />
                         </div>
-
                         <div className="space-y-2">
-                            <Label className="font-semibold text-foreground/80">API Key {editingId && "(Leave blank to keep unchanged)"}</Label>
+                            <Label className="font-semibold text-foreground/80">Provider Type</Label>
+                            <Select
+                                value={formData.provider}
+                                onValueChange={v => setFormData({ ...formData, provider: v })}
+                            >
+                                <SelectTrigger className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="openai">OpenAI</SelectItem>
+                                    <SelectItem value="anthropic">Anthropic</SelectItem>
+                                    <SelectItem value="gemini">Gemini (Google)</SelectItem>
+                                    <SelectItem value="deepseek">DeepSeek</SelectItem>
+                                    <SelectItem value="qwen">Qwen / Gwen</SelectItem>
+                                    <SelectItem value="openrouter">OpenRouter</SelectItem>
+                                    <SelectItem value="custom">Custom (OpenAI Compat)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="font-semibold text-foreground/80">Model Name</Label>
+                        <Input
+                            placeholder="e.g. gpt-4, deepseek-coder, gemini-1.5-flash"
+                            value={formData.model}
+                            onChange={e => setFormData({ ...formData, model: e.target.value })}
+                            required
+                            className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="font-semibold text-foreground/80">API Key {editingId && "(Leave blank to keep unchanged)"}</Label>
+                        <Input
+                            type="password"
+                            placeholder="sk-..."
+                            value={formData.apiKey}
+                            onChange={e => setFormData({ ...formData, apiKey: e.target.value })}
+                            className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="font-semibold text-foreground/80">Base URL (Optional)</Label>
+                        <Input
+                            placeholder="e.g. https://api.deepseek.com/v1"
+                            value={formData.baseUrl}
+                            onChange={e => setFormData({ ...formData, baseUrl: e.target.value })}
+                            className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Required for DeepSeek, Custom, or Local LLMs.</p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="space-y-2 flex-1">
+                            <Label className="font-semibold text-foreground/80">Priority (Higher = Preferred)</Label>
                             <Input
-                                type="password"
-                                placeholder="sk-..."
-                                value={formData.apiKey}
-                                onChange={e => setFormData({ ...formData, apiKey: e.target.value })}
+                                type="number"
+                                value={formData.priority}
+                                onChange={e => setFormData({ ...formData, priority: e.target.value })}
                                 className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
                             />
                         </div>
-
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-foreground/80">Base URL (Optional)</Label>
-                            <Input
-                                placeholder="e.g. https://api.deepseek.com/v1"
-                                value={formData.baseUrl}
-                                onChange={e => setFormData({ ...formData, baseUrl: e.target.value })}
-                                className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Switch
+                                id="enabled"
+                                checked={formData.isEnabled}
+                                onCheckedChange={c => setFormData({ ...formData, isEnabled: c })}
                             />
-                            <p className="text-[10px] text-muted-foreground">Required for DeepSeek, Custom, or Local LLMs.</p>
+                            <Label htmlFor="enabled">Enabled</Label>
                         </div>
-
-                        <div className="flex items-center gap-4">
-                            <div className="space-y-2 flex-1">
-                                <Label className="font-semibold text-foreground/80">Priority (Higher = Preferred)</Label>
-                                <Input
-                                    type="number"
-                                    value={formData.priority}
-                                    onChange={e => setFormData({ ...formData, priority: e.target.value })}
-                                    className="border-2 border-slate-300 bg-slate-50 focus:ring-2 focus:ring-primary/20"
-                                />
-                            </div>
-                            <div className="flex items-center space-x-2 pt-6">
-                                <Switch
-                                    id="enabled"
-                                    checked={formData.isEnabled}
-                                    onCheckedChange={c => setFormData({ ...formData, isEnabled: c })}
-                                />
-                                <Label htmlFor="enabled">Enabled</Label>
-                            </div>
-                            <div className="flex items-center space-x-2 pt-6">
-                                <Switch
-                                    id="embeddings"
-                                    checked={formData.supportsEmbeddings}
-                                    onCheckedChange={c => setFormData({ ...formData, supportsEmbeddings: c })}
-                                />
-                                <Label htmlFor="embeddings">Embeddings</Label>
-                            </div>
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Switch
+                                id="embeddings"
+                                checked={formData.supportsEmbeddings}
+                                onCheckedChange={c => setFormData({ ...formData, supportsEmbeddings: c })}
+                            />
+                            <Label htmlFor="embeddings">Embeddings</Label>
                         </div>
+                    </div>
 
-                        {/* Test Connection Section */}
-                        <div className="pt-2 border-t flex items-center justify-between">
-                            <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
-                                {isTesting ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
-                                Test Connection
-                            </Button>
-                            {testResult && (
-                                <span className={`text-xs flex items-center ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                                    {testResult.success ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-                                    {testResult.message}
-                                </span>
+                    {/* Test Connection Section */}
+                    <div className="pt-2 border-t flex items-center justify-between">
+                        <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={isTesting}>
+                            {isTesting ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
+                            Test Connection
+                        </Button>
+                        {testResult && (
+                            <span className={`text-xs flex items-center ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                                {testResult.success ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                                {testResult.message}
+                            </span>
+                        )}
+                    </div>
+                </form>
+            </EnhancedDialog>
+
+            <Tabs defaultValue="providers" className="w-full">
+                <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl mb-6">
+                    <TabsTrigger
+                        value="providers"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
+                    >
+                        LLM Providers
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="routing"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
+                    >
+                        Dynamic Routing
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="indexing"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
+                    >
+                        Data & Indexing
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="providers">
+                    {isLoading ? (
+                        <div className="flex justify-center p-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        <div className="grid gap-4">
+                            {providers?.map((provider) => (
+                                <Card key={provider.id} className={!provider.isEnabled ? "opacity-60 bg-muted/30" : ""}>
+                                    <CardContent className="p-4 flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                                {provider.priority}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold flex items-center gap-2">
+                                                    {provider.name}
+                                                    {provider.isEnabled ? (
+                                                        <Badge variant="default" className="text-[10px] h-5">Active</Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="text-[10px] h-5">Disabled</Badge>
+                                                    )}
+                                                </h3>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <span className="capitalize">{provider.provider}</span>
+                                                    <span>•</span>
+                                                    <span className="font-mono text-xs">{provider.model}</span>
+                                                    {provider.baseUrl && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="text-xs truncate max-w-[200px]">{provider.baseUrl}</span>
+                                                        </>
+                                                    )}
+                                                    {provider.supportsEmbeddings && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <Badge variant="outline" className="text-[10px] h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">Embeddings</Badge>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(provider)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => setProviderToDelete(provider)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+
+                            {providers?.length === 0 && (
+                                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                                    <p className="text-muted-foreground">No AI providers configured.</p>
+                                    <Button variant="link" onClick={() => setIsAddOpen(true)}>Add your first provider</Button>
+                                </div>
                             )}
                         </div>
-                    </form>
-                </EnhancedDialog>
+                    )}
+                </TabsContent>
 
-                <Tabs defaultValue="providers" className="w-full">
-                    <TabsList className="mb-4">
-                        <TabsTrigger value="providers">LLM Providers</TabsTrigger>
-                        <TabsTrigger value="routing">Dynamic Routing</TabsTrigger>
-                        <TabsTrigger value="indexing">Data & Indexing</TabsTrigger>
-                    </TabsList>
+                <TabsContent value="routing" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Feature Routing Rules</CardTitle>
+                            <CardDescription>Configure which AI model handles each specific task. Leave "Default" to use the highest priority allowed provider.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-6">
+                                {FEATURES.map(feature => {
+                                    // Find current route rule
+                                    const currentRule = routes?.find(r => r.feature === feature.id);
+                                    const FeatureIcon = feature.icon;
 
-                    <TabsContent value="providers">
-                        {isLoading ? (
-                            <div className="flex justify-center p-12">
-                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <div className="grid gap-4">
-                                {providers?.map((provider) => (
-                                    <Card key={provider.id} className={!provider.isEnabled ? "opacity-60 bg-muted/30" : ""}>
-                                        <CardContent className="p-4 flex items-center justify-between">
+                                    return (
+                                        <div key={feature.id} className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0">
                                             <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                    {provider.priority}
+                                                <div className="h-10 w-10 bg-primary/5 rounded-lg flex items-center justify-center text-primary">
+                                                    <FeatureIcon className="h-5 w-5" />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-semibold flex items-center gap-2">
-                                                        {provider.name}
-                                                        {provider.isEnabled ? (
-                                                            <Badge variant="default" className="text-[10px] h-5">Active</Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary" className="text-[10px] h-5">Disabled</Badge>
-                                                        )}
-                                                    </h3>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <span className="capitalize">{provider.provider}</span>
-                                                        <span>•</span>
-                                                        <span className="font-mono text-xs">{provider.model}</span>
-                                                        {provider.baseUrl && (
-                                                            <>
-                                                                <span>•</span>
-                                                                <span className="text-xs truncate max-w-[200px]">{provider.baseUrl}</span>
-                                                            </>
-                                                        )}
-                                                        {provider.supportsEmbeddings && (
-                                                            <>
-                                                                <span>•</span>
-                                                                <Badge variant="outline" className="text-[10px] h-4 px-1 bg-blue-50 text-blue-700 border-blue-200">Embeddings</Badge>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                                    <h4 className="font-semibold">{feature.name}</h4>
+                                                    <p className="text-sm text-muted-foreground">{feature.description}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(provider)}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                    onClick={() => setProviderToDelete(provider)}
+                                            <div className="w-[300px]">
+                                                <Select
+                                                    value={currentRule?.providerId ? currentRule.providerId.toString() : "default"}
+                                                    onValueChange={(val) => {
+                                                        const providerId = val === "default" ? null : parseInt(val);
+                                                        setRouteMutation.mutate({ feature: feature.id, providerId });
+                                                    }}
+                                                    disabled={setRouteMutation.isPending}
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                    <SelectTrigger className="bg-white">
+                                                        <SelectValue placeholder="Default (Highest Priority)" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="default">Default Provider (Highest Priority)</SelectItem>
+                                                        {providers?.filter(p => p.isEnabled).map(provider => (
+                                                            <SelectItem key={provider.id} value={provider.id.toString()}>
+                                                                {provider.name} ({provider.model})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-
-                                {providers?.length === 0 && (
-                                    <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                                        <p className="text-muted-foreground">No AI providers configured.</p>
-                                        <Button variant="link" onClick={() => setIsAddOpen(true)}>Add your first provider</Button>
-                                    </div>
-                                )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        )}
-                    </TabsContent>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-                    <TabsContent value="routing" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Feature Routing Rules</CardTitle>
-                                <CardDescription>Configure which AI model handles each specific task. Leave "Default" to use the highest priority allowed provider.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-6">
-                                    {FEATURES.map(feature => {
-                                        // Find current route rule
-                                        const currentRule = routes?.find(r => r.feature === feature.id);
-                                        const FeatureIcon = feature.icon;
-
-                                        return (
-                                            <div key={feature.id} className="flex items-center justify-between pb-4 border-b last:border-0 last:pb-0">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 bg-primary/5 rounded-lg flex items-center justify-center text-primary">
-                                                        <FeatureIcon className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-semibold">{feature.name}</h4>
-                                                        <p className="text-sm text-muted-foreground">{feature.description}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="w-[300px]">
-                                                    <Select
-                                                        value={currentRule?.providerId ? currentRule.providerId.toString() : "default"}
-                                                        onValueChange={(val) => {
-                                                            const providerId = val === "default" ? null : parseInt(val);
-                                                            setRouteMutation.mutate({ feature: feature.id, providerId });
-                                                        }}
-                                                        disabled={setRouteMutation.isPending}
-                                                    >
-                                                        <SelectTrigger className="bg-white">
-                                                            <SelectValue placeholder="Default (Highest Priority)" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="default">Default Provider (Highest Priority)</SelectItem>
-                                                            {providers?.filter(p => p.isEnabled).map(provider => (
-                                                                <SelectItem key={provider.id} value={provider.id.toString()}>
-                                                                    {provider.name} ({provider.model})
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                <TabsContent value="indexing" className="space-y-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Knowledge Base Indexing</CardTitle>
+                            <CardDescription>Manage the vector index used for RAG (Retrieval-Augmented Generation). Re-index content if AI responses seem outdated.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div className="border rounded-lg p-4 bg-slate-50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <FileText className="h-5 w-5 text-blue-600" />
+                                        <h4 className="font-semibold">Policies</h4>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-4">Index all generated policies for context-aware drafting.</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => reindexMutation.mutate({ type: 'policies' })}
+                                        disabled={reindexMutation.isPending}
+                                    >
+                                        {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
+                                        Re-index Policies
+                                    </Button>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
 
-                    <TabsContent value="indexing" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Knowledge Base Indexing</CardTitle>
-                                <CardDescription>Manage the vector index used for RAG (Retrieval-Augmented Generation). Re-index content if AI responses seem outdated.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    <div className="border rounded-lg p-4 bg-slate-50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="h-5 w-5 text-blue-600" />
-                                            <h4 className="font-semibold">Policies</h4>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mb-4">Index all generated policies for context-aware drafting.</p>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => reindexMutation.mutate({ type: 'policies' })}
-                                            disabled={reindexMutation.isPending}
-                                        >
-                                            {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
-                                            Re-index Policies
-                                        </Button>
+                                <div className="border rounded-lg p-4 bg-slate-50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Briefcase className="h-5 w-5 text-green-600" />
+                                        <h4 className="font-semibold">Evidence</h4>
                                     </div>
-
-                                    <div className="border rounded-lg p-4 bg-slate-50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Briefcase className="h-5 w-5 text-green-600" />
-                                            <h4 className="font-semibold">Evidence</h4>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mb-4">Index uploaded evidence summaries for verification.</p>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => reindexMutation.mutate({ type: 'evidence' })}
-                                            disabled={reindexMutation.isPending}
-                                        >
-                                            {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
-                                            Re-index Evidence
-                                        </Button>
-                                    </div>
-
-                                    <div className="border rounded-lg p-4 bg-slate-50">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <ShieldAlert className="h-5 w-5 text-red-600" />
-                                            <h4 className="font-semibold">Full System</h4>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground mb-4">Complete re-index of all knowledge base items.</p>
-                                        <Button
-                                            variant="default"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => reindexMutation.mutate({ type: 'all' })}
-                                            disabled={reindexMutation.isPending}
-                                        >
-                                            {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
-                                            Re-index Everything
-                                        </Button>
-                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-4">Index uploaded evidence summaries for verification.</p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => reindexMutation.mutate({ type: 'evidence' })}
+                                        disabled={reindexMutation.isPending}
+                                    >
+                                        {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
+                                        Re-index Evidence
+                                    </Button>
                                 </div>
-                                {lastIndexStats && (
-                                    <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md text-sm border border-green-200 flex items-center gap-2">
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        Last Run: Indexed {lastIndexStats.policies} policies and {lastIndexStats.evidence} evidence items. ({lastIndexStats.errors} errors)
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
 
-                <AlertDialog open={!!providerToDelete} onOpenChange={(open) => !open && setProviderToDelete(null)}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will permanently delete the provider <b>{providerToDelete?.name}</b>.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={() => {
-                                    if (providerToDelete) {
-                                        deleteMutation.mutate({ id: providerToDelete.id });
-                                    }
-                                }}
-                                disabled={deleteMutation.isPending}
-                            >
-                                {deleteMutation.isPending ? "Deleting..." : "Delete Provider"}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
-        </DashboardLayout>
+                                <div className="border rounded-lg p-4 bg-slate-50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <ShieldAlert className="h-5 w-5 text-red-600" />
+                                        <h4 className="font-semibold">Full System</h4>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-4">Complete re-index of all knowledge base items.</p>
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => reindexMutation.mutate({ type: 'all' })}
+                                        disabled={reindexMutation.isPending}
+                                    >
+                                        {reindexMutation.isPending ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Play className="mr-2 h-3 w-3" />}
+                                        Re-index Everything
+                                    </Button>
+                                </div>
+                            </div>
+                            {lastIndexStats && (
+                                <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md text-sm border border-green-200 flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    Last Run: Indexed {lastIndexStats.policies} policies and {lastIndexStats.evidence} evidence items. ({lastIndexStats.errors} errors)
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+
+            <AlertDialog open={!!providerToDelete} onOpenChange={(open) => !open && setProviderToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the provider <b>{providerToDelete?.name}</b>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => {
+                                if (providerToDelete) {
+                                    deleteMutation.mutate({ id: providerToDelete.id });
+                                }
+                            }}
+                            disabled={deleteMutation.isPending}
+                        >
+                            {deleteMutation.isPending ? "Deleting..." : "Delete Provider"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
     );
 }

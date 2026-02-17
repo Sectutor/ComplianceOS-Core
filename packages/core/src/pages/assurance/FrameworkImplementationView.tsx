@@ -77,14 +77,27 @@ const FrameworkImplementationView: React.FC = () => {
     // 3. Find Strategic Overlay from StandardPractices.ts
     const getStrategicOverlay = (category: string | undefined) => {
         if (!category) return null;
-        const overlays = TECHNICAL_STANDARD_CONTENT[frameworkId?.toUpperCase() || ""] || [];
+        const normalizedFID = frameworkId?.toUpperCase() || "";
+        const overlays = TECHNICAL_STANDARD_CONTENT[normalizedFID] || [];
+
+        // 1. Try V-pattern (legacy/NIST)
         const match = category.match(/V(\d+):/);
         if (match) {
             const version = match[1];
-            return overlays.find(o => o.id.includes(`-V${version}`));
+            const vMatch = overlays.find(o => o.id.includes(`-V${version}`));
+            if (vMatch) return vMatch;
         }
-        return null;
+
+        // 2. Try Name Match (ISO and new frameworks)
+        // Check if category name is contained within or contains the overlay name
+        const nameMatch = overlays.find(o =>
+            category.toLowerCase().includes(o.name.toLowerCase().split('(')[0].trim()) ||
+            o.name.toLowerCase().includes(category.toLowerCase())
+        );
+
+        return nameMatch || null;
     };
+
 
     const overlay = getStrategicOverlay(activeCategory);
 
@@ -147,206 +160,220 @@ const FrameworkImplementationView: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid lg:grid-cols-12 gap-8">
-                    {/* Sidebar: Categories */}
-                    <div className="lg:col-span-4 space-y-4">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Domains & Categories</h3>
-                        <ScrollArea className="h-[calc(100vh-350px)] pr-4">
-                            <div className="space-y-3">
-                                {categories.map((cat) => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setSelectedPractice(cat)}
-                                        className={`w-full text-left p-5 rounded-2xl transition-all duration-300 border shadow-sm group ${activeCategory === cat
-                                            ? "bg-[#0284c7] border-[#0284c7] text-white shadow-lg shadow-[#0284c7]/20 translate-x-1"
-                                            : "bg-white border-slate-100 text-slate-600 hover:border-[#0284c7]/30 hover:shadow-md"
-                                            }`}
-                                    >
-                                        <div className="flex justify-between items-start gap-4">
-                                            <div className="space-y-1">
-                                                <h4 className="font-bold leading-tight line-clamp-2">{cat}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <Badge className={`text-[10px] py-0 px-2 ${activeCategory === cat ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
-                                                        {groupedControls[cat].length} Controls
+                {!isLoading && categories.length === 0 && (
+                    <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                        <AlertCircle className="w-12 h-12 text-amber-500" />
+                        <div>
+                            <h4 className="text-xl font-bold text-slate-700">Framework Not Configured</h4>
+                            <p className="text-slate-500 max-w-md mx-auto mt-2">
+                                We couldn't find any controls for this framework. It may not be imported or configured for this client yet.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {categories.length > 0 && (
+                    <div className="grid lg:grid-cols-12 gap-8">
+                        {/* Sidebar: Categories */}
+                        <div className="lg:col-span-4 space-y-4">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-2">Domains & Categories</h3>
+                            <ScrollArea className="h-[calc(100vh-350px)] pr-4">
+                                <div className="space-y-3">
+                                    {categories.map((cat) => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setSelectedPractice(cat)}
+                                            className={`w-full text-left p-5 rounded-2xl transition-all duration-300 border shadow-sm group ${activeCategory === cat
+                                                ? "bg-[#0284c7] border-[#0284c7] text-white shadow-lg shadow-[#0284c7]/20 translate-x-1"
+                                                : "bg-white border-slate-100 text-slate-600 hover:border-[#0284c7]/30 hover:shadow-md"
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-start gap-4">
+                                                <div className="space-y-1">
+                                                    <h4 className="font-bold leading-tight line-clamp-2">{cat}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge className={`text-[10px] py-0 px-2 ${activeCategory === cat ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
+                                                            {groupedControls[cat].length} Controls
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                <ArrowRight className={`w-5 h-5 shrink-0 mt-1 transition-transform ${activeCategory === cat ? "translate-x-1" : "group-hover:translate-x-1 opacity-20"}`} />
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="lg:col-span-8">
+                            {activeCategory ? (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                                    {/* Strategic Overlay (if exists) */}
+                                    {overlay && (
+                                        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl overflow-hidden bg-gradient-to-br from-white to-slate-50">
+                                            <CardHeader className="p-8 pb-4">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Badge variant="outline" className="bg-white text-[#0284c7] border-[#0284c7]/20 font-bold px-3 py-1">
+                                                        Strategic Guidance
                                                     </Badge>
                                                 </div>
-                                            </div>
-                                            <ArrowRight className={`w-5 h-5 shrink-0 mt-1 transition-transform ${activeCategory === cat ? "translate-x-1" : "group-hover:translate-x-1 opacity-20"}`} />
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </div>
-
-                    {/* Content Area */}
-                    <div className="lg:col-span-8">
-                        {activeCategory ? (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                                {/* Strategic Overlay (if exists) */}
-                                {overlay && (
-                                    <Card className="border-none shadow-xl shadow-slate-200/50 rounded-3xl overflow-hidden bg-gradient-to-br from-white to-slate-50">
-                                        <CardHeader className="p-8 pb-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Badge variant="outline" className="bg-white text-[#0284c7] border-[#0284c7]/20 font-bold px-3 py-1">
-                                                    Strategic Guidance
-                                                </Badge>
-                                            </div>
-                                            <CardTitle className="text-2xl font-black text-slate-900">{overlay.name}</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-8 pt-0 space-y-6">
-                                            <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 flex gap-5 items-start">
-                                                <Activity className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
-                                                <div>
-                                                    <h4 className="font-bold text-emerald-900 mb-1">Business Impact</h4>
-                                                    <p className="text-emerald-800/80 font-medium leading-relaxed italic">
-                                                        "{overlay.impact}"
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div className="space-y-3">
-                                                    <h5 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                        <BookOpen className="w-4 h-4" /> Implementation Focus
-                                                    </h5>
-                                                    <ul className="space-y-2">
-                                                        {overlay.guidance.map((g, i) => (
-                                                            <li key={i} className="text-sm text-slate-600 font-medium flex gap-2">
-                                                                <span className="text-[#0284c7]">•</span> {g}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    <h5 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                                        <ListChecks className="w-4 h-4" /> Roadmap
-                                                    </h5>
-                                                    <ul className="space-y-2">
-                                                        {overlay.nextSteps.map((s, i) => (
-                                                            <li key={i} className="text-sm text-slate-600 font-medium flex gap-2">
-                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> {s}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {/* Live Controls List */}
-                                <div className="space-y-4">
-                                    <h3 className="text-xl font-black text-slate-900 px-2 flex items-center justify-between">
-                                        Requirement Verification
-                                        <span className="text-sm font-bold text-slate-400">{activeControls.length} Found</span>
-                                    </h3>
-
-                                    {activeControls.map((control: any) => (
-                                        <Card key={control.id} className="border-slate-100 shadow-sm hover:shadow-md transition-all rounded-2xl">
-                                            <CardContent className="p-6">
-                                                <div className="flex flex-col md:flex-row justify-between gap-6">
-                                                    <div className="space-y-3 flex-1">
-                                                        <div className="flex items-center gap-3">
-                                                            <Badge className="bg-slate-100 text-slate-600 font-mono text-[10px] rounded-md">
-                                                                {control.controlId}
-                                                            </Badge>
-                                                            <h4 className="font-bold text-slate-900">{control.name}</h4>
-                                                        </div>
-                                                        <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                                                            {control.description}
+                                                <CardTitle className="text-2xl font-black text-slate-900">{overlay.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-8 pt-0 space-y-6">
+                                                <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 flex gap-5 items-start">
+                                                    <Activity className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
+                                                    <div>
+                                                        <h4 className="font-bold text-emerald-900 mb-1">Business Impact</h4>
+                                                        <p className="text-emerald-800/80 font-medium leading-relaxed italic">
+                                                            "{overlay.impact}"
                                                         </p>
-
-                                                        <div className="flex items-center gap-4 pt-2">
-                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                                                                <Clock className="w-3.5 h-3.5" />
-                                                                Status:
-                                                                <Badge className={`ml-1 text-[10px] ${control.status === 'implemented' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
-                                                                    control.status === 'in_progress' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                                        'bg-slate-50 text-slate-400'
-                                                                    }`} variant="outline">
-                                                                    {control.status?.replace('_', ' ').toUpperCase()}
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                                                                <AlertCircle className="w-3.5 h-3.5" />
-                                                                Evidence:
-                                                                <span className={(control.evidenceCount || 0) > 0 ? "text-emerald-600" : "text-amber-500"}>
-                                                                    {control.evidenceCount || 0} Linked
-                                                                </span>
-                                                            </div>
-                                                        </div>
                                                     </div>
+                                                </div>
 
-                                                    <div className="flex flex-col gap-2 min-w-[200px]">
-                                                        <Select
-                                                            value={control.status}
-                                                            onValueChange={(val) => updateStatus.mutate({
-                                                                id: control.id,
-                                                                clientId: Number(clientId),
-                                                                status: val as any
-                                                            })}
-                                                        >
-                                                            <SelectTrigger className="w-full rounded-xl font-bold text-xs h-10">
-                                                                <SelectValue placeholder="Update Status" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="not_implemented">Not Implemented</SelectItem>
-                                                                <SelectItem value="in_progress">In Progress</SelectItem>
-                                                                <SelectItem value="implemented">Implemented</SelectItem>
-                                                                <SelectItem value="not_applicable">Not Applicable</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-
-                                                        <Button
-                                                            variant="outline"
-                                                            className="w-full rounded-xl border-slate-200 text-[#0284c7] font-bold text-xs h-10 hover:bg-[#0284c7]/5"
-                                                            onClick={() => setLocation(`/clients/${clientId}/audit-hub?search=${control.controlId}`)}
-                                                        >
-                                                            Verify in Audit Hub
-                                                            <ExternalLink className="w-3.5 h-3.5 ml-2" />
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="ghost"
-                                                            className={`w-full rounded-xl font-bold text-xs h-10 border border-purple-100 transition-all duration-300
-                                                                ${getGuidanceMutation.isLoading && guidanceControl?.id === control.id
-                                                                    ? "bg-purple-50 text-purple-400 cursor-wait"
-                                                                    : "text-purple-600 hover:bg-purple-50"
-                                                                }`}
-                                                            onClick={() => handleOpenGuidance(control)}
-                                                            disabled={getGuidanceMutation.isLoading}
-                                                        >
-                                                            {getGuidanceMutation.isLoading && guidanceControl?.id === control.id ? (
-                                                                <>
-                                                                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                                                                    Generating...
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Sparkles className="w-3.5 h-3.5 mr-2" />
-                                                                    AI Implementation Guide
-                                                                </>
-                                                            )}
-                                                        </Button>
+                                                <div className="grid md:grid-cols-2 gap-4">
+                                                    <div className="space-y-3">
+                                                        <h5 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                            <BookOpen className="w-4 h-4" /> Implementation Focus
+                                                        </h5>
+                                                        <ul className="space-y-2">
+                                                            {overlay.guidance.map((g, i) => (
+                                                                <li key={i} className="text-sm text-slate-600 font-medium flex gap-2">
+                                                                    <span className="text-[#0284c7]">•</span> {g}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        <h5 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                            <ListChecks className="w-4 h-4" /> Roadmap
+                                                        </h5>
+                                                        <ul className="space-y-2">
+                                                            {overlay.nextSteps.map((s, i) => (
+                                                                <li key={i} className="text-sm text-slate-600 font-medium flex gap-2">
+                                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> {s}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
                                                     </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
-                                    ))}
+                                    )}
+
+                                    {/* Live Controls List */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xl font-black text-slate-900 px-2 flex items-center justify-between">
+                                            Requirement Verification
+                                            <span className="text-sm font-bold text-slate-400">{activeControls.length} Found</span>
+                                        </h3>
+
+                                        {activeControls.map((control: any) => (
+                                            <Card key={control.id} className="border-slate-100 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                                                <CardContent className="p-6">
+                                                    <div className="flex flex-col md:flex-row justify-between gap-6">
+                                                        <div className="space-y-3 flex-1">
+                                                            <div className="flex items-center gap-3">
+                                                                <Badge className="bg-slate-100 text-slate-600 font-mono text-[10px] rounded-md">
+                                                                    {control.controlId}
+                                                                </Badge>
+                                                                <h4 className="font-bold text-slate-900">{control.name}</h4>
+                                                            </div>
+                                                            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                                                                {control.description}
+                                                            </p>
+
+                                                            <div className="flex items-center gap-4 pt-2">
+                                                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                                                                    <Clock className="w-3.5 h-3.5" />
+                                                                    Status:
+                                                                    <Badge className={`ml-1 text-[10px] ${control.status === 'implemented' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                                                        control.status === 'in_progress' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                            'bg-slate-50 text-slate-400'
+                                                                        }`} variant="outline">
+                                                                        {control.status?.replace('_', ' ').toUpperCase()}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                                                                    <AlertCircle className="w-3.5 h-3.5" />
+                                                                    Evidence:
+                                                                    <span className={(control.evidenceCount || 0) > 0 ? "text-emerald-600" : "text-amber-500"}>
+                                                                        {control.evidenceCount || 0} Linked
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-col gap-2 min-w-[200px]">
+                                                            <Select
+                                                                value={control.status}
+                                                                onValueChange={(val) => updateStatus.mutate({
+                                                                    id: control.id,
+                                                                    clientId: Number(clientId),
+                                                                    status: val as any
+                                                                })}
+                                                            >
+                                                                <SelectTrigger className="w-full rounded-xl font-bold text-xs h-10">
+                                                                    <SelectValue placeholder="Update Status" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="not_implemented">Not Implemented</SelectItem>
+                                                                    <SelectItem value="in_progress">In Progress</SelectItem>
+                                                                    <SelectItem value="implemented">Implemented</SelectItem>
+                                                                    <SelectItem value="not_applicable">Not Applicable</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+
+                                                            <Button
+                                                                variant="outline"
+                                                                className="w-full rounded-xl border-slate-200 text-[#0284c7] font-bold text-xs h-10 hover:bg-[#0284c7]/5"
+                                                                onClick={() => setLocation(`/clients/${clientId}/audit-hub?search=${control.controlId}`)}
+                                                            >
+                                                                Verify in Audit Hub
+                                                                <ExternalLink className="w-3.5 h-3.5 ml-2" />
+                                                            </Button>
+
+                                                            <Button
+                                                                variant="ghost"
+                                                                className={`w-full rounded-xl font-bold text-xs h-10 border border-purple-100 transition-all duration-300
+                                                                ${getGuidanceMutation.isLoading && guidanceControl?.id === control.id
+                                                                        ? "bg-purple-50 text-purple-400 cursor-wait"
+                                                                        : "text-purple-600 hover:bg-purple-50"
+                                                                    }`}
+                                                                onClick={() => handleOpenGuidance(control)}
+                                                                disabled={getGuidanceMutation.isLoading}
+                                                            >
+                                                                {getGuidanceMutation.isLoading && guidanceControl?.id === control.id ? (
+                                                                    <>
+                                                                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                                                        Generating...
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                                                        AI Implementation Guide
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                                <Info className="w-12 h-12 text-slate-300" />
-                                <div>
-                                    <h4 className="text-xl font-bold text-slate-400">Select a category to begin</h4>
-                                    <p className="text-slate-400">Select a technical domain from the sidebar to start implementation.</p>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-4 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                                    <Info className="w-12 h-12 text-slate-300" />
+                                    <div>
+                                        <h4 className="text-xl font-bold text-slate-400">Select a category to begin</h4>
+                                        <p className="text-slate-400">Select a technical domain from the sidebar to start implementation.</p>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* AI Guidance Dialog */}
                 <Dialog open={!!guidanceControl} onOpenChange={(open) => !open && setGuidanceControl(null)}>

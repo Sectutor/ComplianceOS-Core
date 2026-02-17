@@ -26,7 +26,6 @@ import {
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Loader2, Search, Filter, ChevronLeft, ChevronRight, Eye, Download, RefreshCw } from "lucide-react";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Breadcrumb } from "@/components/Breadcrumb";
 
 export default function AuditLogs() {
@@ -71,198 +70,196 @@ export default function AuditLogs() {
     };
 
     return (
-        <DashboardLayout>
-            <div className="space-y-6">
-                <Breadcrumb items={[{ label: "Admin" }, { label: "Audit Logs" }]} />
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
+            <Breadcrumb items={[{ label: "Admin" }, { label: "Audit Logs" }]} />
 
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">System Audit Logs</h1>
-                        <p className="text-muted-foreground mt-2">
-                            Track all security and administrative events across the platform.
-                        </p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => refetch()}>
-                            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleExport} disabled={!data || data.length === 0}>
-                            <Download className="h-4 w-4 mr-2" /> Export CSV
-                        </Button>
-                    </div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">System Audit Logs</h1>
+                    <p className="text-muted-foreground mt-2">
+                        Track all security and administrative events across the platform.
+                    </p>
                 </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => refetch()}>
+                        <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExport} disabled={!data || data.length === 0}>
+                        <Download className="h-4 w-4 mr-2" /> Export CSV
+                    </Button>
+                </div>
+            </div>
 
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                                <CardTitle>Event Log</CardTitle>
-                                <CardDescription>Search and filter system events.</CardDescription>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <CardTitle>Event Log</CardTitle>
+                            <CardDescription>Search and filter system events.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-[180px]">
+                                <Select value={actionFilter} onValueChange={setActionFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Filter by Action" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Actions</SelectItem>
+                                        <SelectItem value="create">Create</SelectItem>
+                                        <SelectItem value="update">Update</SelectItem>
+                                        <SelectItem value="delete">Delete</SelectItem>
+                                        <SelectItem value="publish">Publish</SelectItem>
+                                        <SelectItem value="login">Login</SelectItem>
+                                        <SelectItem value="restore">Restore</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-[180px]">
-                                    <Select value={actionFilter} onValueChange={setActionFilter}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Filter by Action" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Actions</SelectItem>
-                                            <SelectItem value="create">Create</SelectItem>
-                                            <SelectItem value="update">Update</SelectItem>
-                                            <SelectItem value="delete">Delete</SelectItem>
-                                            <SelectItem value="publish">Publish</SelectItem>
-                                            <SelectItem value="login">Login</SelectItem>
-                                            <SelectItem value="restore">Restore</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="w-[180px]">
-                                    <Select value={entityFilter} onValueChange={setEntityFilter}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Filter by Entity" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Entities</SelectItem>
-                                            <SelectItem value="policy">Policy</SelectItem>
-                                            <SelectItem value="control">Control</SelectItem>
-                                            <SelectItem value="client">Client</SelectItem>
-                                            <SelectItem value="user">User</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                            <div className="w-[180px]">
+                                <Select value={entityFilter} onValueChange={setEntityFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Filter by Entity" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Entities</SelectItem>
+                                        <SelectItem value="policy">Policy</SelectItem>
+                                        <SelectItem value="control">Control</SelectItem>
+                                        <SelectItem value="client">Client</SelectItem>
+                                        <SelectItem value="user">User</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <div className="flex justify-center p-8">
-                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : isError ? (
-                            <div className="text-center p-8 text-red-500">
-                                Error loading logs: {error.message}
-                            </div>
-                        ) : (
-                            <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
-                                            <TableHead className="text-white font-semibold py-4">Timestamp</TableHead>
-                                            <TableHead className="text-white font-semibold py-4">User</TableHead>
-                                            <TableHead className="text-white font-semibold py-4">Action</TableHead>
-                                            <TableHead className="text-white font-semibold py-4">Entity</TableHead>
-                                            <TableHead className="text-white font-semibold py-4">Severity</TableHead>
-                                            <TableHead className="text-right text-white font-semibold py-4">Details</TableHead>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <div className="flex justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : isError ? (
+                        <div className="text-center p-8 text-red-500">
+                            Error loading logs: {error.message}
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                        <TableHead className="text-white font-semibold py-4">Timestamp</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">User</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Action</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Entity</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Severity</TableHead>
+                                        <TableHead className="text-right text-white font-semibold py-4">Details</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {data?.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center h-24 text-gray-500 bg-white">
+                                                No logs found matching your criteria.
+                                            </TableCell>
                                         </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data?.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center h-24 text-gray-500 bg-white">
-                                                    No logs found matching your criteria.
+                                    ) : (
+                                        data?.map((log) => (
+                                            <TableRow key={log.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm group">
+                                                <TableCell className="whitespace-nowrap font-mono text-xs text-gray-500 py-4">
+                                                    {new Date(log.createdAt || '').toLocaleString()}
                                                 </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            data?.map((log) => (
-                                                <TableRow key={log.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm group">
-                                                    <TableCell className="whitespace-nowrap font-mono text-xs text-gray-500 py-4">
-                                                        {new Date(log.createdAt || '').toLocaleString()}
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-sm text-black">{log.userName}</span>
-                                                            <span className="text-xs text-gray-500">{log.userEmail}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <Badge variant="outline" className="capitalize bg-white border-gray-300 text-gray-700">
-                                                            {log.action}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <span className="capitalize text-sm text-black">
-                                                            {log.entityType} {log.entityId && <span className="text-gray-500">#{log.entityId}</span>}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <Badge variant={log.severity === 'critical' ? 'destructive' : log.severity === 'warning' ? 'secondary' : 'outline'}>
-                                                            {log.severity}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right py-4">
-                                                        <EnhancedDialog
-                                                            title="Log Details"
-                                                            trigger={
-                                                                <Button variant="ghost" size="sm" className="hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D] transition-colors duration-200">
-                                                                    <Eye className="h-4 w-4 mr-2" />
-                                                                    View
-                                                                </Button>
-                                                            }
-                                                            size="lg"
-                                                        >
-                                                            <div className="space-y-4">
-                                                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                                                    <div>
-                                                                        <span className="font-semibold block text-muted-foreground">Action</span>
-                                                                        {log.action}
-                                                                    </div>
-                                                                    <div>
-                                                                        <span className="font-semibold block text-muted-foreground">Entity</span>
-                                                                        {log.entityType} #{log.entityId}
-                                                                    </div>
-                                                                    <div>
-                                                                        <span className="font-semibold block text-muted-foreground">User</span>
-                                                                        {log.userName} ({log.userEmail})
-                                                                    </div>
-                                                                    <div>
-                                                                        <span className="font-semibold block text-muted-foreground">Time</span>
-                                                                        {new Date(log.createdAt || '').toLocaleString()}
-                                                                    </div>
-                                                                </div>
-
+                                                <TableCell className="py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-sm text-black">{log.userName}</span>
+                                                        <span className="text-xs text-gray-500">{log.userEmail}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="py-4">
+                                                    <Badge variant="outline" className="capitalize bg-white border-gray-300 text-gray-700">
+                                                        {log.action}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="py-4">
+                                                    <span className="capitalize text-sm text-black">
+                                                        {log.entityType} {log.entityId && <span className="text-gray-500">#{log.entityId}</span>}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="py-4">
+                                                    <Badge variant={log.severity === 'critical' ? 'destructive' : log.severity === 'warning' ? 'secondary' : 'outline'}>
+                                                        {log.severity}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right py-4">
+                                                    <EnhancedDialog
+                                                        title="Log Details"
+                                                        trigger={
+                                                            <Button variant="ghost" size="sm" className="hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D] transition-colors duration-200">
+                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                View
+                                                            </Button>
+                                                        }
+                                                        size="lg"
+                                                    >
+                                                        <div className="space-y-4">
+                                                            <div className="grid grid-cols-2 gap-4 text-sm">
                                                                 <div>
-                                                                    <span className="font-semibold block mb-2 text-muted-foreground">Raw Data</span>
-                                                                    <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-xs font-mono">
-                                                                        {JSON.stringify(typeof log.details === 'string' ? JSON.parse(log.details) : log.details || {}, null, 2)}
-                                                                    </pre>
+                                                                    <span className="font-semibold block text-muted-foreground">Action</span>
+                                                                    {log.action}
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-semibold block text-muted-foreground">Entity</span>
+                                                                    {log.entityType} #{log.entityId}
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-semibold block text-muted-foreground">User</span>
+                                                                    {log.userName} ({log.userEmail})
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-semibold block text-muted-foreground">Time</span>
+                                                                    {new Date(log.createdAt || '').toLocaleString()}
                                                                 </div>
                                                             </div>
-                                                        </EnhancedDialog>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
 
-                        <div className="flex items-center justify-end space-x-2 py-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1 || isLoading}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
-                            </Button>
-                            <div className="text-sm text-muted-foreground">
-                                Page {page}
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => p + 1)}
-                                disabled={!data || data.length < limit || isLoading}
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
+                                                            <div>
+                                                                <span className="font-semibold block mb-2 text-muted-foreground">Raw Data</span>
+                                                                <pre className="bg-slate-950 text-slate-50 p-4 rounded-lg overflow-x-auto text-xs font-mono">
+                                                                    {JSON.stringify(typeof log.details === 'string' ? JSON.parse(log.details) : log.details || {}, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        </div>
+                                                    </EnhancedDialog>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </DashboardLayout>
+                    )}
+
+                    <div className="flex items-center justify-end space-x-2 py-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={page === 1 || isLoading}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                        </Button>
+                        <div className="text-sm text-muted-foreground">
+                            Page {page}
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(p => p + 1)}
+                            disabled={!data || data.length < limit || isLoading}
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }

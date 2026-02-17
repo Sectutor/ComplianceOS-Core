@@ -22,26 +22,33 @@ export default function CyberLayout({ children }: PropsWithChildren) {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6">
-                <div className="border-b">
-                    <div className="flex h-16 items-center px-4 md:px-8">
-                        <nav className="flex items-center space-x-4 lg:space-x-6">
-                            {tabs.map((tab) => (
-                                <Link key={tab.path} href={tab.path} className={cn(
-                                    "flex items-center text-sm font-medium transition-colors hover:text-primary",
-                                    location === tab.path
-                                        ? "text-primary border-b-2 border-primary pb-5 mt-5"
-                                        : "text-muted-foreground pb-5 mt-5 border-b-2 border-transparent"
-                                )}>
-                                    <tab.icon className="mr-2 h-4 w-4" />
+            <div className="flex flex-col min-h-screen">
+                <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b md:pl-20 px-4 py-4">
+                    <nav className="flex space-x-3 overflow-x-auto scrollbar-hide pb-2" aria-label="Tabs">
+                        {tabs.map((tab) => {
+                            const active = location === tab.path;
+                            return (
+                                <Link
+                                    key={tab.path}
+                                    href={tab.path}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-all duration-300 font-bold text-sm shadow-sm",
+                                        active
+                                            ? "bg-[#3ABEF9] text-white scale-105 shadow-sky-100"
+                                            : "bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:scale-105"
+                                    )}
+                                >
+                                    <tab.icon className="h-4 w-4" />
                                     {tab.name}
                                 </Link>
-                            ))}
-                        </nav>
-                    </div>
+                            );
+                        })}
+                    </nav>
                 </div>
-                <div className="px-4 md:px-8 pb-8">
-                    {children}
+                <div className="flex-1 w-full pl-4 pr-4 py-8 md:pl-20 md:pr-8 bg-slate-50/10">
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full">
+                        {children}
+                    </div>
                 </div>
             </div>
         </DashboardLayout>

@@ -148,8 +148,8 @@ export default function WorkflowPlayer() {
                     </aside>
 
                     {/* Main Execution Area */}
-                    <main className="flex-1 p-8 lg:p-12 overflow-y-auto bg-[url('/grid.svg')]">
-                        <div className="max-w-4xl mx-auto space-y-10">
+                    <main className="flex-1 p-8 lg:py-12 lg:pl-20 lg:pr-12 overflow-y-auto bg-[url('/grid.svg')]">
+                        <div className="max-w-5xl space-y-10">
                             {/* Content Card */}
                             <div className="space-y-6">
                                 <div className="space-y-2">

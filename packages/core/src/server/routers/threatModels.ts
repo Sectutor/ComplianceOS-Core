@@ -971,7 +971,7 @@ export const createThreatModelsRouter = (t: any, clientProcedure: any) => {
                     const methodology = (model.methodology || 'STRIDE').toUpperCase();
 
                     // Determine which mappings to run
-                    let mappingsToRun = [];
+                    const mappingsToRun = [];
                     if (methodology === 'COMBINED' || methodology === 'STRIDE+LINDDUN') {
                         mappingsToRun.push({ map: STRIDE_MAPPING, prefix: 'STRIDE Security' });
                         mappingsToRun.push({ map: LINDDUN_MAPPING, prefix: 'LINDDUN Privacy' });
@@ -1082,13 +1082,13 @@ export const createThreatModelsRouter = (t: any, clientProcedure: any) => {
                                         const category = tags.find((t: string) => ['Tampering', 'Information Disclosure', 'Spoofing', 'Denial of Service', 'Elevation of Privilege'].includes(t)) || 'Security';
 
                                         // Clean up description if it has markdown headers
-                                        let rawDesc = req.description || '';
-                                        let cleanDesc = rawDesc.replace(/###\s*Description:?\s*/gi, '').trim();
+                                        const rawDesc = req.description || '';
+                                        const cleanDesc = rawDesc.replace(/###\s*Description:?\s*/gi, '').trim();
 
                                         // Create a rich detailed explanation by combining description and guidance
                                         let detailedExplanation = cleanDesc;
                                         if (req.guidance) {
-                                            let cleanGuidance = req.guidance
+                                            const cleanGuidance = req.guidance
                                                 .replace(/###\s*How to Prevent:?\s*/gi, '\n\nPREVENTION STRATEGY:\n')
                                                 .replace(/###\s*Example Attack Scenarios:?\s*/gi, '\n\nATTACK SCENARIOS:\n')
                                                 .trim();

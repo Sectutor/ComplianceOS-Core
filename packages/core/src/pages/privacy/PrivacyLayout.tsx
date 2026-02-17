@@ -9,16 +9,18 @@ import {
     Scale,
     Globe,
     AlertTriangle,
-    ShieldCheck
+    ShieldCheck,
+    Users
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface PrivacyLayoutProps {
     clientId: number;
     children: React.ReactNode;
+    fullWidth?: boolean;
 }
 
-export function PrivacyLayout({ clientId, children }: PrivacyLayoutProps) {
+export function PrivacyLayout({ clientId, children, fullWidth = false }: PrivacyLayoutProps) {
     const [location] = useLocation();
 
     // We could fetch privacy stats here for badges if needed
@@ -29,6 +31,12 @@ export function PrivacyLayout({ clientId, children }: PrivacyLayoutProps) {
             label: "Overview",
             href: `/clients/${clientId}/privacy/overview`,
             icon: ShieldCheck,
+            badge: null
+        },
+        {
+            label: "Alignment",
+            href: `/clients/${clientId}/privacy/alignment-guide`,
+            icon: Globe,
             badge: null
         },
         {
@@ -68,6 +76,12 @@ export function PrivacyLayout({ clientId, children }: PrivacyLayoutProps) {
             badge: null
         },
         {
+            label: "DSAR",
+            href: `/clients/${clientId}/privacy/dsar`,
+            icon: Users,
+            badge: null
+        },
+        {
             label: "Breaches",
             href: `/clients/${clientId}/privacy/breaches`,
             icon: AlertTriangle,
@@ -84,38 +98,45 @@ export function PrivacyLayout({ clientId, children }: PrivacyLayoutProps) {
     return (
         <DashboardLayout>
             <div className="flex flex-col min-h-screen">
-                <div className="border-b bg-white px-6">
-                    <nav className="flex space-x-6 overflow-x-auto" aria-label="Tabs">
-                        {navItems.map((item) => (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors hover:text-slate-700",
-                                    isActive(item.href)
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-slate-500 hover:border-slate-300"
-                                )}
-                            >
-                                <item.icon className={cn(
-                                    "mr-2 h-4 w-4",
-                                    isActive(item.href) ? "text-blue-600" : "text-slate-400 group-hover:text-slate-500"
-                                )} />
-                                {item.label}
-                                {!!item.badge && (
-                                    <span className={cn(
-                                        "ml-2 rounded-full py-0.5 px-2 text-xs font-medium",
-                                        isActive(item.href) ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-600"
-                                    )}>
-                                        {item.badge}
-                                    </span>
-                                )}
-                            </Link>
-                        ))}
+                <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b md:pl-20 px-4 py-4">
+                    <nav className="flex space-x-3 overflow-x-auto scrollbar-hide pb-2" aria-label="Tabs">
+                        {navItems.map((item) => {
+                            const active = isActive(item.href);
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg transition-all flex items-center whitespace-nowrap text-sm font-bold shadow-sm",
+                                        active
+                                            ? "bg-[#3ABEF9] text-white"
+                                            : "bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]"
+                                    )}
+                                >
+                                    <item.icon className={cn(
+                                        "mr-2 h-4 w-4 transition-transform duration-300",
+                                        active ? "scale-110" : "opacity-80"
+                                    )} />
+                                    {item.label}
+                                    {!!item.badge && (
+                                        <span className={cn(
+                                            "ml-2.5 rounded-full py-0.5 px-2 text-[10px] font-bold border backdrop-blur-md",
+                                            active
+                                                ? "bg-white/20 text-white border-white/30"
+                                                : "bg-[#3ABEF9]/20 text-white border-[#3ABEF9]/30"
+                                        )}>
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </Link>
+                            );
+                        })}
                     </nav>
                 </div>
-                <div className="flex-1">
-                    {children}
+                <div className="flex-1 w-full pl-4 pr-4 py-8 md:pl-20 md:pr-8 bg-slate-50/30">
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {children}
+                    </div>
                 </div>
             </div>
         </DashboardLayout>

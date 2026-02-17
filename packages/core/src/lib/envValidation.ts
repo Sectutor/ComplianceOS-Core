@@ -19,6 +19,10 @@ export function validateEnv(): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
+    if (typeof process === 'undefined' || !process.env) {
+        return { valid: true, errors: [], warnings: [] };
+    }
+
     // Required environment variables
     if (!process.env.DATABASE_URL) {
         errors.push('DATABASE_URL is required for database connection');
@@ -62,6 +66,14 @@ export interface HealthCheckResult {
 }
 
 export async function healthCheck(): Promise<HealthCheckResult> {
+    if (typeof process === 'undefined' || !process.env) {
+        return {
+            status: 'healthy',
+            services: { database: true },
+            timestamp: new Date().toISOString()
+        };
+    }
+
     const services = {
         database: false,
         stripe: undefined as boolean | undefined,

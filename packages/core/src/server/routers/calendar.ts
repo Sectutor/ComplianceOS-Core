@@ -24,7 +24,7 @@ export const createCalendarRouter = (t: any, clientProcedure: any) => t.router({
 
             // Get standard compliance events from db.ts
             const { getCalendarEvents } = await import("../../db");
-            const complianceEvents = await getCalendarEvents(clientId, start, end);
+            const complianceEvents = await getCalendarEvents(start, end, clientId);
 
             // 1. Project Tasks
             const pTasks = await db.select().from(projectTasks).where(and(eq(projectTasks.clientId, clientId), gte(projectTasks.dueDate, start), lte(projectTasks.dueDate, end)));
@@ -119,10 +119,10 @@ export const createCalendarRouter = (t: any, clientProcedure: any) => t.router({
             const pItems = await db.select({ item: poamItems }).from(poamItems).innerJoin(federalPoams, eq(poamItems.poamId, federalPoams.id)).where(and(eq(federalPoams.clientId, input.clientId), gte(poamItems.scheduledCompletionDate, now), lte(poamItems.scheduledCompletionDate, nextWeek)));
 
             const all = [
-                ...pTasks.map((t: any) => ({ id: `project_${t.id}`, type: 'project_task', title: t.title, description: t.description, dueDate: t.dueDate, clientId: t.clientId, clientName: 'Client', status: t.status, entityId: t.id, priority: t.priority })),
-                ...rItems.map(({ item, plan }: any) => ({ id: `roadmap_${item.id}`, type: 'remediation', title: item.title, description: item.description, dueDate: plan.targetDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: item.phase === 1 ? 'critical' : 'medium' })),
-                ...pItems.map(({ item }: any) => ({ id: `poam_${item.id}`, type: 'poam', title: `POA&M: ${item.weaknessName}`, description: item.weaknessDescription, dueDate: item.scheduledCompletionDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: 'high' }))
-            ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, input.limit);
+                ...pTasks.map((t: any) => ({ id: `project_${t.id}`, type: 'project_task', title: t.title, description: t.description, date: t.dueDate, clientId: t.clientId, clientName: 'Client', status: t.status, entityId: t.id, priority: t.priority })),
+                ...rItems.map(({ item, plan }: any) => ({ id: `roadmap_${item.id}`, type: 'remediation', title: item.title, description: item.description, date: plan.targetDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: item.phase === 1 ? 'critical' : 'medium' })),
+                ...pItems.map(({ item }: any) => ({ id: `poam_${item.id}`, type: 'poam', title: `POA&M: ${item.weaknessName}`, description: item.weaknessDescription, date: item.scheduledCompletionDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: 'high' }))
+            ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, input.limit);
 
             return all;
         }),
@@ -153,10 +153,10 @@ export const createCalendarRouter = (t: any, clientProcedure: any) => t.router({
             const pItems = await db.select({ item: poamItems }).from(poamItems).innerJoin(federalPoams, eq(poamItems.poamId, federalPoams.id)).where(and(eq(federalPoams.clientId, input.clientId), lt(poamItems.scheduledCompletionDate, now), eq(poamItems.status, 'open')));
 
             const all = [
-                ...pTasks.map((t: any) => ({ id: `project_${t.id}`, type: 'project_task', title: t.title, description: t.description, dueDate: t.dueDate, clientId: t.clientId, clientName: 'Client', status: t.status, entityId: t.id, priority: t.priority })),
-                ...rItems.map(({ item, plan }: any) => ({ id: `roadmap_${item.id}`, type: 'remediation', title: item.title, description: item.description, dueDate: plan.targetDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: item.phase === 1 ? 'critical' : 'medium' })),
-                ...pItems.map(({ item }: any) => ({ id: `poam_${item.id}`, type: 'poam', title: `POA&M: ${item.weaknessName}`, description: item.weaknessDescription, dueDate: item.scheduledCompletionDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: 'high' }))
-            ].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, input.limit);
+                ...pTasks.map((t: any) => ({ id: `project_${t.id}`, type: 'project_task', title: t.title, description: t.description, date: t.dueDate, clientId: t.clientId, clientName: 'Client', status: t.status, entityId: t.id, priority: t.priority })),
+                ...rItems.map(({ item, plan }: any) => ({ id: `roadmap_${item.id}`, type: 'remediation', title: item.title, description: item.description, date: plan.targetDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: item.phase === 1 ? 'critical' : 'medium' })),
+                ...pItems.map(({ item }: any) => ({ id: `poam_${item.id}`, type: 'poam', title: `POA&M: ${item.weaknessName}`, description: item.weaknessDescription, date: item.scheduledCompletionDate, clientId: input.clientId, clientName: 'Client', status: item.status, entityId: item.id, priority: 'high' }))
+            ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, input.limit);
 
             return all;
         })

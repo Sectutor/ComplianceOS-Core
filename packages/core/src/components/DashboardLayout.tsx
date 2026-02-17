@@ -30,7 +30,7 @@ import {
   LayoutDashboard, LogOut, PanelLeft, Users, User, Shield, FileText, Calendar,
   Link, ClipboardCheck, FileBarChart, Bell, Settings, BookOpen, ChevronRight,
   ChevronDown, Scale, Lock, History, AlertTriangle, Activity, Database, Bug,
-  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag, GraduationCap, Video, Upload, X, Loader2, ShoppingBag
+  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag, GraduationCap, Video, Upload, X, Loader2, ShoppingBag, Cloud, GitBranch, Server, Key
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Redirect } from "wouter";
@@ -88,7 +88,6 @@ const adminMenuItems = [
   { label: "Audit Logs", path: "/admin/audit" },
   { label: "LLM Settings", path: "/admin/llm" },
   // { label: "Integrations Marketplace", path: "/admin/integrations" },
-  { label: "Issue Trackers", path: "/admin/issue-tracker" },
   { label: "Billing", path: "/admin/billing" },
   { label: "Waitlist Management", path: "/sales/waitlist" },
 ];
@@ -178,6 +177,10 @@ function resolveNavigationPath(itemPath: string, clientId: number | null): strin
   if (purePath === "/projects") return `/clients/${clientId}/projects${queryStr}`;
   if (purePath === "/marketplace") return `/clients/${clientId}/marketplace${queryStr}`;
   if (purePath === "/essential-eight") return `/clients/${clientId}/essential-eight${queryStr}`;
+  if (purePath === "/nist-csf-2") return `/clients/${clientId}/nist-csf-2${queryStr}`;
+  if (purePath === "/cisa-ztmm-2") return `/clients/${clientId}/cisa-ztmm-2${queryStr}`;
+  if (purePath === "/cmmc-2") return `/clients/${clientId}/cmmc-2${queryStr}`;
+  if (purePath === "/c2m2-2.1") return `/clients/${clientId}/c2m2-2.1${queryStr}`;
 
   // Handle client-specific sub-routes
   const isClientSubRoute = clientSpecificMenuItems.some(cItem => cItem.path === purePath) ||
@@ -185,10 +188,12 @@ function resolveNavigationPath(itemPath: string, clientId: number | null): strin
     purePath.startsWith('/vendors') ||
     purePath.startsWith('/business-continuity') ||
     purePath.startsWith('/federal') ||
+    purePath.startsWith('/nist') ||
     purePath.startsWith('/privacy') ||
     purePath.startsWith('/workflows') ||
     purePath.startsWith('/cyber') ||
     purePath.startsWith('/ai-governance') ||
+    purePath.startsWith('/iso27001') ||
     purePath.startsWith('/roadmap') ||
     purePath.startsWith('/readiness') ||
     purePath.startsWith('/compliance-journey') ||
@@ -196,6 +201,9 @@ function resolveNavigationPath(itemPath: string, clientId: number | null): strin
     purePath.startsWith('/implementation') ||
     purePath === '/asvs' ||
     purePath === '/samm' ||
+    purePath === '/nist-csf-2' ||
+    purePath === '/cisa-ztmm-2' ||
+    purePath === '/cmmc-2' ||
     purePath === '/metrics';
 
 
@@ -577,7 +585,7 @@ function DashboardLayoutContent({
 
   // Robust role check: use DB user if available, otherwise fall back to auth metadata
   const userRole = dbUser?.role || user?.user_metadata?.role || user?.app_metadata?.role;
-  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner';
+  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner' || userRole === 'super_admin';
 
   // Group Definition
   const groups = [
@@ -589,6 +597,41 @@ function DashboardLayoutContent({
         { icon: Users, label: "Clients", path: "/clients" },
         { icon: Settings, label: "Settings", path: "/settings" },
         { icon: GraduationCap, label: "Employee Onboarding", path: "/onboarding" },
+      ]
+    },
+    {
+      label: "Assessments & Questionnaires",
+      items: [
+        { icon: Sparkles, label: "AI Questionnaires", path: "/questionnaires", isPremium: true },
+        { icon: Activity, label: "Gap Analysis", path: "/gap-analysis" },
+        {
+          icon: ShieldCheck,
+          label: "Security Assessments",
+          path: "/assurance",
+          submenu: [
+            { label: "Assurance Overview", path: "/assurance" },
+            { label: "NIST CSF 2.0", path: "/nist-csf-2" },
+            { label: "ISO 27001", path: "/assurance/iso-27001" },
+            { label: "Cloud Controls (CCM)", path: "/assurance/ccm" },
+            { label: "C2M2 V2.1", path: "/c2m2-2.1" },
+            { label: "CISA Zero Trust", path: "/cisa-ztmm-2" },
+            { label: "CMMC 2.0", path: "/cmmc-2" },
+            { label: "Essential Eight", path: "/essential-eight" },
+            { label: "SAMM Maturity", path: "/samm" },
+            { label: "App Security (ASVS)", path: "/asvs" },
+          ]
+        },
+        { icon: ShieldAlert, label: "Vendor Assessments", path: "/vendors/reviews" },
+        {
+          icon: Target,
+          label: "Specialized Surveys",
+          path: "/assessments/specialized",
+          submenu: [
+            { label: "NIS2 Assessment", path: "/cyber/assessment" },
+            { label: "DPI Assessment", path: "/privacy/dpia" },
+            { label: "Business Impact (BIA)", path: "/business-continuity/bia" },
+          ]
+        },
       ]
     },
     {
@@ -632,10 +675,73 @@ function DashboardLayoutContent({
           { icon: ClipboardCheck, label: "Evidence Collection", path: "/evidence" },
           { icon: Briefcase, label: "Audit Preparation", path: "/audit-hub" },
         ]
-      }
-    );
-
-    groups.push(
+      },
+      {
+        label: "ISO 27001 ISMS",
+        items: [
+          { icon: LayoutDashboard, label: "Dashboard", path: "/iso27001" },
+          { icon: ClipboardList, label: "Statement of Applicability", path: "/iso27001/soa" },
+          { icon: AlertTriangle, label: "Risk Management", path: "/iso27001/risks" },
+          { icon: Database, label: "Asset Register", path: "/iso27001/assets" },
+          { icon: FileText, label: "Internal Audit", path: "/iso27001/audit" },
+          { icon: ShieldCheck, label: "Governance Review", path: "/iso27001/governance" },
+        ]
+      },
+      {
+        label: "NIST Ecosystem",
+        items: [
+          { icon: LayoutGrid, label: "NIST Hub", path: "/nist" },
+          {
+            icon: ShieldCheck,
+            label: "NIST CSF 2.0",
+            path: "/nist/dashboard",
+            submenu: [
+              { label: "Dashboard", path: "/nist/dashboard" },
+              { label: "Control Assessment", path: "/nist/assessment" },
+              { label: "Tiers & Profiles", path: "/nist/profiles" },
+              { label: "POA&M Tracker", path: "/nist/poam" },
+              { label: "Document Hub", path: "/nist/documents" },
+            ]
+          },
+          {
+            icon: Activity,
+            label: "NIST SP 800-37 (RMF)",
+            path: "/nist/rmf",
+            submenu: [
+              { label: "Dashboard", path: "/nist/rmf" },
+              { label: "0. Prepare", path: "/nist/rmf/prepare" },
+              { label: "1. Categorize", path: "/nist/rmf/categorize" },
+              { label: "2. Select", path: "/nist/rmf/select" },
+              { label: "3. Implement", path: "/nist/rmf/implement" },
+              { label: "4. Assess", path: "/nist/rmf/assess" },
+              { label: "5. Authorize", path: "/nist/rmf/authorize" },
+              { label: "6. Monitor", path: "/nist/rmf/monitor" },
+            ]
+          },
+          {
+            icon: Target,
+            label: "NIST SP 800-30",
+            path: "/nist/800-30",
+            submenu: [
+              { label: "Risk Assessment", path: "/nist/800-30" },
+              { label: "Threat Modeling", path: "/nist/800-30/threats" },
+              { label: "Impact Analysis", path: "/nist/800-30/impact" },
+            ]
+          },
+          {
+            icon: Lock,
+            label: "NIST SP 800-53",
+            path: "/nist/800-53",
+            submenu: [
+              { label: "Control Catalog", path: "/nist/800-53" },
+              { label: "Baselines", path: "/nist/800-53/baselines" },
+              { label: "Inheritance", path: "/nist/800-53/inheritance" },
+              { label: "Assessments", path: "/nist/800-53/assessments" },
+              { label: "Continuous Monitoring", path: "/nist/800-53/monitoring" },
+            ]
+          },
+        ]
+      },
       {
         label: "Governance",
         items: [
@@ -669,14 +775,13 @@ function DashboardLayoutContent({
         label: "Risk Management",
         items: [
           { icon: LayoutDashboard, label: "Dashboard", path: "/risks" },
+          { icon: ClipboardCheck, label: "Risk Assessments", path: "/risks/assessments" },
           { icon: ListTodo, label: "Risk Register", path: "/risks/register" },
           { icon: FileText, label: "Risk Reports", path: "/risks/report" },
           { icon: LayoutGrid, label: "Risk Framework", path: "/risks/framework" },
           { icon: Database, label: "Assets", path: "/risks/assets" },
           { icon: AlertTriangle, label: "Threats", path: "/risks/threats" },
           { icon: Bug, label: "Vulnerabilities", path: "/risks/vulnerabilities" },
-          { icon: ClipboardCheck, label: "Assessments", path: "/risks/assessments" },
-          { icon: Activity, label: "Gap Analysis", path: "/gap-analysis" },
           { icon: Compass, label: "Guided Assessment", path: "/risks/guided" },
           { icon: ShieldCheck, label: "Treatment Plan", path: "/risks/treatment-plan" },
           { icon: BookOpen, label: "Alignment Guide", path: "/risks/alignment-guide" },
@@ -710,8 +815,6 @@ function DashboardLayoutContent({
         { icon: Shield, label: "Security Projects", path: "/projects" },
         { icon: Brain, label: "AI Governance", path: "/ai-governance", isPremium: true },
         { icon: Code, label: "Threat Modeling", path: "/dev/projects", isPremium: true },
-        { icon: ShieldCheck, label: "SAMM V2", path: "/samm" },
-        { icon: ShieldAlert, label: "ASVS Assessment", path: "/asvs" },
       ]
     });
 
@@ -723,7 +826,6 @@ function DashboardLayoutContent({
         items: [
           { icon: LayoutDashboard, label: "Dashboard", path: "/vendors/overview" },
           { icon: Building2, label: "All Vendors", path: "/vendors/all" },
-          { icon: ShieldCheck, label: "Assessments", path: "/vendors/reviews" },
           { icon: Search, label: "Discovery", path: "/vendors/discovery" },
           { icon: FileText, label: "Contract Templates", path: "/vendors/contracts" },
         ]
@@ -735,30 +837,40 @@ function DashboardLayoutContent({
         label: "Control Frameworks",
         items: [
           { icon: LayoutDashboard, label: "Dashboard", path: "/compliance" },
-
           { icon: BookOpen, label: "Knowledge Base", path: "/knowledge-base" },
-          { icon: Sparkles, label: "AI Questionnaires", path: "/questionnaires", isPremium: true },
           { icon: Link, label: "Mappings", path: "/mappings" },
-
         ]
-      },
-      {
+      }
+    );
+
+    if (isPremium) {
+      groups.push({
         label: "Federal Compliance",
         items: [
           { icon: Building2, label: "Overview", path: "/federal" },
+          { icon: Cloud, label: "FedRAMP Packages", path: "/federal/fedramp" },
+          { icon: ShieldCheck, label: "NIST 800-53 Rev 5", path: "/federal/800-53" },
+          { icon: ClipboardList, label: "FISMA Reporting", path: "/federal/fisma" },
+          { icon: AlertTriangle, label: "Non-Compliance Gap Report", path: "/federal/gap-report" },
+          { icon: GitBranch, label: "RMF Workflow", path: "/federal/rmf" },
+          { icon: Target, label: "DFARS/SPRS Scoring", path: "/federal/dfars" },
+          { icon: Server, label: "DISA STIG Checklists", path: "/federal/stigs" },
+          { icon: Key, label: "FIPS 140 Cryptography", path: "/federal/fips-140" },
           { icon: Lock, label: "FIPS 199 Categorization", path: "/federal/fips-199" },
           { icon: FileText, label: "SSP (NIST 800-171)", path: "/federal/ssp-171" },
           { icon: Shield, label: "SSP (NIST 800-172)", path: "/federal/ssp-172" },
           { icon: ClipboardList, label: "SAR Report", path: "/federal/sar" },
           { icon: Zap, label: "POA&M (NIST 171)", path: "/federal/poam" },
         ]
-      },
+      });
+    }
+
+    groups.push(
       {
         label: "Business Continuity",
         items: [
           { icon: Activity, label: "Overview", path: "/business-continuity" },
           { icon: Database, label: "Business Processes", path: "/business-continuity/processes" },
-          { icon: FileText, label: "Impact Analysis", path: "/business-continuity/bia" },
           { icon: Shield, label: "Strategies", path: "/business-continuity/strategies" },
           { icon: ClipboardList, label: "Plans", path: "/business-continuity/plans" },
           { icon: AlertTriangle, label: "Scenarios", path: "/business-continuity/scenarios" },
@@ -773,7 +885,6 @@ function DashboardLayoutContent({
           { icon: Database, label: "Data Inventory", path: "/privacy/inventory" },
           { icon: FileText, label: "ROPA", path: "/privacy/ropa" },
           { icon: ShieldAlert, label: "Data Breaches", path: "/privacy/breaches" },
-          { icon: ClipboardCheck, label: "DPI Assessment", path: "/privacy/dpia" },
           { icon: Globe, label: "International Transfers", path: "/privacy/transfers" },
           { icon: Users, label: "DSAR Manager", path: "/privacy/dsar" },
           { icon: FileText, label: "DPA Templates", path: "/vendors/dpa-templates" },
@@ -783,20 +894,18 @@ function DashboardLayoutContent({
         label: "Cyber Resilience",
         items: [
           { icon: ShieldCheck, label: "Overview", path: "/cyber" },
-          { icon: ListTodo, label: "NIS2 Assessment", path: "/cyber/assessment" },
           { icon: Activity, label: "Incidents", path: "/cyber/incidents" },
           { icon: FileText, label: "Documents", path: "/cyber/documents" },
         ]
       },
       {
-        label: "Assurance",
+        label: "Reporting & Assurance",
         items: [
           ...(clientInfo?.serviceModel === 'managed' && enabledInBuild ? [{ icon: Inbox, label: "Evidence Intake Box", path: "/intake" }] : []),
           { icon: LayoutDashboard, label: "Board Summary", path: "/board-summary" },
-          { icon: Shield, label: "SAMM Maturity", path: "/samm" },
-          { icon: ShieldCheck, label: "Essential Eight", path: "/essential-eight" },
+          { icon: ClipboardCheck, label: "Evidence Collection", path: "/evidence" },
+          { icon: Briefcase, label: "Audit Preparation", path: "/audit-hub" },
           { icon: Zap, label: "Supply Chain (SCVS)", path: "/assurance/scvs" },
-          { icon: Code, label: "App Security (ASVS)", path: "/asvs" },
           { icon: ShieldCheck, label: "OpenSSF Hygiene", path: "/assurance/openssf" },
           { icon: Radar, label: "Mobile App Sec", path: "/assurance/masvs" },
         ]
@@ -809,13 +918,15 @@ function DashboardLayoutContent({
           { icon: Calendar, label: "Calendar", path: "/calendar" },
           { icon: ListTodo, label: "Tasks", path: "/tasks" },
           { icon: MessageSquare, label: "Communication", path: "/communication" },
-          { icon: Settings, label: "Client Settings", path: "/settings", submenu: [
-            { label: "Security", path: "/settings/security" },
-            { label: "Onboarding", path: "/settings/onboarding" },
-            { label: "Users", path: "/settings/users" },
-            { label: "Organization", path: "/settings/organization" },
-            { label: "Invitations", path: "/settings/invitations" },
-          ] },
+          {
+            icon: Settings, label: "Client Settings", path: "/settings", submenu: [
+              { label: "Security", path: "/settings/security" },
+              { label: "Onboarding", path: "/settings/onboarding" },
+              { label: "Users", path: "/settings/users" },
+              { label: "Organization", path: "/settings/organization" },
+              { label: "Invitations", path: "/settings/invitations" },
+            ]
+          },
           ...(isAdminOrOwner ? [{ icon: GraduationCap, label: "Personnel Compliance", path: "/personnel-compliance" }] : []),
         ]
       },
@@ -1192,7 +1303,7 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        <div className="flex border-b h-14 items-center justify-between bg-white/80 px-4 md:px-6 backdrop-blur-md sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0,03)]">
+        <div className="flex border-b h-14 items-center justify-between bg-white/80 pl-4 pr-4 md:pl-20 md:pr-8 backdrop-blur-md sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0,03)]">
           <div className="flex items-center gap-3">
             {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background shadow-sm border" />}
             <div className="flex items-center gap-2">
@@ -1209,7 +1320,7 @@ function DashboardLayoutContent({
             <NotificationCenter />
           </div>
         </div>
-        <div className="flex-1 p-4 md:p-6">{children}</div>
+        <div className="flex-1 pl-4 pr-4 py-8 md:pl-20 md:pr-8">{children}</div>
 
         {/* AI Copilot Button - Global Access */}
         <CopilotButton clientId={persistentClientId || undefined} />

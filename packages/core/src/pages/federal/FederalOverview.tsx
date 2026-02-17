@@ -14,7 +14,11 @@ import {
     Building2,
     ClipboardList,
     ShieldCheck,
-    Target
+    Target,
+    Cloud,
+    GitBranch,
+    Server,
+    Key
 } from "lucide-react";
 import { useLocation, useParams } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
@@ -25,6 +29,81 @@ export default function FederalOverview() {
     const [, setLocation] = useLocation();
 
     const sections = [
+        {
+            title: "FedRAMP Packages",
+            headerTitle: "Cloud Authorization",
+            description: "Streamline your FedRAMP authorization with automated SSP generation and continuous monitoring for Low, Moderate, and High baselines.",
+            icon: Cloud,
+            color: "from-sky-500 to-blue-600",
+            textColor: "text-sky-600",
+            bgLight: "bg-sky-50",
+            path: `/clients/${clientId}/federal/fedramp`,
+            benefits: [
+                "Automated SSP generation",
+                "Continuous monitoring suite",
+                "Inheritance management"
+            ]
+        },
+        {
+            title: "NIST 800-53 Rev 5",
+            headerTitle: "Control Catalog",
+            description: "Manage and assess the full set of Revision 5 security and privacy controls required for FISMA and agency-level federal compliance.",
+            icon: ShieldCheck,
+            color: "from-slate-600 to-slate-800",
+            textColor: "text-slate-700",
+            bgLight: "bg-slate-50",
+            path: `/clients/${clientId}/federal/800-53`,
+            benefits: [
+                "Full Rev 5 catalog",
+                "Control tailoring and overlays",
+                "Baseline management"
+            ]
+        },
+        {
+            title: "FISMA Reporting",
+            headerTitle: "Agency Compliance",
+            description: "Automate your annual and quarterly FISMA reporting requirements with pre-built templates and performance metric dashboards.",
+            icon: ClipboardList,
+            color: "from-amber-500 to-orange-600",
+            textColor: "text-amber-600",
+            bgLight: "bg-amber-50",
+            path: `/clients/${clientId}/federal/fisma`,
+            benefits: [
+                "Annual OIG report templates",
+                "Performance dashboarding",
+                "Quarterly metric tracking"
+            ]
+        },
+        {
+            title: "RMF Workflow",
+            headerTitle: "Lifecycle Orchestration",
+            description: "Execute the 7-step NIST Risk Management Framework lifecycle with task-based workflows from Preparation through Authorization.",
+            icon: GitBranch,
+            color: "from-emerald-600 to-teal-500",
+            textColor: "text-emerald-700",
+            bgLight: "bg-emerald-50",
+            path: `/clients/${clientId}/federal/rmf`,
+            benefits: [
+                "Task-based step guidance",
+                "Artifact tracking",
+                "Portfolio-level status"
+            ]
+        },
+        {
+            title: "DFARS/SPRS Scoring",
+            headerTitle: "Defense Scoring",
+            description: "Calculate and document your NIST 800-171 assessment score for SPRS submission as required by DOD Assessment Methodology.",
+            icon: Target,
+            color: "from-red-600 to-rose-500",
+            textColor: "text-red-700",
+            bgLight: "bg-red-50",
+            path: `/clients/${clientId}/federal/dfars`,
+            benefits: [
+                "SPRS scoring calculator",
+                "Self-assessment verification",
+                "DoD-standard reporting"
+            ]
+        },
         {
             title: "FIPS 199 Categorization",
             headerTitle: "System Impact Assessment",
@@ -59,11 +138,11 @@ export default function FederalOverview() {
             title: "Security Assessment Report (SAR)",
             headerTitle: "Control Testing Evidence",
             description: "Generate comprehensive assessment reports documenting the testing methodology, findings, and evidence for each implemented security control.",
-            icon: ScrollText,
+            icon: ClipboardList,
             color: "from-emerald-500 to-teal-400",
             textColor: "text-emerald-600",
             bgLight: "bg-emerald-50",
-            path: `/clients/${clientId}/federal/sar-171`,
+            path: `/clients/${clientId}/federal/sar`,
             benefits: [
                 "DoD-compliant report format",
                 "Finding severity classification",
@@ -83,6 +162,36 @@ export default function FederalOverview() {
                 "Weakness tracking by control",
                 "Milestone-based remediation",
                 "Risk-based prioritization"
+            ]
+        },
+        {
+            title: "DISA STIG Checklists",
+            headerTitle: "Hardening & Automation",
+            description: "Apply Security Technical Implementation Guides (STIGs) to harden servers, databases, and network devices to Department of Defense standards.",
+            icon: Server,
+            color: "from-slate-700 to-slate-900",
+            textColor: "text-slate-800",
+            bgLight: "bg-slate-100",
+            path: `/clients/${clientId}/federal/stigs`,
+            benefits: [
+                "Server & OS hardening",
+                "Database security checklists",
+                "Network device configuration"
+            ]
+        },
+        {
+            title: "FIPS 140 Cryptography Tracking",
+            headerTitle: "NIST Validation",
+            description: "Monitor and verify that all cryptographic modules used within your systems are currently NIST-validated to FIPS 140-2 or 140-3 standards.",
+            icon: Key,
+            color: "from-blue-700 to-indigo-800",
+            textColor: "text-blue-800",
+            bgLight: "bg-blue-100",
+            path: `/clients/${clientId}/federal/fips-140`,
+            benefits: [
+                "NIST certificate tracking",
+                "Module validation status",
+                "Compliance verification"
             ]
         }
     ];

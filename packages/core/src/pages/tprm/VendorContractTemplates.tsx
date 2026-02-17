@@ -18,7 +18,7 @@ const convertMarkdownToHtml = (markdown: string) => {
     // If it already looks like HTML (starts with <), return it
     if (markdown.trim().startsWith("<")) return markdown;
 
-    let html = markdown
+    const html = markdown
         .replace(/^# (.*$)/gim, '<h1>$1</h1>')
         .replace(/^## (.*$)/gim, '<h2>$1</h2>')
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')

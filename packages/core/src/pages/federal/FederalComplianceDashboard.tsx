@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
-import { Shield, FileText, AlertTriangle, CheckCircle, ArrowRight, BookOpen, Layers, Lock, ScrollText, ClipboardList, Zap, Building2, TrendingUp, Calendar } from "lucide-react";
+import { Shield, FileText, AlertTriangle, CheckCircle, ArrowRight, BookOpen, Layers, Lock, ScrollText, ClipboardList, Zap, Building2, TrendingUp, Calendar, Cloud, FilePieChart, GitBranch, Server, Key } from "lucide-react";
 import { Link } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -94,6 +94,22 @@ export default function FederalComplianceDashboard() {
             status: "Draft"
         },
         {
+            title: "FedRAMP Packages",
+            description: "Manage FedRAMP authorization packages, including JAB and Agency authorizations.",
+            icon: Cloud,
+            path: `/clients/${clientId}/federal/fedramp`,
+            category: "Authorization",
+            status: "New"
+        },
+        {
+            title: "NIST 800-53 Rev 5",
+            description: "Comprehensive security and privacy control assessment based on NIST 800-53 Rev 5.",
+            icon: Shield,
+            path: `/clients/${clientId}/federal/nist-800-53`,
+            category: "Frameworks",
+            status: "New"
+        },
+        {
             title: "NIST 800-171 SAR",
             description: "Security Assessment Report (SAR) detailing the results of security control testing.",
             icon: ScrollText,
@@ -116,10 +132,58 @@ export default function FederalComplianceDashboard() {
             path: `/clients/${clientId}/federal/poam`,
             category: "Remediation",
             status: "Active"
+        },
+        {
+            title: "FISMA Reporting",
+            description: "Automated FISMA reporting and metrics for federal agencies and contractors.",
+            icon: FilePieChart,
+            path: `/clients/${clientId}/federal/fisma`,
+            category: "Reporting",
+            status: "New"
+        },
+        {
+            title: "Non-Compliance Gap Report",
+            description: "Detailed analysis of implementation failures and security weaknesses.",
+            icon: AlertTriangle,
+            path: `/clients/${clientId}/federal/gap-report`,
+            category: "Reporting",
+            status: "New"
+        },
+        {
+            title: "RMF Workflow",
+            description: "End-to-end Risk Management Framework (RMF) workflow tracking and management.",
+            icon: GitBranch,
+            path: `/clients/${clientId}/federal/rmf`,
+            category: "Workflow",
+            status: "New"
+        },
+        {
+            title: "DFARS/SPRS Scoring",
+            description: "Calculate and track your NIST 800-171 SPRS score for DoD contracting compliance.",
+            icon: TrendingUp,
+            path: `/clients/${clientId}/federal/sprs`,
+            category: "Reporting",
+            status: "New"
+        },
+        {
+            title: "DISA STIG Checklists",
+            description: "Checklists and automation for hardening servers, databases, and network devices to DOD standards.",
+            icon: Server,
+            path: `/clients/${clientId}/federal/stigs`,
+            category: "Hardening",
+            status: "New"
+        },
+        {
+            title: "FIPS 140 Cryptography Tracking",
+            description: "Track and verify that all cryptographic modules in use are NIST-validated.",
+            icon: Key,
+            path: `/clients/${clientId}/federal/fips-140`,
+            category: "Frameworks",
+            status: "New"
         }
     ];
 
-    const categories = ["Categorization", "System Security Plans", "Security Assessments", "Remediation"];
+    const categories = ["Categorization", "System Security Plans", "Security Assessments", "Remediation", "Authorization", "Frameworks", "Reporting", "Hardening", "Workflow"];
 
     return (
         <DashboardLayout>

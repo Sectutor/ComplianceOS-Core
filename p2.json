@@ -1,0 +1,12 @@
+﻿{
+  "id": 2,
+  "name": "Open AI",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "apiKey": "0d26d0f9fdb4da11e31c50445b15e25e:acad6a369fde3247f4715412fb3252bdd5a52b7521688ba8a28e26830d064906807a67f3009a20d4db56d27f4075180e4ca5c7a962aef9c3ff8da7c728cc25c3dd41d622b5ea6268687a0c25aefe1e9e2cfae74d425cc04994a8676423726fdb7cc934f6af84bb6f32c6bb0594c0793ff728054ea18cc4e4d2de6606b4ce20962c149cf6ce70c4df756e259af49a220fdffe53537b3bbf87b4f3df5e5a2cf30c7dea6853b1fd6c8a965afec05cc6c707",
+  "baseUrl": null,
+  "priority": 100,
+  "isEnabled": true,
+  "supportsEmbeddings": true,
+  "createdAt": "2026-01-01T10:28:00.573Z"
+}

@@ -123,13 +123,13 @@ export default function OrganizationManagement() {
         });
     };
 
-    const filteredClients = clients?.filter(c =>
+    const filteredClients = Array.isArray(clients) ? clients.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.industry?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    ) : [];
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500 p-6">
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
             <Breadcrumb items={[{ label: "Admin" }, { label: "Organizations" }]} />
 
             <div className="flex justify-between items-center">
@@ -266,28 +266,28 @@ export default function OrganizationManagement() {
                     {isLoading ? (
                         <div className="h-24 flex items-center justify-center text-muted-foreground">Loading...</div>
                     ) : (
-                        <div className="rounded-md border">
+                        <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-slate-50">
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Plan</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Modules</TableHead>
-                                        <TableHead>Created</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                    <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                        <TableHead className="text-white font-semibold py-4">Name</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Plan</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Status</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Modules</TableHead>
+                                        <TableHead className="text-white font-semibold py-4">Created</TableHead>
+                                        <TableHead className="text-white font-semibold py-4 text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredClients?.map((client) => (
-                                        <TableRow key={client.id}>
-                                            <TableCell className="font-medium">
+                                        <TableRow key={client.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm group">
+                                            <TableCell className="font-medium py-4">
                                                 <div className="flex flex-col">
                                                     <span>{client.name}</span>
                                                     <span className="text-xs text-muted-foreground">{client.industry} • {client.size}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="py-4">
                                                 <Badge variant="outline" className={
                                                     client.planTier === 'enterprise' ? 'border-purple-200 bg-purple-50 text-purple-700' :
                                                         client.planTier === 'pro' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'text-slate-600'
@@ -295,12 +295,12 @@ export default function OrganizationManagement() {
                                                     {client.planTier ? client.planTier.toUpperCase() : 'FREE'}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="py-4">
                                                 <Badge className={client.status === 'active' ? 'bg-green-500' : 'bg-slate-500'}>
                                                     {client.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="py-4">
                                                 <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                     {client.activeModules && Array.isArray(client.activeModules) && client.activeModules.slice(0, 3).map((m: string) => (
                                                         <Badge key={m} variant="secondary" className="text-[10px] h-5 px-1">{m}</Badge>
@@ -310,10 +310,10 @@ export default function OrganizationManagement() {
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
+                                            <TableCell className="py-4 text-sm text-muted-foreground">
                                                 {client.createdAt ? format(new Date(client.createdAt), "MMM d, yyyy") : "-"}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="py-4 text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <UserManagementDialog
                                                         clientId={client.id}

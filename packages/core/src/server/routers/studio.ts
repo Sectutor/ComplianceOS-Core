@@ -251,7 +251,7 @@ Extract EVERY single requirement.`;
         chunks.push(text);
     }
 
-    let allRequirements: any[] = [];
+    const allRequirements: any[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
         console.log(`[StudioRouter] Processing chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`);

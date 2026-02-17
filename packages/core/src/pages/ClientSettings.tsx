@@ -96,9 +96,13 @@ export default function ClientSettings() {
         );
     }
 
+    const [location] = useLocation();
+    const queryParams = new URLSearchParams(window.location.search);
+    const initialTab = queryParams.get("tab") || "general";
+
     return (
         <DashboardLayout>
-            <div className="space-y-8 w-full max-w-full pb-10 px-6">
+            <div className="space-y-8 w-full max-w-full">
                 <Breadcrumb
                     items={[
                         { label: "Clients", href: "/clients" },
@@ -159,74 +163,81 @@ export default function ClientSettings() {
                     </CardContent>
                 </Card>
 
-                <Tabs defaultValue="general" className="space-y-8">
-                    <TabsList className="bg-slate-100/50 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-slate-200/60 rounded-xl">
+                <Tabs defaultValue={initialTab} className="space-y-8">
+                    <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl">
                         <TabsTrigger
                             value="general"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Building2 className="mr-2 h-4 w-4" />
                             General
                         </TabsTrigger>
                         <TabsTrigger
                             value="policy"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <FileText className="mr-2 h-4 w-4" />
                             Policy Settings
                         </TabsTrigger>
                         <TabsTrigger
                             value="team"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Users className="mr-2 h-4 w-4" />
                             Team
                         </TabsTrigger>
                         <TabsTrigger
                             value="branding"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Image className="mr-2 h-4 w-4" />
                             Branding
                         </TabsTrigger>
                         <TabsTrigger
                             value="billing"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <CreditCard className="mr-2 h-4 w-4" />
                             Billing
                         </TabsTrigger>
                         <TabsTrigger
+                            value="license"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
+                        >
+                            <Shield className="mr-2 h-4 w-4" />
+                            License
+                        </TabsTrigger>
+                        <TabsTrigger
                             value="integrations"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Server className="mr-2 h-4 w-4" />
                             Integrations
                         </TabsTrigger>
                         <TabsTrigger
                             value="frameworks"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Shield className="mr-2 h-4 w-4" />
                             Frameworks
                         </TabsTrigger>
                         <TabsTrigger
                             value="data"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Database className="mr-2 h-4 w-4" />
                             Demo Data
                         </TabsTrigger>
                         <TabsTrigger
                             value="onboarding"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <ListTodo className="mr-2 h-4 w-4" />
                             Onboarding
                         </TabsTrigger>
                         <TabsTrigger
                             value="email-templates"
-                            className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border-slate-200 border border-transparent px-4 py-2.5 rounded-lg transition-all"
+                            className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
                         >
                             <Mail className="mr-2 h-4 w-4" />
                             Emails
@@ -322,6 +333,82 @@ export default function ClientSettings() {
                             {/* Billing Tab */}
                             <TabsContent value="billing" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
                                 <BillingSettings client={client} />
+                            </TabsContent>
+
+                            {/* License Tab */}
+                            <TabsContent value="license" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>License Management</CardTitle>
+                                        <CardDescription>
+                                            Manage your ComplianceOS license and access premium features.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="font-medium">License Status</h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Activate or manage your license for premium features
+                                                </p>
+                                            </div>
+                                            <Button
+                                                onClick={() => setLocation(`/clients/${clientId}/license`)}
+                                            >
+                                                <Shield className="h-4 w-4 mr-2" />
+                                                Manage License
+                                            </Button>
+                                        </div>
+
+                                        <div className="border rounded-lg p-4">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium">Quick Actions</span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setLocation(`/clients/${clientId}/license`)}
+                                                >
+                                                    Go to License Page
+                                                </Button>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <Button
+                                                    variant="outline"
+                                                    className="justify-start"
+                                                    onClick={() => setLocation(`/clients/${clientId}/license`)}
+                                                >
+                                                    <Shield className="h-4 w-4 mr-2" />
+                                                    View License Status
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="justify-start"
+                                                    onClick={() => window.open("https://gumroad.com/l/complianceos-enterprise", "_blank")}
+                                                >
+                                                    <CreditCard className="h-4 w-4 mr-2" />
+                                                    Purchase License
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="justify-start"
+                                                    onClick={() => window.open("https://docs.complianceos.com", "_blank")}
+                                                >
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    View Documentation
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-sm text-muted-foreground">
+                                            <p>
+                                                Need help with your license? Contact support or visit the
+                                                <a href="/admin/license" className="text-primary hover:underline ml-1">
+                                                    admin license management page
+                                                </a>.
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </TabsContent>
 
                             {/* Integrations Tab */}

@@ -1,13 +1,6 @@
-
-import PrivacyAssessment from "../PrivacyAssessment";
-import { ccpaChecklist } from "./CcpaChecklist";
+import React from "react";
+import DynamicPrivacyAssessmentPage from "./DynamicPrivacyAssessmentPage";
 
 export default function CcpaAssessmentPage() {
-    return (
-        <PrivacyAssessment
-            title="CCPA/CPRA Checklist"
-            type="ccpa"
-            checklist={ccpaChecklist}
-        />
-    );
+    return <DynamicPrivacyAssessmentPage type="ccpa" />;
 }

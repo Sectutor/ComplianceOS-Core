@@ -171,7 +171,7 @@ export default function SecurityReviews() {
     };
 
     return (
-        <div className="p-6 h-[calc(100vh-64px)] flex flex-col">
+        <div className="h-[calc(100vh-64px)] flex flex-col animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <PageGuide

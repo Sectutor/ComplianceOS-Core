@@ -84,7 +84,7 @@ export default function UserManagement() {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-500">
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
             <Breadcrumb items={[{ label: "Admin" }, { label: "User Management" }]} />
 
             <div className="flex justify-between items-center">
@@ -156,7 +156,7 @@ export default function UserManagement() {
                         Registered Users
                     </CardTitle>
                     <CardDescription>
-                        {users?.length || 0} users registered in the system.
+                        {(Array.isArray(users) ? users.length : 0)} users registered in the system.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -180,7 +180,7 @@ export default function UserManagement() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {users?.map((user: any) => (
+                                    {(Array.isArray(users) ? users : []).map((user: any) => (
                                         <TableRow key={user.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm group">
                                             <TableCell className="font-medium py-4">
                                                 <div className="flex items-center gap-2 text-black">

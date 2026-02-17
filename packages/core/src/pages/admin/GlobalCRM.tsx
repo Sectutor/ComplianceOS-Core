@@ -353,31 +353,37 @@ export default function GlobalCRM() {
     };
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold">Global CRM</h1>
                     <p className="text-muted-foreground">Manage platform-wide contacts and sales leads</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-3">
                     {/* View Toggle */}
-                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'pipeline')}>
-                        <TabsList>
-                            <TabsTrigger value="table">
-                                <List className="h-4 w-4 mr-1" /> Table
+                    <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'pipeline')} className="h-auto">
+                        <TabsList className="bg-[#1C4D8D]/10 p-1 h-auto border border-[#1C4D8D]/20 rounded-lg">
+                            <TabsTrigger
+                                value="table"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-3 py-1.5 rounded-md flex items-center gap-2"
+                            >
+                                <List className="h-4 w-4" /> Table
                             </TabsTrigger>
-                            <TabsTrigger value="pipeline">
-                                <LayoutGrid className="h-4 w-4 mr-1" /> Pipeline
+                            <TabsTrigger
+                                value="pipeline"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-3 py-1.5 rounded-md flex items-center gap-2"
+                            >
+                                <LayoutGrid className="h-4 w-4" /> Pipeline
                             </TabsTrigger>
                         </TabsList>
                     </Tabs>
 
-                    <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                    <Button variant="outline" onClick={() => setIsImportOpen(true)} className="border-[#1C4D8D]/20 hover:bg-[#1C4D8D]/5 text-[#1C4D8D] font-medium">
                         <Upload className="mr-2 h-4 w-4" />
                         Import
                     </Button>
-                    <Button variant="outline" onClick={handleExportCSV} disabled={!contacts?.length}>
+                    <Button variant="outline" onClick={handleExportCSV} disabled={!contacts?.length} className="border-[#1C4D8D]/20 hover:bg-[#1C4D8D]/5 text-[#1C4D8D] font-medium">
                         <Download className="mr-2 h-4 w-4" />
                         Export
                     </Button>
@@ -389,7 +395,7 @@ export default function GlobalCRM() {
                         }
                     }}>
                         <DialogTrigger asChild>
-                            <Button>
+                            <Button className="bg-[#1C4D8D] hover:bg-[#1C4D8D]/90 text-white font-bold shadow-md transition-all hover:scale-[1.02]">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add Contact
                             </Button>
@@ -485,73 +491,100 @@ export default function GlobalCRM() {
             </div>
 
             {/* Filters */}
-            <div className="flex gap-4 items-center">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search contacts..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                {viewMode === 'table' && (
-                    <div className="flex gap-2">
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-40">
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
-                                <SelectItem value="lead">Lead</SelectItem>
-                                <SelectItem value="prospect">Prospect</SelectItem>
-                                <SelectItem value="customer">Customer</SelectItem>
-                                <SelectItem value="churned">Churned</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={tagFilter.toString()} onValueChange={(v) => setTagFilter(v === 'all' ? 'all' : parseInt(v))}>
-                            <SelectTrigger className="w-44">
-                                <div className="flex items-center gap-2">
-                                    <TagIcon className="h-4 w-4 text-muted-foreground" />
-                                    <SelectValue placeholder="Filter by tag" />
-                                </div>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Tags</SelectItem>
-                                {allTags?.map((tag: any) => (
-                                    <SelectItem key={tag.id} value={tag.id.toString()}>
-                                        {tag.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+            <div className="flex flex-col gap-4">
+                <div className="flex gap-4 items-center">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search contacts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 border-[#1C4D8D]/20 focus-visible:ring-[#3ABEF9]"
+                        />
                     </div>
-                )}
-                <div className="text-sm text-muted-foreground">
-                    {filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
+                    {viewMode === 'table' && (
+                        <div className="flex items-center gap-2">
+                            <Select value={tagFilter.toString()} onValueChange={(v) => setTagFilter(v === 'all' ? 'all' : parseInt(v))}>
+                                <SelectTrigger className="w-44 border-[#1C4D8D]/20">
+                                    <div className="flex items-center gap-2">
+                                        <TagIcon className="h-4 w-4 text-muted-foreground" />
+                                        <SelectValue placeholder="Filter by tag" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Tags</SelectItem>
+                                    {allTags?.map((tag: any) => (
+                                        <SelectItem key={tag.id} value={tag.id.toString()}>
+                                            {tag.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    <div className="text-sm text-muted-foreground ml-auto">
+                        {filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
+                    </div>
                 </div>
+
+                {viewMode === 'table' && (
+                    <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+                        <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl">
+                            <TabsTrigger
+                                value="all"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                            >
+                                All Contacts
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="lead"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                            >
+                                Leads
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="prospect"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                            >
+                                Prospects
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="customer"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                            >
+                                Customers
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="churned"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                            >
+                                Churned
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                )}
             </div>
 
             {/* Table View */}
             {viewMode === 'table' && (
-                <div className="border rounded-lg">
+                <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
                     <Table>
                         <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-10">
+                            <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                <TableHead className="w-10 text-white font-semibold py-4">
                                     <Checkbox
                                         checked={selectedIds.length === filteredContacts.length && filteredContacts.length > 0}
                                         onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                        className="border-white/50 data-[state=checked]:bg-[#3ABEF9] data-[state=checked]:border-[#3ABEF9]"
                                     />
                                 </TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Tags</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Date Added</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Name</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Email</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Company</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Tags</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Status</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Date Added</TableHead>
+                                <TableHead className="text-right text-white font-semibold py-4">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -571,47 +604,48 @@ export default function GlobalCRM() {
                                 filteredContacts.map((contact) => (
                                     <TableRow
                                         key={contact.id}
-                                        className={`cursor-pointer hover:bg-muted/50 ${selectedIds.includes(contact.id) ? 'bg-muted/40' : ''}`}
+                                        className={`bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm cursor-pointer group ${selectedIds.includes(contact.id) ? 'bg-slate-50' : ''}`}
                                         onClick={() => handleRowClick(contact.id)}
                                     >
-                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <TableCell onClick={(e) => e.stopPropagation()} className="py-4">
                                             <Checkbox
                                                 checked={selectedIds.includes(contact.id)}
                                                 onCheckedChange={() => handleToggleSelect(contact.id)}
+                                                className="border-[#1C4D8D]/20 data-[state=checked]:bg-[#3ABEF9] data-[state=checked]:border-[#3ABEF9]"
                                             />
                                         </TableCell>
-                                        <TableCell className="font-medium">
+                                        <TableCell className="font-medium py-4">
                                             {contact.firstName || contact.lastName
                                                 ? `${contact.firstName || ''} ${contact.lastName || ''}`.trim()
                                                 : '—'}
                                         </TableCell>
-                                        <TableCell>{contact.email}</TableCell>
-                                        <TableCell>{contact.company || '—'}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="py-4">{contact.email}</TableCell>
+                                        <TableCell className="py-4">{contact.company || '—'}</TableCell>
+                                        <TableCell className="py-4">
                                             <div className="flex flex-wrap gap-1 max-w-[150px]">
                                                 {contact.tags?.map((t: any) => (
-                                                    <Badge key={t.id} variant="outline" className="px-1.5 py-0 text-[10px] bg-primary/5 text-primary border-primary/20">
+                                                    <Badge key={t.id} variant="outline" className="px-1.5 py-0 text-[10px] bg-[#3ABEF9]/5 text-[#3ABEF9] border-[#3ABEF9]/20 font-semibold">
                                                         {t.name}
                                                     </Badge>
                                                 ))}
                                                 {(!contact.tags || contact.tags.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
                                             </div>
                                         </TableCell>
-                                        <TableCell>{getStatusBadge(contact.status)}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="py-4">{getStatusBadge(contact.status)}</TableCell>
+                                        <TableCell className="py-4 text-xs font-mono text-gray-500">
                                             {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString() : '—'}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right py-4">
                                             <div className="flex gap-1 justify-end">
-                                                <Button variant="ghost" size="sm" onClick={(e) => handleQuickAction(contact, 'email', e)} title="Send Email" className="h-8 w-8 p-0">
+                                                <Button variant="ghost" size="sm" onClick={(e) => handleQuickAction(contact, 'email', e)} title="Send Email" className="h-8 w-8 p-0 hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D]">
                                                     <Mail className="h-4 w-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="sm" onClick={(e) => handleQuickAction(contact, 'call', e)} title="Call" className="h-8 w-8 p-0">
+                                                <Button variant="ghost" size="sm" onClick={(e) => handleQuickAction(contact, 'call', e)} title="Call" className="h-8 w-8 p-0 hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D]">
                                                     <Phone className="h-4 w-4" />
                                                 </Button>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-[#1C4D8D]/10 hover:text-[#1C4D8D]">
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
@@ -622,7 +656,7 @@ export default function GlobalCRM() {
                                                         <DropdownMenuItem onClick={(e) => handleQuickAction(contact, 'task', e)}>
                                                             <Clock className="mr-2 h-4 w-4" /> Log Task
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={(e) => handleDelete(contact, e as any)} className="text-destructive">
+                                                        <DropdownMenuItem onSelect={(e) => handleDelete(contact, e as any)} className="text-destructive font-semibold">
                                                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>

@@ -412,12 +412,18 @@ export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
                 // 1. Resolve framework name if it's a shortCode
                 let frameworkName = input.frameworkId;
                 const frameworks = await dbConn.select().from(schema.complianceFrameworks)
-                    .where(eq(schema.complianceFrameworks.shortCode, input.frameworkId.toUpperCase()))
+                    .where(or(
+                        eq(schema.complianceFrameworks.shortCode, input.frameworkId.toUpperCase()),
+                        eq(schema.complianceFrameworks.shortCode, input.frameworkId.toUpperCase().replace('-', '')),
+                        eq(schema.complianceFrameworks.shortCode, input.frameworkId.toUpperCase().replace(' ', '-'))
+                    ))
                     .limit(1);
 
                 if (frameworks.length > 0) {
                     frameworkName = frameworks[0].name;
                 }
+
+                console.log(`[FrameworksRouter] Querying for frameworkName: "${frameworkName}", inputId: "${input.frameworkId}"`);
 
                 // 2. Fetch controls with client status and evidence counts
                 const results = await dbConn.select({
@@ -439,9 +445,58 @@ export const createFrameworksRouter = (t: any, protectedProcedure: any) => {
                     .innerJoin(schema.controls, eq(schema.clientControls.controlId, schema.controls.id))
                     .where(and(
                         eq(schema.clientControls.clientId, input.clientId),
-                        sql`${schema.controls.framework} IN (${frameworkName}, ${input.frameworkId.toUpperCase()}, ${input.frameworkId})`
+                        or(
+                            eq(schema.controls.framework, frameworkName),
+                            eq(schema.controls.framework, input.frameworkId.toUpperCase()),
+                            eq(schema.controls.framework, input.frameworkId.toUpperCase().replace('-', ' ')),
+                            eq(schema.controls.framework, input.frameworkId.toUpperCase().replace('-', '')),
+                            ilike(schema.controls.framework, `%${input.frameworkId}%`),
+                            ilike(schema.controls.framework, frameworkName + "%")
+                        )
                     ))
+
                     .orderBy(asc(schema.controls.controlId));
+
+
+                if (results.length === 0) {
+                    console.log(`[FrameworksRouter] No assigned controls found for ${frameworkName}. Attempting auto-assignment...`);
+                    // Try to auto-assign controls (Lazy Initialization)
+                    await db.bulkAssignControls(input.clientId, frameworkName);
+
+                    // Re-fetch after assignment
+                    const retryResults = await dbConn.select({
+                        id: schema.clientControls.id,
+                        controlId: schema.controls.controlId,
+                        name: schema.controls.name,
+                        description: schema.controls.description,
+                        status: schema.clientControls.status,
+                        category: schema.controls.category,
+                        implementationGuidance: schema.controls.implementationGuidance,
+                        evidenceCount: sql<number>`(
+                        SELECT count(*)::int 
+                        FROM ${schema.evidenceRequests} 
+                        WHERE ${schema.evidenceRequests.clientControlId} = ${schema.clientControls.id} 
+                        AND ${schema.evidenceRequests.status} != 'rejected'
+                    )`.mapWith(Number)
+                    })
+                        .from(schema.clientControls)
+                        .innerJoin(schema.controls, eq(schema.clientControls.controlId, schema.controls.id))
+                        .where(and(
+                            eq(schema.clientControls.clientId, input.clientId),
+                            or(
+                                eq(schema.controls.framework, frameworkName),
+                                eq(schema.controls.framework, input.frameworkId.toUpperCase()),
+                                eq(schema.controls.framework, input.frameworkId.toUpperCase().replace('-', ' ')),
+                                eq(schema.controls.framework, input.frameworkId.toUpperCase().replace('-', '')),
+                                ilike(schema.controls.framework, `%${input.frameworkId}%`),
+                                ilike(schema.controls.framework, frameworkName + "%")
+                            )
+                        ))
+                        .orderBy(asc(schema.controls.controlId));
+
+                    console.log(`[FrameworksRouter] Auto-assignment complete. Found ${retryResults.length} controls.`);
+                    return retryResults;
+                }
 
                 console.log(`[FrameworksRouter] Found ${results.length} controls for ${frameworkName}`);
                 return results;

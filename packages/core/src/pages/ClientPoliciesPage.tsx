@@ -221,7 +221,7 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
     }
 
     const content = (
-        <div className={hideLayout ? "" : "space-y-6"}>
+        <div className={hideLayout ? "space-y-6" : "pl-4 pr-4 py-8 md:pl-20 md:pr-8 space-y-6 w-full max-w-full animate-in fade-in duration-700"}>
             {!hideLayout && (
                 <Breadcrumb
                     items={[
@@ -484,11 +484,11 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
-                                <TableHead className="w-[300px] text-white font-semibold py-4">Policy Name</TableHead>
-                                <TableHead className="w-[150px] text-white font-semibold py-4">Framework</TableHead>
-                                <TableHead className="w-[100px] text-white font-semibold py-4">Status</TableHead>
-                                <TableHead className="w-[80px] text-white font-semibold py-4 text-center">Version</TableHead>
-                                <TableHead className="w-[120px] text-white font-semibold py-4 text-right">Actions</TableHead>
+                                <TableHead className="w-[300px] text-white font-bold py-4">Policy Name</TableHead>
+                                <TableHead className="w-[150px] text-white font-bold py-4">Framework</TableHead>
+                                <TableHead className="w-[100px] text-white font-bold py-4">Status</TableHead>
+                                <TableHead className="w-[80px] text-white font-bold py-4 text-center">Version</TableHead>
+                                <TableHead className="w-[120px] text-white font-bold py-4 text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

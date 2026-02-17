@@ -210,6 +210,32 @@ export const createEvidenceRouter = (
                 return { success: true };
             }),
 
+        update: publicProcedure
+            .input(z.object({
+                id: z.number(),
+                evidenceId: z.string().optional(),
+                description: z.string().optional(),
+                type: z.string().optional(),
+                status: z.string().optional(),
+                owner: z.string().nullable().optional(),
+                location: z.string().optional(),
+            }))
+            .mutation(async ({ input }: any) => {
+                const dbConn = await getDb();
+                const { id, ...data } = input;
+
+                // Construct update object removing undefined
+                const updateData: any = { updatedAt: new Date() };
+                Object.keys(data).forEach(key => {
+                    if (data[key] !== undefined) updateData[key] = data[key];
+                });
+
+                await dbConn.update(schema.evidence)
+                    .set(updateData)
+                    .where(eq(schema.evidence.id, id));
+                return { success: true };
+            }),
+
         updateStatus: publicProcedure
             .input(z.object({
                 evidenceId: z.number(),

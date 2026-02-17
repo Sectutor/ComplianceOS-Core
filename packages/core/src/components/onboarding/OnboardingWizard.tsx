@@ -114,6 +114,8 @@ export function OnboardingWizard() {
         });
     };
 
+    const isCommunityEdition = import.meta.env.VITE_ENABLE_PREMIUM === 'false';
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl bg-white">
@@ -228,7 +230,7 @@ export function OnboardingWizard() {
                                 <h3 className="text-2xl font-bold">Ready for Lift-off?</h3>
                                 <p className="text-muted-foreground text-sm">
                                     Our AI will now create your workspace for <span className="font-bold text-slate-900">{formData.name}</span>
-                                    and a separate <span className="font-bold text-slate-900">{formData.name} DEMO</span> environment populated with sample data.
+                                    {!isCommunityEdition && <> and a separate <span className="font-bold text-slate-900">{formData.name} DEMO</span> environment populated with sample data</>}.
                                 </p>
                             </div>
 
@@ -263,11 +265,11 @@ export function OnboardingWizard() {
                             {setupMutation.isPending || sampleMutation.isPending ? (
                                 <>
                                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Building Workspaces...
+                                    {isCommunityEdition ? "Building Workspace..." : "Building Workspaces..."}
                                 </>
                             ) : (
                                 <>
-                                    Launch Workspaces
+                                    {isCommunityEdition ? "Launch Workspace" : "Launch Workspaces"}
                                     <Rocket className="h-4 w-4 ml-2" />
                                 </>
                             )}

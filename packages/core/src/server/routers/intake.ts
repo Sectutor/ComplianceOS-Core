@@ -2,11 +2,11 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as crypto from "crypto";
 import * as db from "../../db";
-import { intakeItems, evidence, clients, clientPolicies, evidenceFiles, clientControls, controls } from "../../schema";
+import { intakeItems, evidence, clients, clientPolicies, evidenceFiles, clientControls, controls, userClients } from "../../schema";
 import { eq, desc, and, or, sql, getTableColumns } from "drizzle-orm";
 import { classifyIntakeItem } from "../../lib/ai/intake-triage";
 
-export const createIntakeRouter = (t: any, clientProcedure: any) => {
+export const createIntakeRouter = (t: any, clientProcedure: any, protectedProcedure: any) => {
     return t.router({
         list: clientProcedure
             .input(z.object({
@@ -26,10 +26,11 @@ export const createIntakeRouter = (t: any, clientProcedure: any) => {
                     .orderBy(desc(intakeItems.createdAt));
             }),
 
-        listAll: clientProcedure // Ideally this would be adminProcedure/advisorProcedure
-            .query(async () => {
+        listAll: protectedProcedure
+            .query(async ({ ctx }: any) => {
                 const d = await db.getDb();
-                return await d.select({
+
+                let query = d.select({
                     id: intakeItems.id,
                     filename: intakeItems.filename,
                     status: intakeItems.status,
@@ -39,8 +40,13 @@ export const createIntakeRouter = (t: any, clientProcedure: any) => {
                     clientId: clients.id
                 })
                     .from(intakeItems)
-                    .innerJoin(clients, eq(intakeItems.clientId, clients.id))
-                    .orderBy(desc(intakeItems.createdAt));
+                    .innerJoin(clients, eq(intakeItems.clientId, clients.id));
+
+                if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner' && ctx.user?.role !== 'super_admin') {
+                    query.innerJoin(userClients, and(eq(userClients.clientId, clients.id), eq(userClients.userId, ctx.user.id)));
+                }
+
+                return await query.orderBy(desc(intakeItems.createdAt));
             }),
 
         create: clientProcedure

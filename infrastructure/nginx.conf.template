@@ -1,0 +1,53 @@
+
+# --------------------------------------------------------------------------------------
+# NGINX Configuration for GRCompliance Multi-Domain Setup
+# --------------------------------------------------------------------------------------
+# Place this file in /etc/nginx/sites-available/grcompliance
+# Then symlink to /etc/nginx/sites-enabled/grcompliance
+# --------------------------------------------------------------------------------------
+
+# 1. LANDING PAGE (grcompliance.com)
+server {
+    listen 80;
+    server_name grcompliance.com www.grcompliance.com;
+    
+    # Root directory where CI/CD copies the static files
+    root /var/www/grcompliance-landing;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Redirect all HTTP to HTTPS (handled by Certbot later)
+}
+
+# 2. PRODUCTION APP (app.grcompliance.com)
+server {
+    listen 80;
+    server_name app.grcompliance.com;
+
+    location / {
+        proxy_pass http://localhost:3001; # Prod Container (VITE_APP_MODE=production)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+# 3. DEMO APP (demo.grcompliance.com)
+server {
+    listen 80;
+    server_name demo.grcompliance.com;
+
+    location / {
+        proxy_pass http://localhost:3002; # Demo Container (VITE_APP_MODE=demo)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

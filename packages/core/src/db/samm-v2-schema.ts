@@ -42,6 +42,7 @@ export const sammStreamAssessments = pgTable("samm_stream_assessments", {
     // Specific notes per level
     // Format: { "1": "Notes for level 1", "2": "Notes for level 2", ... }
     levelNotes: jsonb("level_notes").$type<Record<string, string>>().default({}),
+    criteriaNotes: jsonb("criteria_notes").$type<Record<string, Record<string, string>>>().default({}),
 
     // Timestamps
     createdAt: timestamp("created_at").defaultNow(),

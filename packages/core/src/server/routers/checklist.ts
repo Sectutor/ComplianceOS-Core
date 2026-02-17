@@ -1,14 +1,16 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { getDb } from "../../db";
 import { checklistStates } from "../../schema";
 import { eq, and } from "drizzle-orm";
 
 const checklistItemSchema = z.union([
     z.boolean(),
-    z.object({
-        checked: z.boolean(),
-        evidenceRequestId: z.number().optional()
-    })
+    z.string(),
+    z.number(),
+    z.array(z.unknown()),
+    z.record(z.unknown()),
+    z.null()
 ]);
 
 export const createChecklistRouter = (t: any, clientProcedure: any) => t.router({
@@ -18,6 +20,7 @@ export const createChecklistRouter = (t: any, clientProcedure: any) => t.router(
             checklistId: z.string()
         }))
         .query(async ({ input }: any) => {
+            console.log('[Checklist] Get query:', { clientId: input.clientId, checklistId: input.checklistId });
             const db = await getDb();
             const [state] = await db
                 .select()
@@ -28,6 +31,7 @@ export const createChecklistRouter = (t: any, clientProcedure: any) => t.router(
                 ))
                 .limit(1);
 
+            console.log('[Checklist] Get result:', state ? 'found' : 'not found');
             return state || null;
         }),
 
@@ -38,35 +42,53 @@ export const createChecklistRouter = (t: any, clientProcedure: any) => t.router(
             items: z.record(checklistItemSchema)
         }))
         .mutation(async ({ input }: any) => {
-            const db = await getDb();
+            console.log('[Checklist] Update mutation started:', {
+                clientId: input.clientId,
+                checklistId: input.checklistId,
+                itemCount: Object.keys(input.items || {}).length
+            });
 
-            const [existing] = await db
-                .select()
-                .from(checklistStates)
-                .where(and(
-                    eq(checklistStates.clientId, input.clientId),
-                    eq(checklistStates.checklistId, input.checklistId)
-                ))
-                .limit(1);
+            try {
+                const db = await getDb();
 
-            if (existing) {
-                return await db
-                    .update(checklistStates)
-                    .set({
-                        items: input.items,
-                        updatedAt: new Date()
-                    })
-                    .where(eq(checklistStates.id, existing.id))
-                    .returning();
-            } else {
-                return await db
-                    .insert(checklistStates)
-                    .values({
-                        clientId: input.clientId,
-                        checklistId: input.checklistId,
-                        items: input.items
-                    })
-                    .returning();
+                const [existing] = await db
+                    .select()
+                    .from(checklistStates)
+                    .where(and(
+                        eq(checklistStates.clientId, input.clientId),
+                        eq(checklistStates.checklistId, input.checklistId)
+                    ))
+                    .limit(1);
+
+                if (existing) {
+                    console.log('[Checklist] Updating existing state:', existing.id);
+                    await db
+                        .update(checklistStates)
+                        .set({
+                            items: input.items,
+                            updatedAt: new Date()
+                        })
+                        .where(eq(checklistStates.id, existing.id));
+                } else {
+                    console.log('[Checklist] Inserting new state');
+                    await db
+                        .insert(checklistStates)
+                        .values({
+                            clientId: input.clientId,
+                            checklistId: input.checklistId,
+                            items: input.items
+                        });
+                }
+
+                console.log('[Checklist] Update successful');
+                return { success: true };
+            } catch (error) {
+                console.error('[Checklist] Update failed:', error);
+                throw new TRPCError({
+                    code: 'INTERNAL_SERVER_ERROR',
+                    message: `Failed to update checklist: ${(error as Error).message}`,
+                    cause: error
+                });
             }
         }),
 
@@ -88,7 +110,7 @@ export const createChecklistRouter = (t: any, clientProcedure: any) => t.router(
                 ))
                 .limit(1);
 
-            let items: Record<string, any> = existing?.items || {};
+            const items: Record<string, any> = existing?.items || {};
             const currentTask = items[input.taskId];
 
             if (typeof currentTask === 'object' && currentTask !== null) {
@@ -98,20 +120,21 @@ export const createChecklistRouter = (t: any, clientProcedure: any) => t.router(
             }
 
             if (existing) {
-                return await db
+                console.log('[Checklist] Updating items with evidence request link');
+                await db
                     .update(checklistStates)
                     .set({ items, updatedAt: new Date() })
-                    .where(eq(checklistStates.id, existing.id))
-                    .returning();
+                    .where(eq(checklistStates.id, existing.id));
             } else {
-                return await db
+                console.log('[Checklist] Inserting new state with evidence request link');
+                await db
                     .insert(checklistStates)
                     .values({
                         clientId: input.clientId,
                         checklistId: input.checklistId,
                         items
-                    })
-                    .returning();
+                    });
             }
+            return { success: true };
         })
 });

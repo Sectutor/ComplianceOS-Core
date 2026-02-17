@@ -1,239 +1,189 @@
-
-import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@complianceos/ui/ui/card";
-import { Button } from "@complianceos/ui/ui/button";
-import { trpc } from "@/lib/trpc";
-import {
-    Shield,
-    FileText,
-    Users,
-    Database,
-    ArrowRight,
-    Scale,
-    Lock,
-    Eye,
-    Zap,
-    Globe,
-    AlertTriangle
-} from "lucide-react";
-import { useLocation, useParams } from "wouter";
-import { Skeleton } from "@complianceos/ui/ui/skeleton";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { PageGuide } from "@/components/PageGuide";
+import React from 'react';
+import { useLocation } from "wouter";
 import { useClientContext } from "@/contexts/ClientContext";
+import { Button } from "@complianceos/ui/ui/button";
+import { Plus, Shield, CheckCircle, FileText, Users, AlertTriangle, Database } from "lucide-react";
+import { trpc } from '@/lib/trpc';
+import { Card, CardContent, CardHeader, CardTitle } from "@complianceos/ui/ui/card";
+import { Badge } from "@complianceos/ui/ui/badge";
+import { Loader2 } from "lucide-react";
 
-
-export default function PrivacyDashboard() {
-    const { user } = useAuth();
-    const [, setLocation] = useLocation();
-    const params = useParams();
+export default function PrivacyDashboard({ fullWidth }: { fullWidth?: boolean }) {
     const { selectedClientId } = useClientContext();
+    const clientId = selectedClientId || 0;
+    const [, setLocation] = useLocation();
 
-    // Parse ID from URL safely
-    const urlClientId = parseInt((params as any)?.id || "0");
-    const clientId = selectedClientId || urlClientId;
+    const { data: stats, isLoading: statsLoading } = trpc.privacy.getPrivacyStats.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: dsars, isLoading: dsarLoading } = trpc.privacy.getDsarRequests.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: assessments } = trpc.privacy.listAssessments.useQuery({ clientId }, { enabled: !!clientId });
 
-    const { data: stats, isLoading: statsLoading } = trpc.privacy.getPrivacyStats.useQuery(
-        { clientId: clientId },
-        { enabled: !!clientId }
-    );
-    const { data: client } = trpc.clients.get.useQuery(
-        { id: clientId || 0 },
-        { enabled: !!clientId }
-    );
-
-    if (!selectedClientId) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <p className="text-muted-foreground">Please select a client to view privacy dashboard.</p>
-            </div>
-        );
-    }
-
-    const cards = [
-        {
-            title: "Data Inventory",
-            description: "Manage personal data assets & classification",
-            icon: Database,
-            path: `/clients/${selectedClientId}/privacy/inventory`,
-            stats: stats ? `${stats.piiAssetCount} Assets` : "...",
-            color: "text-blue-500",
-            bg: "bg-primary/10"
-        },
-        {
-            title: "ROPA",
-            description: "Record of Processing Activities & Data Flows",
-            icon: FileText,
-            path: `/clients/${selectedClientId}/privacy/ropa`,
-            stats: "View Map",
-            color: "text-purple-500",
-            bg: "bg-purple-500/10"
-        },
-        {
-            title: "DSAR Manager",
-            description: "Handle Data Subject Access Requests",
-            icon: Users,
-            path: `/clients/${selectedClientId}/privacy/dsar`,
-            stats: stats ? `${stats.activeDsarCount} Active` : "...",
-            color: "text-emerald-500",
-            bg: "bg-emerald-500/10"
-        },
-        {
-            title: "DPI Assessments",
-            description: "Risk assessments for high-impact processes",
-            icon: Scale,
-            path: `/clients/${selectedClientId}/privacy/dpia`,
-            stats: "Evaluate",
-            color: "text-indigo-500",
-            bg: "bg-indigo-500/10"
-        },
-        {
-            title: "Int'l Transfers",
-            description: "Cross-border data flows & TIAs",
-            icon: Globe,
-            path: `/clients/${selectedClientId}/privacy/transfers`,
-            stats: "Verify",
-            color: "text-cyan-500",
-            bg: "bg-cyan-500/10"
-        },
-        {
-            title: "Breach Register",
-            description: "Personal data breach incident management",
-            icon: AlertTriangle,
-            path: `/clients/${selectedClientId}/privacy/breaches`,
-            stats: "Respond",
-            color: "text-rose-500",
-            bg: "bg-rose-500/10"
-        }
-    ];
+    // Calculate pending DSARs
+    const pendingDsars = dsars?.filter(d => d.status !== 'Completed' && d.status !== 'Rejected').length || 0;
 
     return (
-        <div className="space-y-8 page-transition">
-            <Breadcrumb
-                items={[
-                    { label: "Dashboard", href: "/dashboard" },
-                    { label: client?.name || "Client", href: `/clients/${selectedClientId}` },
-                    { label: "Privacy" },
-                ]}
-            />
-
-            <div className="flex items-start justify-between animate-slide-down">
-                <PageGuide
-                    title="Privacy Compliance"
-                    description="Manage GDPR, CCPA, and data privacy operations."
-                    rationale="Central hub for your privacy program to ensure regulatory compliance."
-                    howToUse={[
-                        { step: "Inventory", description: "Map your data assets and processing activities." },
-                        { step: "Requests", description: "Handle Data Subject Access Requests (DSAR)." },
-                        { step: "Assessments", description: "Conduct DPIAs and transfer impact assessments." }
-                    ]}
-                />
+        <div className="space-y-10 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Privacy Dashboard</h1>
+                    <p className="text-slate-500 text-lg">Central hub for privacy program operations and compliance intelligence.</p>
+                </div>
             </div>
 
-
-            {/* Privacy Masterclass Callout */}
-            <Card className="bg-gradient-to-r from-slate-900 to-indigo-900 text-white border-0 shadow-2xl overflow-hidden group cursor-pointer" onClick={() => setLocation(`/clients/${selectedClientId}/privacy/overview`)}>
-                <CardContent className="p-0 relative">
-                    <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
-                    <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-                        <div className="space-y-2">
-                            <div className="inline-flex items-center space-x-2 bg-white/10 px-2 py-0.5 rounded-full border border-white/20 text-[10px] font-bold uppercase tracking-wider text-cyan-200">
-                                <Zap className="w-3 h-3" />
-                                <span>Knowledge Hub</span>
-                            </div>
-                            <h2 className="text-2xl font-bold">Privacy Framework Overview</h2>
-                            <p className="text-slate-300 text-sm leading-relaxed">
-                                Understand the integrated workflow between ROPA, Risk Assessments (DPIA), International Transfers, and Breach Management.
-                            </p>
-                        </div>
-                        <Button className="bg-white text-slate-900 hover:bg-cyan-50 font-bold px-6 py-6 h-auto rounded-xl shadow-lg group-hover:translate-x-1 transition-transform">
-                            Explore Masterclass
-                            <ArrowRight className="w-5 h-5 ml-2" />
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Main Navigation Cards */}
-            <div className="dashboard-grid grid gap-6 md:grid-cols-3">
-                {cards.map((card) => (
-                    <Card
-                        key={card.title}
-                        className="hover-lift shadow-premium transition-all cursor-pointer border-l-4"
-                        style={{ borderLeftColor: card.color.split('-')[1] }} // Approximate styling
-                        onClick={() => setLocation(card.path)}
-                    >
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                {card.title}
-                            </CardTitle>
-                            <div className={`p-2 rounded-full ${card.bg}`}>
-                                <card.icon className={`h-4 w-4 ${card.color}`} />
+            {statsLoading ? (
+                <div className="flex flex-col items-center justify-center p-24 space-y-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-[#3ABEF9]" />
+                    <p className="text-slate-400 font-medium animate-pulse">Aggregating privacy insights...</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-gradient-to-br from-white to-slate-50 overflow-hidden ring-1 ring-slate-200/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#1C4D8D]">PII Assets</CardTitle>
+                            <div className="h-8 w-8 rounded-lg bg-sky-50 flex items-center justify-center text-[#3ABEF9]">
+                                <Database className="h-4 w-4" />
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold metric-value">{statsLoading ? <Skeleton className="h-8 w-16" /> : card.stats}</div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {card.description}
-                            </p>
+                            <div className="text-3xl font-bold text-slate-900 mb-1">{stats?.piiAssetCount || 0}</div>
+                            <p className="text-xs font-medium text-slate-400">Personal data assets mapped</p>
                         </CardContent>
                     </Card>
-                ))}
-            </div>
 
-            {/* Quick Actions / Highlights */}
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Scale className="h-5 w-5 text-indigo-500" />
-                            Readiness Assessment
-                        </CardTitle>
-                        <CardDescription>
-                            Evaluate your posture against privacy regulations
-                        </CardDescription>
+                    <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-gradient-to-br from-white to-slate-50 overflow-hidden ring-1 ring-slate-200/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#1C4D8D]">Active DSARs</CardTitle>
+                            <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500">
+                                <Users className="h-4 w-4" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-slate-900 mb-1">{pendingDsars}</div>
+                            <p className="text-xs font-medium text-slate-400">Requests requiring processing</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-gradient-to-br from-white to-slate-50 overflow-hidden ring-1 ring-slate-200/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#1C4D8D]">Impact Tasks</CardTitle>
+                            <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                                <CheckCircle className="h-4 w-4" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-slate-900 mb-1">{assessments?.filter((a: any) => a.status === 'in_progress').length || 0}</div>
+                            <p className="text-xs font-medium text-slate-400">Open assessments in queue</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-gradient-to-br from-white to-slate-50 overflow-hidden ring-1 ring-slate-200/50">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#1C4D8D]">Health Score</CardTitle>
+                            <div className="h-8 w-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
+                                <Shield className="h-4 w-4" />
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-slate-900 mb-1">94%</div>
+                            <p className="text-xs font-medium text-slate-400">Compliance health indicator</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-2">
+                <Card className="border-slate-200 shadow-xl shadow-slate-200/30 rounded-2xl overflow-hidden bg-white">
+                    <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-6">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-bold text-slate-900">Recent DSAR Requests</CardTitle>
+                            <Button variant="ghost" className="text-[#3ABEF9] hover:text-[#1C4D8D] font-bold" onClick={() => setLocation(`/clients/${clientId}/privacy/dsar`)}>View All</Button>
+                        </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between p-4 border rounded-lg hover-lift transition-all">
-                            <div className="flex items-center gap-3">
-                                <Shield className="h-5 w-5 text-blue-600" />
-                                <div>
-                                    <p className="font-medium">GDPR Checklist</p>
-                                    <p className="text-xs text-muted-foreground">Evaluate compliance</p>
-                                </div>
+                    <CardContent className="p-0">
+                        {dsars && dsars.length > 0 ? (
+                            <div className="divide-y divide-slate-100">
+                                {dsars.slice(0, 5).map(dsar => (
+                                    <div
+                                        key={dsar.id}
+                                        className="flex items-center justify-between p-5 hover:bg-slate-50/80 transition-all cursor-pointer group"
+                                        onClick={() => setLocation(`/clients/${clientId}/privacy/dsar/${dsar.id}`)}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-[#3ABEF9]/10 group-hover:text-[#3ABEF9] transition-colors">
+                                                <Users className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900 group-hover:text-[#3ABEF9] transition-colors">{dsar.requestId}</p>
+                                                <p className="text-xs font-medium text-slate-400">
+                                                    Filed {dsar.requestDate ? new Date(dsar.requestDate).toLocaleDateString() : 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Badge className={`border-none font-bold uppercase text-[10px] tracking-wider px-2.5 py-1 ${dsar.status === 'New' ? 'bg-[#3ABEF9]/10 text-[#3ABEF9]' :
+                                            dsar.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {dsar.status || 'Draft'}
+                                        </Badge>
+                                    </div>
+                                ))}
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${selectedClientId}/privacy/assessment/gdpr`)}>Start</Button>
-                        </div>
-                        <div className="flex items-center justify-between p-4 border rounded-lg hover-lift transition-all">
-                            <div className="flex items-center gap-3">
-                                <Lock className="h-5 w-5 text-emerald-600" />
-                                <div>
-                                    <p className="font-medium">CCPA/CPRA Checklist</p>
-                                    <p className="text-xs text-muted-foreground">California Privacy Rights</p>
-                                </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-4">
+                                <Users className="h-12 w-12 text-slate-200" />
+                                <p className="text-slate-400 font-medium italic">No recent subject requests found.</p>
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${selectedClientId}/privacy/assessment/ccpa`)}>Start</Button>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Eye className="h-5 w-5 text-amber-500" />
-                            Recent Privacy Activity
-                        </CardTitle>
-                        <CardDescription>
-                            Latest updates to PI assets and requests
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-center py-8 text-muted-foreground text-sm">
-                            <p>No recent activity recorded.</p>
+                <Card className="border-slate-200 shadow-xl shadow-slate-200/30 rounded-2xl overflow-hidden bg-white">
+                    <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-6">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg font-bold text-slate-900">Recent Assessments</CardTitle>
                         </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {assessments && assessments.length > 0 ? (
+                            <div className="divide-y divide-slate-100">
+                                {assessments.slice(0, 5).map(assessment => (
+                                    <div key={assessment.id} className="flex items-center justify-between p-5 hover:bg-slate-50/80 transition-all cursor-pointer group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-[#1C4D8D]/10 group-hover:text-[#1C4D8D] transition-colors">
+                                                <FileText className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-900 group-hover:text-[#1C4D8D] transition-colors truncate max-w-[200px]">
+                                                    {assessment.type.replace(/^(DPIA:|TIA:|BREACH:)\s*/, '')}
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#3ABEF9]">
+                                                        {assessment.type.split(':')[0]}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-slate-300">•</span>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        {new Date(assessment.updatedAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Badge className={`border-none font-bold uppercase text-[10px] tracking-widest px-2.5 py-1 ${assessment.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                            assessment.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
+                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                            {assessment.status === 'in_progress' ? 'Active' : assessment.status}
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-4">
+                                <FileText className="h-12 w-12 text-slate-200" />
+                                <p className="text-slate-400 font-medium italic">No recent compliance assessments found.</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
-        </div >
+        </div>
     );
 }

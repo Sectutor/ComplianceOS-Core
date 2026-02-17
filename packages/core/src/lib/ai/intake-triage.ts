@@ -13,7 +13,7 @@ const classificationSchema = z.object({
 });
 
 export async function classifyIntakeItem(filename: string, clientId: number, fileBuffer?: Buffer) {
-    let extractedText = "";
+    const extractedText = "";
 
     if (fileBuffer && filename.toLowerCase().endsWith('.pdf')) {
         try {

@@ -501,12 +501,12 @@ export function ThreatModelWizard() {
 
                 <WorkflowDiagram currentStep={step} />
 
-                <div className={cn("mx-auto pb-20 transition-all duration-500 ease-in-out", (step === 1 && archSubstep === 2) ? "max-w-[1800px] px-4" : "max-w-4xl")}>
+                <div className={cn("mx-auto pb-20 transition-all duration-500 ease-in-out w-full max-w-[1800px] px-4")}>
                     {/* STEP 1: ARCHITECTURE */}
                     {step === 1 && (
                         <div className="space-y-6">
                             {archSubstep === 1 ? (
-                                <Card className="border-blue-100 shadow-md">
+                                <Card className="border-blue-100 shadow-md max-w-4xl mx-auto">
                                     <CardHeader className="bg-blue-50/30">
                                         <CardTitle className="text-xl">1. Architecture Definition</CardTitle>
                                         <CardDescription>What are we building? Define the scope of this threat model.</CardDescription>
@@ -1150,6 +1150,6 @@ export function ThreatModelWizard() {
             </div>
         </DashboardLayout>
     );
-};
+}
 
 

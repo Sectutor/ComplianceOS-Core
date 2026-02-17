@@ -10,7 +10,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
   return t.router({
 
     // Consent Management
-    consents: {
+    consents: t.router({
       list: clientProcedure
         .input(z.object({ clientId: z.number() }))
         .query(async ({ input, ctx }: any) => {
@@ -30,15 +30,15 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             .from(consents)
             .where(eq(consents.id, input.id))
             .limit(1);
-          
+
           if (!consent.length) throw new TRPCError({ code: "NOT_FOUND" });
-          
+
           // Permission check
           if (ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
             const allowed = await db.isUserAllowedForClient(ctx.user.id, consent[0].clientId);
             if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
           }
-          
+
           return consent[0];
         }),
 
@@ -59,7 +59,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newConsent] = await dbConn.insert(consents).values({
             clientId: input.clientId,
             dataSubjectId: input.dataSubjectId,
@@ -76,12 +76,13 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             status: 'active',
           }).returning();
 
-          await logActivity(
-            input.clientId,
-            'consent_created',
-            `Consent created for data subject ${input.dataSubjectId}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            action: 'consent_created',
+            entityType: 'consent',
+            details: `Consent created for data subject ${input.dataSubjectId}`,
+          });
 
           return newConsent;
         }),
@@ -93,15 +94,15 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           // Check permission
           const consent = await dbConn.select()
             .from(consents)
             .where(eq(consents.id, input.id))
             .limit(1);
-          
+
           if (!consent.length) throw new TRPCError({ code: "NOT_FOUND" });
-          
+
           if (ctx.user.role !== 'admin' && ctx.user.role !== 'owner') {
             const allowed = await db.isUserAllowedForClient(ctx.user.id, consent[0].clientId);
             if (!allowed) throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
@@ -116,19 +117,20 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             .where(eq(consents.id, input.id))
             .returning();
 
-          await logActivity(
-            consent[0].clientId,
-            'consent_withdrawn',
-            `Consent withdrawn for data subject ${consent[0].dataSubjectId}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: consent[0].clientId,
+            userId: ctx.user?.id,
+            action: 'withdraw',
+            entityType: 'consent',
+            details: `Consent withdrawn for ID ${input.id}. Reason: ${input.withdrawalReason}`,
+          });
 
           return updatedConsent;
         }),
-    },
+    }),
 
     // Consent Templates
-    consentTemplates: {
+    consentTemplates: t.router({
       list: clientProcedure
         .input(z.object({ clientId: z.number() }))
         .query(async ({ input, ctx }: any) => {
@@ -160,7 +162,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newTemplate] = await dbConn.insert(consentTemplates).values({
             clientId: input.clientId,
             name: input.name,
@@ -173,19 +175,20 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             createdBy: ctx.user?.id,
           }).returning();
 
-          await logActivity(
-            input.clientId,
-            'consent_template_created',
-            `Consent template created: ${input.name}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            action: 'create',
+            entityType: 'consent', // Or consent_template if added
+            details: `Consent template created: ${input.name}`,
+          });
 
           return newTemplate;
         }),
-    },
+    }),
 
     // DSAR Templates
-    dsarTemplates: {
+    dsarTemplates: t.router({
       list: clientProcedure
         .input(z.object({ clientId: z.number() }))
         .query(async ({ input, ctx }: any) => {
@@ -223,7 +226,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newTemplate] = await dbConn.insert(dsarTemplates).values({
             clientId: input.clientId,
             name: input.name,
@@ -233,12 +236,13 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             createdBy: ctx.user?.id,
           }).returning();
 
-          await logActivity(
-            input.clientId,
-            'dsar_template_created',
-            `DSAR template created: ${input.name}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            action: 'create',
+            entityType: 'dsar_request',
+            details: `DSAR template created: ${input.name}`,
+          });
 
           return newTemplate;
         }),
@@ -247,12 +251,12 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         .input(z.object({ id: z.number() }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const template = await dbConn.select()
             .from(dsarTemplates)
             .where(eq(dsarTemplates.id, input.id))
             .limit(1);
-          
+
           if (!template.length) throw new TRPCError({ code: "NOT_FOUND" });
 
           await dbConn.update(dsarTemplates)
@@ -261,10 +265,10 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
 
           return template[0];
         }),
-    },
+    }),
 
     // DPIA Templates
-    dpiaTemplates: {
+    dpiaTemplates: t.router({
       list: clientProcedure
         .input(z.object({ clientId: z.number() }))
         .query(async ({ input, ctx }: any) => {
@@ -307,7 +311,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newTemplate] = await dbConn.insert(dpiaTemplates).values({
             clientId: input.clientId,
             name: input.name,
@@ -317,19 +321,20 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             createdBy: ctx.user?.id,
           }).returning();
 
-          await logActivity(
-            input.clientId,
-            'dpia_template_created',
-            `DPIA template created: ${input.name}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            action: 'dpia_template_created',
+            entityType: 'dpia_template',
+            details: `DPIA template created: ${input.name}`,
+          });
 
           return newTemplate;
         }),
-    },
+    }),
 
     // Data Flow Visualization
-    dataFlows: {
+    dataFlows: t.router({
       list: clientProcedure
         .input(z.object({ clientId: z.number() }))
         .query(async ({ input, ctx }: any) => {
@@ -348,19 +353,19 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         .input(z.object({ id: z.number() }))
         .query(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const flow = await dbConn.select()
             .from(dataFlowVisualizations)
             .where(eq(dataFlowVisualizations.id, input.id))
             .limit(1);
-          
+
           if (!flow.length) throw new TRPCError({ code: "NOT_FOUND" });
 
           // Get nodes and connections for this flow
           const nodes = await dbConn.select()
             .from(dataFlowNodes)
             .where(eq(dataFlowNodes.flowId, input.id));
-          
+
           const connections = await dbConn.select()
             .from(dataFlowConnections)
             .where(eq(dataFlowConnections.flowId, input.id));
@@ -399,7 +404,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newFlow] = await dbConn.insert(dataFlowVisualizations).values({
             clientId: input.clientId,
             name: input.name,
@@ -417,12 +422,13 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             flowMetadata: input.flowMetadata || {},
           }).returning();
 
-          await logActivity(
-            input.clientId,
-            'data_flow_created',
-            `Data flow created: ${input.name}`,
-            ctx.user?.email || 'system'
-          );
+          await logActivity({
+            clientId: input.clientId,
+            userId: ctx.user?.id,
+            action: 'sync',
+            entityType: 'data_flow',
+            details: `Infrastructure scan triggered: ${input.sourceSystem}`,
+          });
 
           return newFlow;
         }),
@@ -437,9 +443,9 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         .mutation(async ({ input, ctx }: any) => {
           // This is a simplified auto-discovery implementation
           // In production, this would connect to various systems to automatically discover data flows
-          
+
           const discoveredFlows = [];
-          
+
           // Simulate discovery logic based on scan type
           if (input.scanType === 'api') {
             // Mock API endpoint discovery
@@ -469,9 +475,9 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
             timestamp: new Date().toISOString(),
           };
         }),
-    },
+    }),
 
-    dataFlowNodes: {
+    dataFlowNodes: t.router({
       create: clientEditorProcedure
         .input(z.object({
           flowId: z.number(),
@@ -485,7 +491,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newNode] = await dbConn.insert(dataFlowNodes).values({
             flowId: input.flowId,
             nodeType: input.nodeType,
@@ -512,7 +518,7 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
         }))
         .mutation(async ({ input, ctx }: any) => {
           const dbConn = await getDb();
-          
+
           const [newConnection] = await dbConn.insert(dataFlowConnections).values({
             flowId: input.flowId,
             sourceNodeId: input.sourceNodeId,
@@ -525,6 +531,6 @@ export const createPrivacyEnhancementsRouter = (t: any, clientProcedure: any, ad
 
           return newConnection;
         }),
-    },
+    }),
   });
 };

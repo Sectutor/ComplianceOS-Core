@@ -18,12 +18,23 @@ import "./index.css";
 registerDefaults();
 
 // 2. Register Premium Features (AI, etc.)
-// Controlled by VITE_ENABLE_PREMIUM env var (see .env)
-// If 'false' or missing, Premium features are skipped (Open Source Mode)
-if (import.meta.env.VITE_ENABLE_PREMIUM === 'true') {
+// Controlled by license validation system
+import { licenseValidator } from '@/lib/license/index';
+
+// Initialize license validator
+const licenseInfo = licenseValidator.getLicenseInfo();
+console.log('[License] Current license:', {
+  type: licenseValidator.getLicenseType(),
+  status: licenseInfo?.status,
+  features: licenseInfo?.features?.length || 0
+});
+
+// Register premium features based on license
+if (licenseValidator.isEnterpriseEdition() || licenseValidator.isTrialEdition()) {
   registerPremium();
+  console.log('[Registry] Premium features registered (Enterprise/Trial Edition)');
 } else {
-  console.log('[Registry] Premium features disabled (Open Source Mode)');
+  console.log('[Registry] Premium features disabled (Community Edition)');
 }
 
 const queryClient = new QueryClient();
@@ -56,8 +67,8 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   });
 };
 
-queryClient.getQueryCache().subscribe(event => {
-  if (event.type === "updated" && event.action.type === "error") {
+queryClient.getQueryCache().subscribe((event: any) => {
+  if (event.type === "updated" && event.action?.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
     if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
@@ -68,8 +79,8 @@ queryClient.getQueryCache().subscribe(event => {
   }
 });
 
-queryClient.getMutationCache().subscribe(event => {
-  if (event.type === "updated" && event.action.type === "error") {
+queryClient.getMutationCache().subscribe((event: any) => {
+  if (event.type === "updated" && event.action?.type === "error") {
     const error = event.mutation.state.error;
     redirectToLoginIfUnauthorized(error);
     if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
@@ -79,36 +90,25 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
-const safeTransformer = {
-  serialize: (object: any) => {
-    return superjson.serialize(object);
-  },
-  deserialize: (object: any) => {
-    if (!object || object === '') {
-      return null;
-    }
-    try {
-      return superjson.deserialize(object);
-    } catch (error) {
-      console.error("[TRPC Transformer] JSON parse error:", error, "Data:", object);
-      try {
-        return JSON.parse(object);
-      } catch (fallbackError) {
-        console.error("[TRPC Transformer] Fallback JSON parse also failed:", fallbackError);
-        return object;
-      }
-    }
-  },
-};
+const trpcTransformer = superjson;
 
 const trpcClient = trpc.createClient({
-  // transformer: superjson,
+  transformer: trpcTransformer,
   links: [
     httpBatchLink({
       url: "/api/trpc",
+      transformer: trpcTransformer,
       maxURLLength: 2000,
       async headers() {
-        const { data: { session } } = await supabase.auth.getSession();
+        let session = null;
+        try {
+          const { data } = await supabase.auth.getSession();
+          session = data?.session;
+        } catch (e) {
+          console.error('[TRPC] Anti-Gravity: Failed to fetch Supabase session for headers:', e);
+          // If we can't even get session, we might be in a corrupted state
+        }
+
         const reqId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
         // Pull selected client ID from localStorage for context preservation
@@ -171,7 +171,8 @@ function AppWithMFA() {
 
           // Background fetch factors for better UX
           supabase.auth.mfa.listFactors().then(({ data: lf }) => {
-            const totp = lf?.factors?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+            const factorList = lf?.all || (lf as any)?.factors || [];
+            const totp = factorList.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
             if (totp?.id) setFactorId(totp.id);
           });
         } else {
@@ -199,7 +200,7 @@ function AppWithMFA() {
   }, []);
 
   useEffect(() => {
-    const handler = async (e: CustomEvent) => {
+    const handler = (e: any) => {
       console.log("[MFA App Guard] require-mfa event intercepted");
       // If we already have factor info in the event, use it
       if (e.detail?.factorId) {

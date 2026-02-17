@@ -51,7 +51,7 @@ export class LLMService {
         const db = await getDb();
         if (!db) return [];
 
-        let providers: LLMProvider[] = [];
+        const providers: LLMProvider[] = [];
 
         // 1. Try to find a specific rule for this feature
         if (feature) {

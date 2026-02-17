@@ -19,6 +19,7 @@ export default function UpgradeRequired() {
         if (featureParam === 'custom-frameworks') return "Custom Frameworks";
         if (featureParam === 'risk-reports') return "Risk Management Reporting";
         if (location.includes("vendors") || location.includes("tprm")) return "Vendor Risk Management";
+        if (location.includes("federal")) return "Federal Compliance Module";
         return "Premium Feature";
     };
 
@@ -67,6 +68,10 @@ export default function UpgradeRequired() {
                 <div className="mt-12 p-6 bg-muted/30 rounded-lg max-w-2xl border">
                     <h3 className="font-semibold mb-4">What's included in Premium?</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left text-sm">
+                        <div className="flex items-start gap-2">
+                            <div className="text-green-500 mt-0.5">✓</div>
+                            <span>Federal Compliance (FedRAMP, CMMC)</span>
+                        </div>
                         <div className="flex items-start gap-2">
                             <div className="text-green-500 mt-0.5">✓</div>
                             <span>Advanced Vendor Risk Management (TPRM)</span>

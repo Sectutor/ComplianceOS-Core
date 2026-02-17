@@ -1,336 +1,148 @@
-
-import { useAuth } from "@/contexts/AuthContext";
-import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@complianceos/ui/ui/card";
+import React, { useState } from 'react';
+import { useClientContext } from "@/contexts/ClientContext";
 import { Button } from "@complianceos/ui/ui/button";
-import { Input } from "@complianceos/ui/ui/input";
+import { Database, Plus, Search, Loader2, AlertTriangle } from "lucide-react";
+import { trpc } from '@/lib/trpc';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Badge } from "@complianceos/ui/ui/badge";
-import { trpc } from "@/lib/trpc";
-import { Database, Search, ArrowLeft, Filter, Save, Trash2 } from "lucide-react";
-import { useLocation } from "wouter";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { useClientContext } from "@/contexts/ClientContext";
-import { useState } from "react";
-import { PageGuide } from "@/components/PageGuide";
+import { Input } from "@complianceos/ui/ui/input";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@complianceos/ui/ui/alert-dialog";
-import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-} from "@complianceos/ui/ui/sheet";
-import { Label } from "@complianceos/ui/ui/label";
-import { Switch } from "@complianceos/ui/ui/switch";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@complianceos/ui/ui/select";
-import { ScrollArea } from "@complianceos/ui/ui/scroll-area";
 
 export default function DataInventory() {
-    const [, setLocation] = useLocation();
     const { selectedClientId } = useClientContext();
+    const clientId = selectedClientId || 0;
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Fetch ALL assets, we will filter for privacy ones or allow adding privacy flag
-    // Currently relying on existing assets.list
-    const { data: allAssets, isLoading } = trpc.assets.list.useQuery({
-        clientId: selectedClientId || 0
-    }, {
-        enabled: !!selectedClientId
-    });
+    const { data: inventory, isLoading } = trpc.privacy.getInventory.useQuery({ clientId }, { enabled: !!clientId });
 
-    // We can also fetch just the inventory if we want, but letting user "tag" assets is better
-    // const { data: inventory } = trpc.privacy.getInventory.useQuery();
-
-    const utils = trpc.useContext();
-
-    const updatePrivacyMutation = trpc.privacy.updateAssetPrivacy.useMutation({
-        onSuccess: () => {
-            toast.success("Asset privacy details updated");
-            utils.assets.list.invalidate();
-        },
-        onError: (err) => {
-            toast.error("Failed to update: " + err.message);
-        }
-    });
-
-    const deleteAssetMutation = trpc.assets.delete.useMutation({
-        onSuccess: () => {
-            toast.success("Asset deleted successfully");
-            utils.assets.list.invalidate();
-        },
-        onError: (err) => {
-            toast.error("Failed to delete asset: " + err.message);
-        }
-    });
-
-    const filteredAssets = allAssets?.filter(asset =>
+    const filteredInventory = inventory?.filter(asset =>
         asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.isPersonalData
-    ) || [];
+        (asset.type && asset.type.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
 
     return (
-        <div className="space-y-6 h-full flex flex-col">
-            <Breadcrumb
-                items={[
-                    { label: "Dashboard", href: "/dashboard" },
-                    { label: "Privacy", href: `/clients/${selectedClientId}/privacy` },
-                    { label: "Data Inventory" },
-                ]}
-            />
-
-            <div className="flex items-center justify-between animate-slide-down">
-                <PageGuide
-                    title="Data Inventory"
-                    description="Catalog of all data assets and processing activities."
-                    rationale="Foundation for privacy compliance (RoPA) and security controls."
-                    howToUse={[
-                        { step: "Inventory", description: "Add and categorize data assets." },
-                        { step: "Classify", description: "Set sensitivity (Public, Internal, Confidential)." },
-                        { step: "Link", description: "Associate assets with vendors and processing activities." }
-                    ]}
-                />
+        <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900">Data Inventory</h1>
+                    <p className="text-slate-500 text-lg">Catalog and manage personal data assets and processing activities.</p>
+                </div>
+                <Button
+                    variant="outline"
+                    className="border-slate-200 hover:bg-slate-50 font-bold h-11 px-6 rounded-xl transition-all"
+                    onClick={() => toast.info("Asset mapping wizard coming soon.")}
+                >
+                    <Plus className="mr-2 h-5 w-5" /> Map New Asset
+                </Button>
             </div>
 
-            <Card className="flex-1 flex flex-col">
-                <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Database className="h-5 w-5 text-blue-500" />
-                            Asset Inventory
-                        </CardTitle>
-                        <div className="flex gap-2">
-                            <div className="relative w-64">
-                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search assets..."
-                                    className="pl-8"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <Button variant="outline">
-                                <Filter className="h-4 w-4 mr-2" />
-                                Filter PII Only
-                            </Button>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="flex-1 p-0">
-                    <div className="rounded-md border border-x-0 border-b-0 h-[600px] overflow-auto">
-                        <Table>
-                            <TableHeader>
+            <div className="flex items-center py-6 px-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <div className="relative w-full max-w-md">
+                    <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <Input
+                        placeholder="Search assets by name or type..."
+                        className="pl-10 h-12 rounded-xl border-slate-200 focus:border-[#3ABEF9] focus:ring-[#3ABEF9]/20"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center p-24 space-y-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-[#3ABEF9]" />
+                    <p className="text-slate-400 font-medium animate-pulse">Scanning data inventory...</p>
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden">
+                    <Table>
+                        <TableHeader className="bg-slate-50/50">
+                            <TableRow className="hover:bg-transparent border-0">
+                                <TableHead className="font-bold text-slate-700 h-14">Asset Name</TableHead>
+                                <TableHead className="font-bold text-slate-700 h-14">Type</TableHead>
+                                <TableHead className="font-bold text-slate-700 h-14">Sensitivity</TableHead>
+                                <TableHead className="font-bold text-slate-700 h-14">Format</TableHead>
+                                <TableHead className="font-bold text-slate-700 h-14">Owner</TableHead>
+                                <TableHead className="font-bold text-slate-700 h-14 px-6">Last Updated</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredInventory && filteredInventory.length > 0 ? (
+                                filteredInventory.map((asset, idx: number) => (
+                                    <TableRow
+                                        key={asset.id}
+                                        className="hover:bg-slate-50/80 transition-colors group border-b border-slate-100 last:border-0"
+                                        style={{ animationDelay: `${idx * 50}ms` }}
+                                    >
+                                        <TableCell className="py-5">
+                                            <div className="flex items-center">
+                                                <div className="h-10 w-10 bg-sky-50 rounded-xl flex items-center justify-center text-[#3ABEF9] mr-4 shadow-sm">
+                                                    <Database className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-slate-900">{asset.name}</div>
+                                                    <div className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">UID: {asset.id.split('-')[0]}</div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-5">
+                                            <Badge className="bg-slate-100 text-slate-600 border-none font-bold uppercase text-[10px] tracking-wider px-2.5 py-1">
+                                                {asset.type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-5">
+                                            <Badge className={cn(
+                                                "border-none font-bold uppercase text-[10px] tracking-wider px-2.5 py-1",
+                                                asset.dataSensitivity === 'High'
+                                                    ? "bg-rose-100 text-rose-700"
+                                                    : asset.dataSensitivity === 'Medium'
+                                                        ? "bg-amber-100 text-amber-700"
+                                                        : "bg-green-100 text-green-700"
+                                            )}>
+                                                {asset.dataSensitivity || 'Unclassified'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-5 text-slate-500 font-medium">{asset.dataFormat || '-'}</TableCell>
+                                        <TableCell className="py-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase">
+                                                    {asset.dataOwner ? asset.dataOwner.charAt(0) : '?'}
+                                                </div>
+                                                <span className="text-slate-700 font-medium">{asset.dataOwner || <span className="text-slate-300 italic">Unassigned</span>}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-5 px-6 text-slate-500 tabular-nums">
+                                            {new Date(asset.updatedAt).toLocaleDateString()}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
                                 <TableRow>
-                                    <TableHead>Asset Name</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>PII Status</TableHead>
-                                    <TableHead>Sensitivity</TableHead>
-                                    <TableHead>Format</TableHead>
-                                    <TableHead>Owner</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableCell colSpan={6} className="h-72 text-center text-slate-400">
+                                        <div className="flex flex-col items-center justify-center space-y-4">
+                                            <div className="p-6 bg-slate-50 rounded-2xl">
+                                                <Database className="h-12 w-12 text-slate-300" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-slate-900 text-lg">No assets found</p>
+                                                <p className="max-w-xs mx-auto">Start cataloging your personal data assets to build a compliant inventory.</p>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => toast.info("Asset mapping wizard coming soon.")}
+                                                className="border-slate-200 hover:bg-slate-50 font-bold rounded-xl"
+                                            >
+                                                Initialize Inventory
+                                            </Button>
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8">Loading assets...</TableCell>
-                                    </TableRow>
-                                ) : filteredAssets.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No assets found</TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredAssets.map((asset) => (
-                                        <InventoryRow
-                                            key={asset.id}
-                                            asset={asset}
-                                            onUpdate={(data) => updatePrivacyMutation.mutateAsync({ ...data, clientId: selectedClientId as number })}
-                                            onDelete={(id) => deleteAssetMutation.mutateAsync({ id, clientId: selectedClientId as number })}
-                                        />
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
         </div>
-    );
-}
-
-function InventoryRow({ asset, onUpdate, onDelete }: { asset: any, onUpdate: (data: any) => Promise<any>, onDelete: (id: number) => Promise<any> }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isPersonalData, setIsPersonalData] = useState(asset.isPersonalData || false);
-    const [sensitivity, setSensitivity] = useState(asset.dataSensitivity || "Internal");
-    const [format, setFormat] = useState(asset.dataFormat || "Digital");
-    const [dataOwner, setDataOwner] = useState(asset.dataOwner || asset.owner || "");
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            await onUpdate({
-                assetId: asset.id,
-                isPersonalData,
-                dataSensitivity: sensitivity,
-                dataFormat: format,
-                dataOwner: dataOwner
-            });
-            setIsOpen(false);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        setDeleting(true);
-        try {
-            await onDelete(asset.id);
-        } finally {
-            setDeleting(false);
-        }
-    };
-
-    return (
-        <TableRow>
-            <TableCell className="font-medium">{asset.name}</TableCell>
-            <TableCell>{asset.type}</TableCell>
-            <TableCell>
-                {asset.isPersonalData ? (
-                    <Badge variant="default" className="bg-blue-100 text-blue-700 hover:bg-blue-100">Contains PII</Badge>
-                ) : (
-                    <Badge variant="outline" className="text-muted-foreground">No PII</Badge>
-                )}
-            </TableCell>
-            <TableCell>
-                {asset.dataSensitivity && (
-                    <Badge variant="outline" className={
-                        asset.dataSensitivity === 'Restricted' ? 'border-red-200 bg-red-50 text-red-700' :
-                            asset.dataSensitivity === 'Confidential' ? 'border-orange-200 bg-orange-50 text-orange-700' :
-                                'border-slate-200 bg-slate-50 text-slate-700'
-                    }>
-                        {asset.dataSensitivity}
-                    </Badge>
-                )}
-            </TableCell>
-            <TableCell>{asset.dataFormat}</TableCell>
-            <TableCell>{asset.dataOwner || asset.owner || "-"}</TableCell>
-            <TableCell className="text-right flex items-center justify-end gap-2">
-                <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                    <SheetTrigger asChild>
-                        <Button variant="ghost" size="sm">Edit Details</Button>
-                    </SheetTrigger>
-                    <SheetContent className="w-[400px] sm:w-[540px]">
-                        <SheetHeader>
-                            <SheetTitle>Edit Privacy Details</SheetTitle>
-                            <SheetDescription>
-                                Classify {asset.name} usage of personal data.
-                            </SheetDescription>
-                        </SheetHeader>
-                        <ScrollArea className="h-[calc(100vh-200px)] mt-6 pr-4">
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between space-x-2 border p-4 rounded-lg">
-                                    <Label htmlFor="pii-mode" className="flex flex-col space-y-1">
-                                        <span>Contains Personal Data?</span>
-                                        <span className="font-normal text-xs text-muted-foreground">
-                                            Does this asset store, process, or transmit PII/PHI?
-                                        </span>
-                                    </Label>
-                                    <Switch id="pii-mode" checked={isPersonalData} onCheckedChange={setIsPersonalData} />
-                                </div>
-
-                                {isPersonalData && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                        <div className="space-y-2">
-                                            <Label>Data Sensitivity</Label>
-                                            <Select value={sensitivity} onValueChange={setSensitivity}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select sensitivity" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Public">Public</SelectItem>
-                                                    <SelectItem value="Internal">Internal</SelectItem>
-                                                    <SelectItem value="Confidential">Confidential</SelectItem>
-                                                    <SelectItem value="Restricted">Restricted (High Risk)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Data Format</Label>
-                                            <Select value={format} onValueChange={setFormat}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select format" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Digital">Digital</SelectItem>
-                                                    <SelectItem value="Physical">Physical (Paper, Drives)</SelectItem>
-                                                    <SelectItem value="Hybrid">Hybrid</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <Label>Data Owner</Label>
-                                            <Input
-                                                value={dataOwner}
-                                                onChange={(e) => setDataOwner(e.target.value)}
-                                                placeholder="Who is responsible for this data?"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                        <div className="mt-8 flex justify-end">
-                            <Button onClick={handleSave} disabled={saving}>
-                                {saving ? "Saving..." : "Save Changes"}
-                            </Button>
-                        </div>
-                    </SheetContent>
-                </Sheet>
-
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Asset</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Are you sure you want to delete <strong>{asset.name}</strong>? This action cannot be undone and will remove it from your inventory.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-red-600 hover:bg-red-700">
-                                {deleting ? "Deleting..." : "Delete"}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </TableCell>
-        </TableRow>
     );
 }

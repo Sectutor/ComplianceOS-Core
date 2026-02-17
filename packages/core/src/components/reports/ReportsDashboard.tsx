@@ -228,6 +228,7 @@ export const ReportsDashboard = ({ clientId }: ReportsDashboardProps) => {
                 {[
                     { title: "Custom Professional Report", desc: "Build a bespoke intelligence report", icon: Layout, action: () => setIsGeneratorOpen(true), primary: true },
                     { title: "Gap Analysis PDF", desc: "Detailed technical posture survey", icon: FileText, action: handleGapAnalysis },
+                    { title: "Federal Gap Report", desc: "Non-compliance analysis for NIST 800-53", icon: AlertTriangle, action: () => window.location.href = `/clients/${clientId}/federal/gap-report` },
                     { title: "Board Executive Summary", desc: "Clean, chart-heavy PDF brief", icon: FileBarChart, action: handleBoardSummary },
                 ].map((workshop, i) => (
                     <div

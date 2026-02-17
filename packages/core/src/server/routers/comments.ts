@@ -74,7 +74,7 @@ export const createCommentsRouter = (t: any, clientProcedure: any) => {
 
                 // Check permission: Owner of comment OR Admin
                 const isOwner = comment.userId === ctx.user.id;
-                const isAdmin = ctx.user.role === 'admin' || ctx.user.role === 'owner'; // Global admin/owner
+                const isAdmin = ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin'; // Global admin/owner/super_admin
                 const isClientAdmin = ctx.clientRole === 'admin' || ctx.clientRole === 'owner'; // Client admin/owner
 
                 if (!isOwner && !isAdmin && !isClientAdmin) {

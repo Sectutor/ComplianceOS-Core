@@ -56,10 +56,13 @@ export const createClientControlsRouter = (t: any, clientProcedure: any, adminPr
       }),
 
     list: clientProcedure
-      .input(z.object({ clientId: z.number() }))
+      .input(z.object({
+        clientId: z.number(),
+        framework: z.string().optional()
+      }))
       .query(async ({ input }: any) => {
-        console.log("DEBUG: clientControls.list called for clientId:", input.clientId);
-        return await db.getClientControls(input.clientId);
+        console.log("DEBUG: clientControls.list called for clientId:", input.clientId, "framework:", input.framework);
+        return await db.getClientControls(input.clientId, input.framework);
       }),
     get: clientProcedure
       .input(z.object({ id: z.number() }))
@@ -230,20 +233,17 @@ export const createClientControlsRouter = (t: any, clientProcedure: any, adminPr
             const masterControlInfo = previousState?.control;
 
             if (currentControl && masterControlInfo) {
-              // Find all mapped controls using the new frameworkMappings table
-              // We check both directions: Source -> Target AND Target -> Source
-
               // 1. Where current is Source
               const mappingsAsSource = await dbConn.select({
-                targetId: schema.frameworkMappings.targetControlId
-              }).from(schema.frameworkMappings)
-                .where(eq(schema.frameworkMappings.sourceControlId, masterControlInfo.id));
+                targetId: schema.controlMappings.targetControlId
+              }).from(schema.controlMappings)
+                .where(eq(schema.controlMappings.sourceControlId, masterControlInfo.id));
 
               // 2. Where current is Target (if bi-directional sync is desired)
               const mappingsAsTarget = await dbConn.select({
-                sourceId: schema.frameworkMappings.sourceControlId
-              }).from(schema.frameworkMappings)
-                .where(eq(schema.frameworkMappings.targetControlId, masterControlInfo.id));
+                sourceId: schema.controlMappings.sourceControlId
+              }).from(schema.controlMappings)
+                .where(eq(schema.controlMappings.targetControlId, masterControlInfo.id));
 
               const relatedGlobalControlIds = [
                 ...mappingsAsSource.map((m: any) => m.targetId),

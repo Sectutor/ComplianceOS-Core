@@ -1,0 +1,23 @@
+[
+  {
+    "controlId": "AC-2",
+    "weaknessName": "Account Management Process Documentation Missing",
+    "weaknessDescription": "Formal account management procedures for account creation, modification, and termination are not fully documented.",
+    "pointOfContact": "Chief Information Security Officer",
+    "scheduledCompletionDate": "2024-12-31"
+  },
+  {
+    "controlId": "IA-2",
+    "weaknessName": "MFA Not Enforced for All Remote Access",
+    "weaknessDescription": "Multi-factor authentication is implemented for VPN but not for cloud-based email access.",
+    "pointOfContact": "IT Director",
+    "scheduledCompletionDate": "2024-10-15"
+  },
+  {
+    "controlId": "SC-13",
+    "weaknessName": "FIPS 140-2 Validation Pending",
+    "weaknessDescription": "Encryption module used for data at rest is FIPS 140-2 compliant but certification is pending.",
+    "pointOfContact": "System Architect",
+    "scheduledCompletionDate": "2025-03-01"
+  }
+]

@@ -14,7 +14,7 @@ export const createManagementRouter = (t: any, protectedProcedure: any) => {
         const { clientId, status } = input;
 
         const db = await getDb();
-        let query = db.select({
+        const query = db.select({
           request: approvalRequests,
           submitter: users
         })

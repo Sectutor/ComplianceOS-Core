@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import DashboardLayout from '@/components/DashboardLayout';
 import { trpc } from '@/lib/trpc';
 import {
     Table,
@@ -15,6 +14,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from '@complianceos/ui/ui/dropdown-menu';
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger
+} from '@complianceos/ui/ui/tabs';
 import { Button } from '@complianceos/ui/ui/button';
 import { MoreHorizontal, Download, Trash2, UserPlus, Mail, Link as LinkIcon } from 'lucide-react';
 import { Badge } from '@complianceos/ui/ui/badge';
@@ -37,6 +42,7 @@ export default function WaitlistManagement() {
     const [invitePlanTier, setInvitePlanTier] = useState<'free' | 'pro' | 'enterprise'>('pro');
     const [inviteExpiresInDays, setInviteExpiresInDays] = useState<number>(30);
     const [inviteUsageLimit, setInviteUsageLimit] = useState<number | null>(1);
+    const [statusFilter, setStatusFilter] = useState('all');
 
 
     const handleStatusChange = async (id: number, status: string) => {
@@ -148,12 +154,12 @@ export default function WaitlistManagement() {
     };
 
     return (
-        <DashboardLayout>
+        <div className="space-y-6 w-full animate-in fade-in duration-500">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold tracking-tight">Waitlist Management</h1>
-                        <Badge className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-none px-3 py-1 text-[10px] font-bold tracking-widest shadow-lg shadow-indigo-200 uppercase">
+                        <Badge variant="outline" className="border-[#3ABEF9]/20 text-[#3ABEF9] bg-[#3ABEF9]/5 flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold tracking-widest uppercase">
                             Premium
                         </Badge>
                     </div>
@@ -165,104 +171,143 @@ export default function WaitlistManagement() {
                 </Button>
             </div>
 
-            <div className="border rounded-lg bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Contact</TableHead>
-                            <TableHead>Company</TableHead>
-                            <TableHead>Details</TableHead>
-                            <TableHead>Target Cert</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    Loading leads...
-                                </TableCell>
-                            </TableRow>
-                        ) : leads?.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                    No leads yet.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            leads?.map((lead: any) => (
-                                <TableRow key={lead.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{lead.firstName} {lead.lastName}</div>
-                                        <div className="text-sm text-muted-foreground flex items-center gap-1">
-                                            <Mail className="h-3 w-3" />
-                                            {lead.email}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-medium">{lead.company || 'N/A'}</div>
-                                        <div className="text-xs text-muted-foreground">{lead.industry || lead.orgSize ? `${lead.industry} • ${lead.orgSize}` : ''}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="text-xs">
-                                            {lead.role && <div>Role: {lead.role}</div>}
-                                            {lead.source && <div>Src: {lead.source}</div>}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                            {lead.certification || 'Any'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge
-                                            variant={lead.status === 'converted' ? 'success' : lead.status === 'pending' ? 'secondary' : 'default'}
-                                            className={lead.status === 'contacted' ? 'bg-amber-100 text-amber-700 border-amber-200' : ''}
-                                        >
-                                            {lead.status?.toUpperCase()}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground text-sm">
-                                        {new Date(lead.createdAt).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => handleConvertToLead(lead)} disabled={lead.status === 'converted'}>
-                                                    <UserPlus className="mr-2 h-4 w-4" />
-                                                    Convert to Contact
-                                                </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleStatusChange(lead.id, 'contacted')}>
-                                                Mark as Contacted
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => openInviteModal(lead)} disabled={lead.status === 'invited'}>
-                                                <LinkIcon className="mr-2 h-4 w-4" />
-                                                Send Invitation
-                                            </DropdownMenuItem>
+            <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
+                <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl mb-6">
+                    <TabsTrigger
+                        value="all"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        All Leads
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="pending"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        Pending
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="contacted"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        Contacted
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="invited"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        Invited
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="converted"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        Converted
+                    </TabsTrigger>
+                </TabsList>
 
-                                                <DropdownMenuItem onClick={() => handleStatusChange(lead.id, 'pending')}>
-                                                    Reset to Pending
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleDelete(lead.id)} className="text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    Delete Lead
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
+                                <TableHead className="text-white font-semibold py-4">Contact</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Company</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Details</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Target Cert</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Status</TableHead>
+                                <TableHead className="text-white font-semibold py-4">Date</TableHead>
+                                <TableHead className="text-right text-white font-semibold py-4">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8 text-slate-500 bg-white">
+                                        Loading leads...
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                            ) : leads?.filter((l: any) => statusFilter === 'all' || l.status === statusFilter).length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center py-8 text-slate-500 bg-white">
+                                        No leads found in this category.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                leads?.filter((l: any) => statusFilter === 'all' || l.status === statusFilter).map((lead: any) => (
+                                    <TableRow key={lead.id} className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 group">
+                                        <TableCell className="py-4 font-medium text-black">
+                                            <div className="font-medium">{lead.firstName} {lead.lastName}</div>
+                                            <div className="text-sm text-slate-500 flex items-center gap-1">
+                                                <Mail className="h-3 w-3" />
+                                                {lead.email}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <div className="font-medium text-black">{lead.company || 'N/A'}</div>
+                                            <div className="text-xs text-slate-500">{lead.industry || lead.orgSize ? `${lead.industry} • ${lead.orgSize}` : ''}</div>
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <div className="text-xs text-slate-600">
+                                                {lead.role && <div>Role: {lead.role}</div>}
+                                                {lead.source && <div>Src: {lead.source}</div>}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                {lead.certification || 'Any'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-4">
+                                            <Badge
+                                                variant={lead.status === 'converted' ? 'success' : lead.status === 'pending' ? 'secondary' : 'default'}
+                                                className={
+                                                    lead.status === 'contacted' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                                        lead.status === 'converted' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                                            lead.status === 'invited' ? 'bg-purple-100 text-purple-700 border-purple-200' : ''
+                                                }
+                                            >
+                                                {lead.status?.toUpperCase()}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-4 text-slate-500 text-sm">
+                                            {new Date(lead.createdAt).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell className="py-4 text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-100">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleConvertToLead(lead)} disabled={lead.status === 'converted'}>
+                                                        <UserPlus className="mr-2 h-4 w-4" />
+                                                        Convert to Contact
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleStatusChange(lead.id, 'contacted')}>
+                                                        Mark as Contacted
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => openInviteModal(lead)} disabled={lead.status === 'invited'}>
+                                                        <LinkIcon className="mr-2 h-4 w-4" />
+                                                        Send Invitation
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem onClick={() => handleStatusChange(lead.id, 'pending')}>
+                                                        Reset to Pending
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDelete(lead.id)} className="text-destructive">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Delete Lead
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </Tabs>
             <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
                 <DialogContent>
                     <DialogHeader>
@@ -331,6 +376,6 @@ export default function WaitlistManagement() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </DashboardLayout>
+        </div >
     );
 }

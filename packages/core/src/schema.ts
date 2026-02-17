@@ -1127,6 +1127,7 @@ export const controls = pgTable("controls", {
 
 
   implementationGuidance: text("implementation_guidance"), // For detailed examples or instructions
+  aiGuidance: text("ai_guidance"), // AI-generated guidance cached globally
 
 
 
@@ -1852,9 +1853,7 @@ export const policyTemplates = pgTable("policy_templates", {
 
 
   createdAt: timestamp("created_at").defaultNow(),
-
-
-
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 
@@ -3874,6 +3873,8 @@ export const userInvitations = pgTable("user_invitations", {
 
 
 
+  usedAt: timestamp("used_at"),
+  usedByUserId: integer("used_by_user_id"),
   expiresAt: timestamp("expires_at").notNull(),
 
 
@@ -5595,6 +5596,7 @@ export const assets = pgTable("assets", {
 
 
   lastReviewDate: timestamp("last_review_date"),
+  lastScannedAt: timestamp("last_scanned_at"),
 
 
 
@@ -11441,7 +11443,153 @@ export type FederalSarFinding = typeof federalSarFindings.$inferSelect;
 
 export type InsertFederalSarFinding = typeof federalSarFindings.$inferInsert;
 
+// NIST 800-53 Rev 5 Framework Specifics
+export const federalNist80053Assessments = pgTable("federal_nist_800_53_assessments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  sspId: integer("ssp_id"),
+  fismaSystemId: integer("fisma_system_id"),
+  sprsAssessmentId: integer("sprs_assessment_id"),
+  rmfWorkflowId: integer("rmf_workflow_id"),
+  controlId: varchar("control_id", { length: 50 }).notNull(),
+  implementationStatus: varchar("implementation_status", { length: 50 }),
+  implementationDescription: text("implementation_description"),
+  testResults: text("test_results"),
+  complianceStatus: varchar("compliance_status", { length: 50 }), // compliant, non_compliant, partial
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
+export type FederalNist80053Assessment = typeof federalNist80053Assessments.$inferSelect;
+export type InsertFederalNist80053Assessment = typeof federalNist80053Assessments.$inferInsert;
+
+// FedRAMP Specific Metadata
+export const federalFedrampPackages = pgTable("federal_fedramp_packages", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  impactLevel: varchar("impact_level", { length: 20 }), // Low, Moderate, High, LI-SaaS
+  authorizationType: varchar("authorization_type", { length: 50 }), // JAB, Agency
+  agencyName: varchar("agency_name", { length: 255 }),
+  provisioningStatus: varchar("provisioning_status", { length: 50 }), // In-Process, Authorized, Ready
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FederalFedrampPackage = typeof federalFedrampPackages.$inferSelect;
+export type InsertFederalFedrampPackage = typeof federalFedrampPackages.$inferInsert;
+
+// FISMA Systems
+export const federalFismaSystems = pgTable("federal_fisma_systems", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  fips199Overall: varchar("fips_199_overall", { length: 20 }), // Low, Moderate, High
+  description: text("description"),
+  status: varchar("status", { length: 50 }), // Active, Retired, Planned
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FederalFismaSystem = typeof federalFismaSystems.$inferSelect;
+export type InsertFederalFismaSystem = typeof federalFismaSystems.$inferInsert;
+
+// RMF Workflow Tracking
+export const federalRmfWorkflows = pgTable("federal_rmf_workflows", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  systemName: varchar("system_name", { length: 255 }).notNull(),
+  currentStep: integer("current_step").default(1), // 1: Prepare, 2: Categorize, 3: Select, 4: Implement, 5: Assess, 6: Authorize, 7: Monitor
+  stepStatus: json("step_status"), // { 1: 'completed', 2: 'in_progress', ... }
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FederalRmfWorkflow = typeof federalRmfWorkflows.$inferSelect;
+export type InsertFederalRmfWorkflow = typeof federalRmfWorkflows.$inferInsert;
+
+// DFARS / SPRS Scoring Assessment
+export const federalSprsAssessments = pgTable("federal_sprs_assessments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  score: integer("score").default(110), // NIST 800-171 max score
+  assessmentDate: timestamp("assessment_date").defaultNow(),
+  scopeDescription: text("scope_description"),
+  status: varchar("status", { length: 50 }).default("Active"), // Active, Archived, Submitted
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FederalSprsAssessment = typeof federalSprsAssessments.$inferSelect;
+export type InsertFederalSprsAssessment = typeof federalSprsAssessments.$inferInsert;
+
+// FISMA Reporting
+export const federalFismaReports = pgTable("federal_fisma_reports", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  reportingPeriod: varchar("reporting_period", { length: 100 }), // e.g. "FY2024 Q1"
+  systemImpact: varchar("system_impact", { length: 20 }), // Low, Moderate, High
+  overallStatus: varchar("overall_status", { length: 50 }),
+  metrics: json("metrics"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FederalFismaReport = typeof federalFismaReports.$inferSelect;
+export type InsertFederalFismaReport = typeof federalFismaReports.$inferInsert;
+
+// DISA STIG Hardening Checklists
+export const federalDisaStigChecklists = pgTable("federal_disa_stig_checklists", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }), // Server, Database, Network, Application
+  assetIdentifier: varchar("asset_identifier", { length: 255 }),
+  overallStatus: varchar("overall_status", { length: 50 }), // Compliant, Non-Compliant, Mixed
+  findingsCount: integer("findings_count").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const federalDisaStigItems = pgTable("federal_disa_stig_items", {
+  id: serial("id").primaryKey(),
+  checklistId: integer("checklist_id").notNull(),
+  ruleId: varchar("rule_id", { length: 50 }).notNull(), // SV-XXXX
+  vulnId: varchar("vuln_id", { length: 50 }), // V-XXXX
+  title: text("title").notNull(),
+  description: text("description"),
+  checkText: text("check_text"),
+  fixText: text("fix_text"),
+  severity: varchar("severity", { length: 20 }), // high, medium, low (CAT I, II, III)
+  status: varchar("status", { length: 50 }), // open, not_a_finding, not_applicable
+  comments: text("comments"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type FederalDisaStigChecklist = typeof federalDisaStigChecklists.$inferSelect;
+export type InsertFederalDisaStigChecklist = typeof federalDisaStigChecklists.$inferInsert;
+export type FederalDisaStigItem = typeof federalDisaStigItems.$inferSelect;
+export type InsertFederalDisaStigItem = typeof federalDisaStigItems.$inferInsert;
+
+// FIPS 140 Cryptography Tracking
+export const federalFips140Modules = pgTable("federal_fips_140_modules", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  moduleName: varchar("module_name", { length: 255 }).notNull(),
+  vendor: varchar("vendor", { length: 255 }),
+  certificateNumber: varchar("certificate_number", { length: 50 }),
+  validationLevel: varchar("validation_level", { length: 20 }), // Level 1, 2, 3, 4
+  validationVersion: varchar("validation_version", { length: 20 }), // 140-2, 140-3
+  status: varchar("status", { length: 50 }), // Active, Historical, Revoked
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const federalFips140ModuleAssets = pgTable("federal_fips_140_module_assets", {
+  id: serial("id").primaryKey(),
+  fipsModuleId: integer("fips_module_id").notNull().references(() => federalFips140Modules.id, { onDelete: "cascade" }),
+  assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type FederalFips140Module = typeof federalFips140Modules.$inferSelect;
+export type InsertFederalFips140Module = typeof federalFips140Modules.$inferInsert;
+export type FederalFips140ModuleAsset = typeof federalFips140ModuleAssets.$inferSelect;
 
 // ==================== MANAGED SERVICE MODULE (Accountant Model) ====================
 
@@ -12631,6 +12779,7 @@ export const sammStreamAssessments = pgTable("samm_stream_assessments", {
   // Specific notes per level
   // Format: { "1": "Notes for level 1", "2": "Notes for level 2", ... }
   levelNotes: jsonb("level_notes").$type<Record<string, string>>().default({}),
+  criteriaNotes: jsonb("criteria_notes").$type<Record<string, Record<string, string>>>().default({}),
 
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
@@ -14143,6 +14292,8 @@ export const magicLinks = pgTable("magic_links", {
   status: varchar("status", { length: 50 }).default("active"), // active, accepted, revoked
   createdById: integer("created_by_id").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  usedAt: timestamp("used_at"),
+  usedByUserId: integer("used_by_user_id"),
   expiresAt: timestamp("expires_at"), // Link expiration (different from access duration)
   usageLimit: integer("usage_limit").default(1), // null = unlimited
   useCount: integer("use_count").default(0),
@@ -14241,3 +14392,27 @@ export type InsertAsvsRequirement = typeof asvsRequirements.$inferInsert;
 
 export type AsvsAssessment = typeof asvsAssessments.$inferSelect;
 export type InsertAsvsAssessment = typeof asvsAssessments.$inferInsert;
+
+// ==========================================
+// FEDERAL INHERITANCE MANAGEMENT
+// ==========================================
+
+export const federalInheritances = pgTable("federal_inheritances", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  packageId: integer("package_id").notNull(),
+  partnerName: varchar("partner_name", { length: 255 }).notNull(),
+  controlId: varchar("control_id", { length: 100 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { length: 50 }).default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    clientPkgIdx: index("idx_fed_inh_client_pkg").on(table.clientId, table.packageId),
+  };
+});
+
+export type FederalInheritance = typeof federalInheritances.$inferSelect;
+export type InsertFederalInheritance = typeof federalInheritances.$inferInsert;
+

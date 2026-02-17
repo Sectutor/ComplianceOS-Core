@@ -4,12 +4,22 @@ import { logger } from '../../lib/logger';
 
 export const uploadRouter = Router();
 
-uploadRouter.post('/', async (req, res) => {
+uploadRouter.post('/', async (req: any, res) => {
     try {
+        // Authentication check
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required for uploads' });
+        }
+
         const { filename, data, contentType, folder = 'uploads' } = req.body;
 
         if (!filename || !data) {
             return res.status(400).json({ error: 'Missing filename or data' });
+        }
+
+        // Folder validation - prevent path traversal
+        if (folder.includes('..') || folder.startsWith('/') || folder.includes(':')) {
+            return res.status(400).json({ error: 'Invalid folder path' });
         }
 
         // Decode base64

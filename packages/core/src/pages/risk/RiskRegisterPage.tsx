@@ -21,29 +21,26 @@ import {
 import { usePageHelp } from '@/hooks/usePageHelp';
 import { PageGuide } from "@/components/PageGuide";
 
-export default function RiskRegisterPage() {
-    usePageHelp({
-        pageTitle: "Risk Register",
-        description: "This is the central repository for all identified risks. Use this page to add new risks, assess their inherent and residual levels, and assign owners.",
-        keyTopics: ["Risk Assessment", "Inherent Risk", "Residual Risk", "Risk Treatment", "Risk Owners"],
-        dataSummary: {
-            context: "User is viewing the Risk Register table and heatmaps."
-        }
-    });
+export default function RiskRegisterPage({ hideLayout = false, hideBreadcrumb = false, framework, clientId: propClientId }: { hideLayout?: boolean, hideBreadcrumb?: boolean, framework?: string, clientId?: number }) {
     const params = useParams<{ id: string }>();
-    const [_, setLocation] = useLocation();
-    const clientId = params.id ? parseInt(params.id) : 0;
+    const [, setLocation] = useLocation();
+    const clientId = propClientId || (params.id ? parseInt(params.id) : 0);
+
     const [wizardOpen, setWizardOpen] = useState(false);
     const [editingRisk, setEditingRisk] = useState<any>(null);
     const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [heatmapFilter, setHeatmapFilter] = useState<{ likelihood?: string; impact?: string; type?: string } | null>(null);
+    const [selectedAssetId, setSelectedAssetId] = useState<string | null>(() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        return searchParams.get('assetId');
+    });
 
     const utils = trpc.useUtils();
     // Query for risk assessments
     const { data: riskAssessments } = trpc.risks.getRiskAssessments.useQuery(
-        { clientId },
+        { clientId, assetId: selectedAssetId ? Number(selectedAssetId) : undefined },
         { enabled: !!clientId }
     );
     const exportReportMutation = trpc.risks.exportReport.useMutation();
@@ -68,30 +65,50 @@ export default function RiskRegisterPage() {
         aiAnalysisMutation.mutate({ clientId });
     };
 
-    // Check for query params to auto-open wizard (e.g. from Asset Active Threats)
+    // Sync URL with selectedAssetId
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        const currentAssetId = url.searchParams.get('assetId');
+
+        if (selectedAssetId) {
+            if (currentAssetId !== selectedAssetId) {
+                url.searchParams.set('assetId', selectedAssetId);
+                window.history.replaceState({}, '', url.toString());
+            }
+        } else if (currentAssetId) {
+            url.searchParams.delete('assetId');
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, [selectedAssetId]);
+
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search);
         const title = searchParams.get('title');
         const description = searchParams.get('description');
         const assetId = searchParams.get('assetId');
+        const vulnerabilityId = searchParams.get('vulnerabilityId');
+        const threatId = searchParams.get('threatId');
+        const openWizard = searchParams.get('openWizard') === 'true';
 
-        if (title || description) {
+        if (title || description || openWizard) {
             setEditingRisk({
-                riskName: title || '',
+                title: title || '',
                 description: description || '',
                 assetId: assetId ? parseInt(assetId) : undefined,
-                // Add defaults to ensure wizard handles it as a new risk
-                status: 'Open',
+                vulnerabilityId: vulnerabilityId ? parseInt(vulnerabilityId) : undefined,
+                threatId: threatId ? parseInt(threatId) : undefined,
+                status: 'draft',
                 likelihood: 1,
-                impact: 1
+                impact: 1,
+                assessmentType: 'asset'
             });
             setWizardOpen(true);
 
-            // Optional: Clean up URL to avoid reopening on refresh
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
+            const newUrl = new URL(window.location.href);
+            ['title', 'description', 'openWizard', 'vulnerabilityId', 'threatId'].forEach(p => newUrl.searchParams.delete(p));
+            window.history.replaceState({}, '', newUrl.toString());
         }
-    }, []);
+    }, [clientId]);
 
     if (!clientId) {
         return (
@@ -142,10 +159,9 @@ export default function RiskRegisterPage() {
         }
     };
 
-    return (
-        <DashboardLayout>
-            <div className="space-y-6">
-                {/* Breadcrumb Navigation */}
+    const content = (
+        <div className="space-y-6">
+            {!hideBreadcrumb && (
                 <Breadcrumb>
                     <BreadcrumbList>
                         <BreadcrumbItem>
@@ -171,144 +187,161 @@ export default function RiskRegisterPage() {
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
+            )}
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="mb-2">
-                            <Link href={`/clients/${clientId}/risks`}>
-                                <Button variant="ghost" size="sm" className="pl-0 gap-1 text-muted-foreground hover:text-foreground">
-                                    <ChevronLeft className="w-4 h-4" />
-                                    Back to Dashboard
-                                </Button>
-                            </Link>
-                        </div>
-                        <h1 className="text-3xl font-bold text-slate-950">Risk Register</h1>
-                        <p className="text-slate-900 mt-1 font-medium">Manage and track all identified risks for this client.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="mb-2">
+                        <Link href={`/clients/${clientId}/risks`}>
+                            <Button variant="ghost" size="sm" className="pl-0 gap-1 text-muted-foreground hover:text-foreground">
+                                <ChevronLeft className="w-4 h-4" />
+                                Back to Dashboard
+                            </Button>
+                        </Link>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="primary"
-                            onClick={handleGenerateReport}
-                            disabled={analyzing || !riskAssessments || riskAssessments.length === 0}
-                            className="gap-2 shadow-lg shadow-blue-500/20 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 transition-all active:scale-[0.98] text-white"
-                        >
-                            {analyzing ? (
-                                <RefreshCcw className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                                <Wand2 className="w-4 h-4 text-white" />
-                            )}
-                            {analyzing ? "AI Analyzing Risks..." : "AI Management Report"}
-                        </Button>
-                        <Button onClick={() => { setEditingRisk(null); setWizardOpen(true); }}>
-                            <Plus className="w-4 h-4 mr-2" /> Add Risk
-                        </Button>
-                        <PageGuide
-                            title="Risk Register"
-                            description="Identify, assess, and treat risks to your organization."
-                            rationale="A comprehensive risk register is the foundation of information security. It documents potential threats, their likelihood and impact, and the controls you've put in place to mitigate them."
-                            howToUse={[
-                                { step: "Add Risks", description: "Click 'Add Risk' to use the wizard for documenting new threats." },
-                                { step: "Assess Risk", description: "Score inherent risk (before controls) and residual risk (after controls)." },
-                                { step: "Assign Owners", description: "Designate a risk owner responsible for monitoring and mitigation." },
-                                { step: "Analyze Heatmaps", description: "Use the heatmaps to visualize your highest-priority risks." }
-                            ]}
-                            integrations={[
-                                { name: "Controls", description: "Mitigating controls are linked directly from the Control Library." },
-                                { name: "AI Analysis", description: "Use the 'AI Management Report' to generate executive summaries." },
-                                { name: "Audits", description: "This register serves as primary evidence for risk management standards (e.g., ISO 27001 Clause 6)." }
-                            ]}
-                        />
-                    </div>
+                    <h1 className="text-3xl font-bold text-slate-950">Risk Register</h1>
+                    <p className="text-slate-900 mt-1 font-medium">Manage and track all identified risks for this client.</p>
                 </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="default"
+                        onClick={handleGenerateReport}
+                        disabled={analyzing || !riskAssessments || riskAssessments.length === 0}
+                        className="gap-2 shadow-lg shadow-blue-500/20 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 transition-all active:scale-[0.98] text-white"
+                    >
+                        {analyzing ? (
+                            <RefreshCcw className="w-4 h-4 animate-spin text-white" />
+                        ) : (
+                            <Wand2 className="w-4 h-4 text-white" />
+                        )}
+                        {analyzing ? "AI Analyzing Risks..." : "AI Management Report"}
+                    </Button>
+                    <Button onClick={() => {
+                        const searchParams = new URLSearchParams(window.location.search);
+                        const assetId = searchParams.get('assetId');
+                        setEditingRisk(assetId ? { assetId: parseInt(assetId), assessmentType: 'asset' } : null);
+                        setWizardOpen(true);
+                    }}>
+                        <Plus className="w-4 h-4 mr-2" /> Add Risk
+                    </Button>
+                    <PageGuide
+                        title="Risk Register"
+                        description="Identify, assess, and treat risks to your organization."
+                        rationale="A comprehensive risk register is the foundation of information security. It documents potential threats, their likelihood and impact, and the controls you've put in place to mitigate them."
+                        howToUse={[
+                            { step: "Add Risks", description: "Click 'Add Risk' to use the wizard for documenting new threats." },
+                            { step: "Assess Risk", description: "Score inherent risk (before controls) and residual risk (after controls)." },
+                            { step: "Assign Owners", description: "Designate a risk owner responsible for monitoring and mitigation." },
+                            { step: "Analyze Heatmaps", description: "Use the heatmaps to visualize your highest-priority risks." }
+                        ]}
+                        integrations={[
+                            { name: "Controls", description: "Mitigating controls are linked directly from the Control Library." },
+                            { name: "AI Analysis", description: "Use the 'AI Management Report' to generate executive summaries." },
+                            { name: "Audits", description: "This register serves as primary evidence for risk management standards (e.g., ISO 27001 Clause 6)." }
+                        ]}
+                    />
+                </div>
+            </div>
 
-                {/* Heatmaps Row */}
-                {riskAssessments && riskAssessments.length > 0 && (
-                    <div className="h-64 grid grid-cols-2 gap-4 mb-8">
-                        <RiskHeatmap
-                            assessments={riskAssessments || []}
-                            type="inherent"
-                            activeFilter={heatmapFilter}
-                            onFilterChange={setHeatmapFilter}
-                            title="Inherent Risk"
-                        />
-                        <RiskHeatmap
-                            assessments={riskAssessments || []}
-                            type="residual"
-                            activeFilter={heatmapFilter}
-                            onFilterChange={setHeatmapFilter}
-                            title="Residual Risk"
-                        />
-                    </div>
-                )}
+            {riskAssessments && riskAssessments.length > 0 && (
+                <div className="h-64 grid grid-cols-2 gap-4 mb-8">
+                    <RiskHeatmap
+                        assessments={riskAssessments || []}
+                        type="inherent"
+                        activeFilter={heatmapFilter}
+                        onFilterChange={setHeatmapFilter}
+                        title="Inherent Risk"
+                    />
+                    <RiskHeatmap
+                        assessments={riskAssessments || []}
+                        type="residual"
+                        activeFilter={heatmapFilter}
+                        onFilterChange={setHeatmapFilter}
+                        title="Residual Risk"
+                    />
+                </div>
+            )}
 
-                {/* Risk Register Table */}
-                <RiskRegister clientId={clientId} onEditRisk={handleEditRisk} heatmapFilter={heatmapFilter} />
+            <RiskRegister
+                clientId={clientId}
+                onEditRisk={handleEditRisk}
+                heatmapFilter={heatmapFilter}
+                framework={framework}
+                selectedAssetId={selectedAssetId}
+                onAssetChange={setSelectedAssetId}
+            />
 
-                {/* Wizard Modal */}
-                <RiskAssessmentWizard
-                    open={wizardOpen}
-                    onOpenChange={setWizardOpen}
-                    clientId={clientId}
-                    initialData={editingRisk}
-                    onSuccess={() => {
-                        setWizardOpen(false);
-                        setEditingRisk(null);
-                        utils.risks.getRiskAssessments.invalidate();
-                        toast.success("Risk saved successfully");
-                    }}
-                />
+            <RiskAssessmentWizard
+                open={wizardOpen}
+                onOpenChange={setWizardOpen}
+                clientId={clientId}
+                initialData={editingRisk}
+                framework={framework}
+                onSuccess={() => {
+                    setWizardOpen(false);
+                    setEditingRisk(null);
+                    utils.risks.getRiskAssessments.invalidate();
+                    toast.success("Risk saved successfully");
+                }}
+            />
 
-                {/* AI Report Modal */}
-                <EnhancedDialog
-                    open={reportModalOpen}
-                    onOpenChange={setReportModalOpen}
-                    title="AI Risk Management Analysis"
-                    description="Strategic report generated based on current Risk Register data."
-                    size="3xl"
-                >
-                    <div className="max-h-[70vh] overflow-y-auto p-4 bg-slate-50/50 rounded-xl border border-slate-200/60 shadow-inner">
-                        <div className="prose prose-slate max-w-none prose-sm dark:prose-invert 
+            <EnhancedDialog
+                open={reportModalOpen}
+                onOpenChange={setReportModalOpen}
+                title="AI Risk Management Analysis"
+                description="Strategic report generated based on current Risk Register data."
+                size="3xl"
+            >
+                <div className="max-h-[70vh] overflow-y-auto p-4 bg-slate-50/50 rounded-xl border border-slate-200/60 shadow-inner">
+                    <div className="prose prose-slate max-w-none prose-sm dark:prose-invert 
                             prose-headings:text-slate-900 prose-headings:font-bold prose-headings:mb-3 prose-headings:mt-6
                             prose-p:text-slate-800 prose-p:leading-relaxed prose-p:mb-4
                             prose-li:text-slate-800 prose-li:mb-1
                             prose-strong:text-slate-950 prose-strong:font-bold
                             prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg">
-                            <ReactMarkdown>{aiAnalysis || ''}</ReactMarkdown>
-                        </div>
+                        <ReactMarkdown>{aiAnalysis || ''}</ReactMarkdown>
                     </div>
-                    <div className="flex justify-end gap-3 mt-6">
-                        <Button variant="outline" onClick={() => setReportModalOpen(false)}>
-                            Close
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            className="gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200"
-                            onClick={() => {
-                                setReportModalOpen(false);
-                                setLocation(`/clients/${clientId}/risks/report`);
-                            }}
-                        >
-                            <FileText className="w-4 h-4" />
-                            Edit in Report Editor
-                        </Button>
-                        <Button
-                            className="gap-2 bg-slate-900 hover:bg-slate-800"
-                            onClick={() => {
-                                const blob = new Blob([aiAnalysis || ''], { type: 'text/markdown' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `Risk_Management_Report_${new Date().toISOString().split('T')[0]}.md`;
-                                a.click();
-                                toast.success("Report downloaded as Markdown");
-                            }}
-                        >
-                            <Download className="w-4 h-4" />
-                            Download Markdown
-                        </Button>
-                    </div>
-                </EnhancedDialog>
-            </div>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                    <Button variant="outline" onClick={() => setReportModalOpen(false)}>
+                        Close
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        className="gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200"
+                        onClick={() => {
+                            setReportModalOpen(false);
+                            setLocation(`/clients/${clientId}/risks/report`);
+                        }}
+                    >
+                        <FileText className="w-4 h-4" />
+                        Edit in Report Editor
+                    </Button>
+                    <Button
+                        className="gap-2 bg-slate-900 hover:bg-slate-800"
+                        onClick={() => {
+                            const blob = new Blob([aiAnalysis || ''], { type: 'text/markdown' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Risk_Management_Report_${new Date().toISOString().split('T')[0]}.md`;
+                            a.click();
+                            toast.success("Report downloaded as Markdown");
+                        }}
+                    >
+                        <Download className="w-4 h-4" />
+                        Download Markdown
+                    </Button>
+                </div>
+            </EnhancedDialog>
+        </div>
+    );
+
+    if (hideLayout) return content;
+
+    return (
+        <DashboardLayout>
+            {content}
         </DashboardLayout>
     );
 }

@@ -64,7 +64,7 @@ export default function RiskVulnerabilitiesPage() {
     }, [securityFeeds]);
 
     const filteredVulns = React.useMemo(() => {
-        let items = vulnerabilities?.filter(v =>
+        const items = vulnerabilities?.filter(v =>
             v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             v.vulnerabilityId.toLowerCase().includes(searchQuery.toLowerCase()) ||
             v.cveId?.toLowerCase().includes(searchQuery.toLowerCase())

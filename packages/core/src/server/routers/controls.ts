@@ -1,4 +1,4 @@
-﻿
+
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { controls } from "../../schema";
@@ -20,16 +20,39 @@ const logControlHistory = async (dbConn: any, controlId: number, userId: number,
 export const createControlsRouter = (t: any, adminProcedure: any, publicProcedure: any) => {
     return t.router({
         list: publicProcedure
-            .input(z.object({ framework: z.string().optional(), clientId: z.number().optional() }).optional())
-            .query(async ({ input }: any) => {
-                console.log("[ControlsRouter] list called", input);
-                try {
-                    return await db.getControls(input?.framework, input?.clientId);
-                } catch (e) {
-                    console.error("[ControlsRouter] list error:", e);
-                    throw e;
+        .input(z.object({ framework: z.string().optional(), clientId: z.number().optional() }).optional())
+        .query(async ({ input }: any) => {
+            console.log("[ControlsRouter] list called", input);
+            try {
+                // If requesting NIST SP 800-171 Rev 2, map to NIST SP 800-53 Rev 5 and filter
+                // Or just return all controls if "NIST SP 800-171 Rev 2" doesn't exist in DB as a distinct framework
+                // Currently our seed might not have "NIST SP 800-171 Rev 2" explicitly if it's using 800-53
+                
+                const framework = input?.framework;
+                if (framework === "NIST SP 800-171 Rev 2") {
+                    // Fallback to fetch all or fetch 800-53 and filter in UI? 
+                    // Better: If DB has 171, use it. If not, try 800-53.
+                    // For now, let's pass it through. If DB returns empty, we might need to seed it or alias it.
+                    
+                    // CHECK: Do we have "NIST SP 800-171 Rev 2" in the controls table?
+                    // If not, we should probably return "NIST SP 800-53 Rev 5" controls that map to 171?
+                    // Or just let the UI handle the mapping if we return nothing.
+                    
+                    // Temporary Hack: If 171 requested and returns 0, try returning 800-53
+                    const results = await db.getControls(framework, input?.clientId);
+                    if (results.length === 0) {
+                        console.log("No 800-171 controls found, trying NIST SP 800-53 Rev 5");
+                        return await db.getControls("NIST SP 800-53 Rev 5", input?.clientId);
+                    }
+                    return results;
                 }
-            }),
+
+                return await db.getControls(framework, input?.clientId);
+            } catch (e) {
+                console.error("[ControlsRouter] list error:", e);
+                throw e;
+            }
+        }),
 
         listPaginated: publicProcedure
             .input(z.object({

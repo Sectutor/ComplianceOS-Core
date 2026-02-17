@@ -1,0 +1,280 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Animations */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+
+    to {
+      height: 0;
+    }
+  }
+}
+
+:root {
+  /* Intellfence Brand Colors */
+  --primary: #003D5C;
+  /* Dark Teal */
+  --primary-foreground: #FFFFFF;
+  /* White */
+  --sidebar-primary: #003D5C;
+  /* Dark Teal */
+  --sidebar-primary-foreground: #FFFFFF;
+  /* White */
+  --accent: #7FBF3F;
+  /* Lime Green */
+  --accent-foreground: #FFFFFF;
+  /* White */
+  --chart-1: #7FBF3F;
+  /* Lime Green */
+  --chart-2: #003D5C;
+  /* Dark Teal */
+  --chart-3: #5FA3D0;
+  /* Light Teal */
+  --chart-4: #A8D66E;
+  /* Light Lime */
+  --chart-5: #2C5F7C;
+  /* Darker Teal */
+  --radius: 0.625rem;
+  --success: #7FBF3F;
+  /* Lime Green */
+  --success-foreground: #FFFFFF;
+  --warning: oklch(0.70 0.15 70);
+  --warning-foreground: oklch(0.20 0.02 250);
+  --info: #003D5C;
+  /* Dark Teal */
+  --info-foreground: #FFFFFF;
+  --background: #FFFFFF;
+  /* White */
+  --foreground: #003D5C;
+  /* Dark Teal */
+  --card: #FFFFFF;
+  /* White */
+  --card-foreground: #003D5C;
+  /* Dark Teal */
+  --popover: #FFFFFF;
+  /* White */
+  --popover-foreground: #003D5C;
+  /* Dark Teal */
+  --secondary: #E5E7EB;
+  /* Light Gray */
+  --secondary-foreground: #003D5C;
+  /* Dark Teal */
+  --muted: #E5E7EB;
+  /* Light Gray */
+  --muted-foreground: #6B7280;
+  /* Medium Gray */
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: #E5E7EB;
+  /* Light Gray */
+  --input: #F3F4F6;
+  /* Very Light Gray */
+  --ring: #7FBF3F;
+  /* Lime Green */
+  --sidebar: #003D5C;
+  /* Dark Teal */
+  --sidebar-foreground: #FFFFFF;
+  /* White */
+  --sidebar-accent: #7FBF3F;
+  /* Lime Green */
+  --sidebar-accent-foreground: #003D5C;
+  /* Dark Teal */
+  --sidebar-border: #1F4A5F;
+  /* Darker Teal */
+  --sidebar-ring: #7FBF3F;
+  /* Lime Green */
+}
+
+.dark {
+  --primary: #003D5C;
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #003D5C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --background: #0F1419;
+  --foreground: #E5E7EB;
+  --card: #1A2332;
+  --card-foreground: #E5E7EB;
+  --popover: #1A2332;
+  --popover-foreground: #E5E7EB;
+  --secondary: #2C3E50;
+  --secondary-foreground: #FFFFFF;
+  --muted: #4B5563;
+  --muted-foreground: #9CA3AF;
+  --accent: #7FBF3F;
+  --accent-foreground: #003D5C;
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #7FBF3F;
+  --chart-1: #7FBF3F;
+  --chart-2: #003D5C;
+  --chart-3: #5FA3D0;
+  --chart-4: #A8D66E;
+  --chart-5: #2C5F7C;
+  --sidebar: #003D5C;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-accent: #7FBF3F;
+  --sidebar-accent-foreground: #003D5C;
+  --sidebar-border: #1F4A5F;
+  --sidebar-ring: #7FBF3F;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1280px;
+    }
+  }
+}
+
+/* Custom utility classes for compliance status badges */
+.status-implemented {
+  background-color: rgba(127, 191, 63, 0.1);
+  color: #7FBF3F;
+  border-color: rgba(127, 191, 63, 0.2);
+}
+
+.status-in-progress {
+  background-color: rgba(0, 61, 92, 0.1);
+  color: #003D5C;
+  border-color: rgba(0, 61, 92, 0.2);
+}
+
+.status-not-implemented {
+  background-color: rgba(229, 231, 235, 0.5);
+  color: #6B7280;
+  border-color: rgba(229, 231, 235, 0.8);
+}
+
+.status-not-applicable {
+  background-color: rgba(229, 231, 235, 0.3);
+  color: #6B7280;
+  border-color: rgba(229, 231, 235, 0.5);
+}
+
+/* React Quill Table Styling */
+.ql-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.ql-editor th,
+.ql-editor td {
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.ql-editor th {
+  background-color: var(--secondary);
+  font-weight: 600;
+  color: var(--secondary-foreground);
+}
+
+.ql-editor tr:nth-child(even) {
+  background-color: var(--input);
+}

@@ -132,7 +132,7 @@ const BLEEPING_COMPUTER_RSS = 'https://www.bleepingcomputer.com/feed/';
 // In-memory cache for performance
 let mitreCache: MitreAttackData | null = null;
 let mitreCacheExpiry: Date | null = null;
-let feedCache: Map<string, { items: SecurityFeedItem[], expiry: Date }> = new Map();
+const feedCache: Map<string, { items: SecurityFeedItem[], expiry: Date }> = new Map();
 
 const MITRE_CACHE_HOURS = 24; // Cache MITRE data for 24 hours
 const FEED_CACHE_MINUTES = 30; // Cache feeds for 30 minutes

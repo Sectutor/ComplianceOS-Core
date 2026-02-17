@@ -16,7 +16,8 @@ import {
     ArrowRight,
     Building2,
     CheckCircle2,
-    BookOpen
+    BookOpen,
+    AlertTriangle
 } from "lucide-react";
 
 export default function FederalHub() {
@@ -71,6 +72,14 @@ export default function FederalHub() {
             path: `/clients/${clientId}/federal/poam`,
             category: "Remediation",
             status: "Active"
+        },
+        {
+            title: "Non-Compliance Gap Report",
+            description: "Detailed analysis of implementation failures and security weaknesses.",
+            icon: AlertTriangle,
+            path: `/clients/${clientId}/federal/gap-report`,
+            category: "Reporting",
+            status: "New"
         }
     ];
 

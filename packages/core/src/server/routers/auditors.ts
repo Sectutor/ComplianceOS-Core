@@ -203,6 +203,51 @@ export const createAuditorsRouter = (t: any, adminProcedure: any, clientProcedur
                     }
                 }
             };
+        }),
+
+        // V14.5.1: Verify Policy Integrity (AL 3)
+        verifyPolicyHash: clientProcedure.input(z.object({
+            clientId: z.number(),
+            policyId: z.number(),
+            providedHash: z.string()
+        })).mutation(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+
+            // 1. Fetch policy
+            const [policy] = await dbConn.select().from(schema.clientPolicies)
+                .where(and(
+                    eq(schema.clientPolicies.id, input.policyId),
+                    eq(schema.clientPolicies.clientId, input.clientId)
+                )).limit(1);
+
+            if (!policy) throw new TRPCError({ code: "NOT_FOUND", message: "Policy record not found in scope." });
+
+            // 2. Prepare content (Must match exactly how it was hashed during export)
+            let content = policy.content || "";
+            if (content.trim().startsWith("<")) {
+                const { default: TurndownService } = await import('turndown');
+                const turndownService = new TurndownService();
+                content = turndownService.turndown(content);
+            }
+
+            // 3. Generate hash for current DB record
+            const { getActiveKey } = await import("../../lib/secrets");
+            const systemSecret = getActiveKey();
+            const currentHash = crypto
+                .createHmac('sha256', systemSecret)
+                .update(`${policy.id}:${policy.updatedAt?.getTime()}:${content}`)
+                .digest('hex');
+
+            // 4. Compare
+            const matches = currentHash === input.providedHash.trim();
+
+            return {
+                matches,
+                policyName: policy.name,
+                version: policy.version,
+                updatedAt: policy.updatedAt,
+                systemHash: matches ? undefined : currentHash // Only show for debugging if mismatch
+            };
         })
     });
 };

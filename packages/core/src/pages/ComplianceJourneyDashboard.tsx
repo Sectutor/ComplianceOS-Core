@@ -118,8 +118,8 @@ export default function ComplianceJourneyDashboard() {
         <DashboardLayout>
             <div className="min-h-screen bg-slate-50/50 pb-20">
                 {/* Header / Hero */}
-                <div className="bg-white border-b border-slate-200 px-8 py-10">
-                    <div className="max-w-7xl mx-auto">
+                <div className="bg-white border-b border-slate-200 pl-4 pr-4 py-10 md:pl-20 md:pr-8">
+                    <div className="w-full">
                         <Breadcrumb
                             items={[
                                 { label: "Dashboard", href: "/dashboard" },
@@ -155,7 +155,7 @@ export default function ComplianceJourneyDashboard() {
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-8 py-12">
+                <div className="w-full pl-4 pr-4 py-12 md:pl-20 md:pr-8">
                     {/* Journey Map */}
                     <div className="relative">
                         {/* Connecting Line (Behind cards) */}

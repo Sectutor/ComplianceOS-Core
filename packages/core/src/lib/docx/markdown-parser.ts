@@ -29,7 +29,7 @@ export function parseMarkdownToDocx(rawText: any): (Paragraph | Table)[] {
         | { type: 'bullet', content: string }
         | { type: 'table', rows: string[][] };
 
-    let nodes: Node[] = [];
+    const nodes: Node[] = [];
     let tableBuffer: string[] = [];
 
     // Helper to flush table buffer
@@ -60,7 +60,7 @@ export function parseMarkdownToDocx(rawText: any): (Paragraph | Table)[] {
     };
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
+        const line = lines[i].trim();
 
         // TABLE DETECTION (Enhanced)
         // Check for standard pipe line OR bulleted pipe line

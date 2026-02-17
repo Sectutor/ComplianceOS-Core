@@ -8,11 +8,13 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @complianceos/core",
-    "dev:core": "npx cross-env VITE_ENABLE_PREMIUM=false npm run dev -w @complianceos/core",
-    "dev:premium": "npx cross-env VITE_ENABLE_PREMIUM=true npm run dev -w @complianceos/core",
+    "dev:community": "npx cross-env BUILD_TYPE=AGPLv3 VITE_ENABLE_PREMIUM=false npm run dev -w @complianceos/core",
+    "dev:enterprise": "npx cross-env BUILD_TYPE=COMMERCIAL VITE_ENABLE_PREMIUM=true npm run dev -w @complianceos/core",
+    "dev:trial": "npx cross-env BUILD_TYPE=TRIAL VITE_ENABLE_PREMIUM=true npm run dev -w @complianceos/core",
     "build": "npm run build -w @complianceos/core",
-    "build:core": "npx cross-env VITE_ENABLE_PREMIUM=false npm run build -w @complianceos/core",
-    "build:premium": "npx cross-env VITE_ENABLE_PREMIUM=true npm run build -w @complianceos/core",
+    "build:community": "npx cross-env BUILD_TYPE=AGPLv3 VITE_ENABLE_PREMIUM=false npm run build -w @complianceos/core",
+    "build:enterprise": "npx cross-env BUILD_TYPE=COMMERCIAL VITE_ENABLE_PREMIUM=true npm run build -w @complianceos/core",
+    "build:trial": "npx cross-env BUILD_TYPE=TRIAL VITE_ENABLE_PREMIUM=true npm run build -w @complianceos/core",
     "release": "node scripts/release.js",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -20,8 +22,9 @@
     "db:push": "drizzle-kit push:pg",
     "db:studio": "drizzle-kit studio",
     "server": "tsx --watch server_entry.ts",
-    "server:core": "npx cross-env VITE_ENABLE_PREMIUM=false tsx --watch server_entry.ts",
-    "server:premium": "npx cross-env VITE_ENABLE_PREMIUM=true tsx --watch server_entry.ts",
+    "server:community": "npx cross-env BUILD_TYPE=AGPLv3 VITE_ENABLE_PREMIUM=false tsx --watch server_entry.ts",
+    "server:enterprise": "npx cross-env BUILD_TYPE=COMMERCIAL VITE_ENABLE_PREMIUM=true tsx --watch server_entry.ts",
+    "server:trial": "npx cross-env BUILD_TYPE=TRIAL VITE_ENABLE_PREMIUM=true tsx --watch server_entry.ts",
     "cli": "tsx scripts/cli.ts",
     "import:csv": "tsx scripts/seed/importCsv.ts",
     "smoke": "tsx scripts/test/smoke.ts",
@@ -31,7 +34,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "server:enterprise": "tsx server-enterprise.ts",
     "server:enterprise:dev": "tsx --watch server-enterprise.ts",
     "server:enterprise:prod": "NODE_ENV=production tsx server-enterprise.ts",
     "infrastructure:init": "tsx scripts/infrastructure/init.ts",
@@ -177,5 +179,6 @@
     "typescript": "^5.4.3",
     "vite": "^5.2.6",
     "vitest": "^4.0.16"
-  }
+  },
+  "license": "AGPL-3.0-only"
 }

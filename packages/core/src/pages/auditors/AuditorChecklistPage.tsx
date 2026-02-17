@@ -17,6 +17,8 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Input } from "@complianceos/ui/ui/input";
 import { toast } from "sonner";
 import { Separator } from "@complianceos/ui/ui/separator";
+import { Label } from "@complianceos/ui/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@complianceos/ui/ui/alert";
 
 // Mock data for UI development if backend is not fully ready
 // In real app, these would come from trpc queries
@@ -58,6 +60,35 @@ export default function AuditorChecklistPage() {
 
     const handleDownloadPack = () => {
         packMutation.mutate({ clientId, framework: selectedFramework });
+    };
+
+    // V14.5.1: Integrity Verification State
+    const [verifyId, setVerifyId] = useState("");
+    const [verifyHash, setVerifyHash] = useState("");
+    const [verifyResult, setVerifyResult] = useState<any>(null);
+
+    const verifyMutation = trpc.auditors.verifyPolicyHash.useMutation({
+        onSuccess: (data) => {
+            setVerifyResult(data);
+            if (data.matches) {
+                toast.success("Document Verified", { description: "Identity and integrity confirmed." });
+            } else {
+                toast.error("Verification Failed", { description: "Document signature mismatch!" });
+            }
+        },
+        onError: (err) => {
+            toast.error("Verification Error", { description: err.message });
+            setVerifyResult(null);
+        }
+    });
+
+    const handleVerify = () => {
+        if (!verifyId || !verifyHash) return;
+        verifyMutation.mutate({
+            clientId,
+            policyId: parseInt(verifyId),
+            providedHash: verifyHash
+        });
     };
 
     if (isLoading) {
@@ -167,6 +198,54 @@ export default function AuditorChecklistPage() {
                                         Use the "Download Evidence Pack" button to get a verified archive of all evidence.
                                     </p>
                                 </div>
+                            </div>
+
+                            <Separator className="my-4" />
+
+                            <div className="px-2">
+                                <h2 className="mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">Integrity Check</h2>
+                                <Card className="border p-3 space-y-3 bg-white/50 dark:bg-slate-900/50">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Policy ID</Label>
+                                        <Input
+                                            placeholder="e.g. 104"
+                                            className="h-8 text-xs bg-white"
+                                            value={verifyId}
+                                            onChange={e => setVerifyId(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Verification Hash</Label>
+                                        <Input
+                                            placeholder="Paste hash here..."
+                                            className="h-8 text-xs bg-white"
+                                            value={verifyHash}
+                                            onChange={e => setVerifyHash(e.target.value)}
+                                        />
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full h-8 text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                        disabled={verifyMutation.isPending || !verifyId || !verifyHash}
+                                        onClick={handleVerify}
+                                    >
+                                        {verifyMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <ShieldCheck className="h-3 w-3 mr-2" />}
+                                        Verify Integrity
+                                    </Button>
+
+                                    {verifyResult && (
+                                        <Alert variant={verifyResult.matches ? "default" : "destructive"} className="py-2 px-3 mt-2 border-none bg-slate-100 dark:bg-slate-800">
+                                            <div className="flex gap-2 items-center">
+                                                {verifyResult.matches ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-red-600" />}
+                                                <div className="text-[10px] leading-tight flex-1">
+                                                    <div className="font-bold">{verifyResult.matches ? "GENUINE RECORD" : "TAMPER WARNING"}</div>
+                                                    <div className="text-muted-foreground truncate">{verifyResult.policyName} (v{verifyResult.version})</div>
+                                                </div>
+                                            </div>
+                                        </Alert>
+                                    )}
+                                </Card>
                             </div>
                         </Card>
 

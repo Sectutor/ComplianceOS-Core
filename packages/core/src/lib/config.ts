@@ -29,24 +29,31 @@ export const config = {
     isBillingEnabled: getEnv('ENABLE_BILLING', 'VITE_ENABLE_BILLING') === 'true',
 
     stripe: {
-        secretKey: getEnv('STRIPE_SECRET_KEY'),
-        webhookSecret: getEnv('STRIPE_WEBHOOK_SECRET'),
-        publishableKey: getEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'VITE_STRIPE_PUBLISHABLE_KEY'),
-        prices: {
-            // "Self-Service" / Startup
-            startup: {
-                monthly: getEnv('STRIPE_PRICE_STARTUP_MONTHLY') || 'price_1Snk7y08dNwwNbqftY7z1TbZ',
-                yearly: getEnv('STRIPE_PRICE_STARTUP_YEARLY') || 'price_1SnkGg08dNwwNbqfFqxBnLMB',
-            },
-            // "Guided" / Pro
-            guided: {
-                monthly: getEnv('STRIPE_PRICE_GUIDED_MONTHLY') || 'price_1Snk7y08dNwwNbqfkexPd4SR',
-                yearly: getEnv('STRIPE_PRICE_GUIDED_YEARLY') || 'price_1SnkGh08dNwwNbqfoVCkK6ej',
-            },
-            // "Managed" / Enterprise (Custom/Placeholder - usually Contact Sales)
-            managed: getEnv('STRIPE_PRICE_MANAGED') || 'price_1Snk8D08dNwwNbqftHqV7sxo',
-        }
-    },
+            secretKey: getEnv('STRIPE_SECRET_KEY'),
+            webhookSecret: getEnv('STRIPE_WEBHOOK_SECRET'),
+            publishableKey: getEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'VITE_STRIPE_PUBLISHABLE_KEY'),
+            prices: {
+                // "Self-Service" / Startup
+                startup: {
+                    monthly: getEnv('STRIPE_PRICE_STARTUP_MONTHLY') || 'price_1Snk7y08dNwwNbqftY7z1TbZ',
+                    yearly: getEnv('STRIPE_PRICE_STARTUP_YEARLY') || 'price_1SnkGg08dNwwNbqfFqxBnLMB',
+                },
+                // "Guided" / Pro
+                guided: {
+                    monthly: getEnv('STRIPE_PRICE_GUIDED_MONTHLY') || 'price_1Snk7y08dNwwNbqfkexPd4SR',
+                    yearly: getEnv('STRIPE_PRICE_GUIDED_YEARLY') || 'price_1SnkGh08dNwwNbqfoVCkK6ej',
+                },
+                // "Managed" / Enterprise (Custom/Placeholder - usually Contact Sales)
+                managed: getEnv('STRIPE_PRICE_MANAGED') || 'price_1Snk8D08dNwwNbqftHqV7sxo',
+            }
+        },
+
+        // Gumroad Configuration
+        gumroad: {
+            accessToken: getEnv('GUMROAD_ACCESS_TOKEN'),
+            webhookSecret: getEnv('GUMROAD_WEBHOOK_SECRET'),
+            productPermalink: getEnv('GUMROAD_PRODUCT_PERMALINK') || 'complianceos-enterprise',
+        },
 
     // Auth
     jwtSecret: getEnv('JWT_SECRET') || 'fallback-secret-change-me',

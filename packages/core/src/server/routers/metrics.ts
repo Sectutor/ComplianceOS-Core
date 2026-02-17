@@ -71,7 +71,7 @@ export const createMetricsRouter = (t: any, procedure: any) => {
                 // --- DOMAIN 1: Strategic Risk ---
                 let totalResidualScore = 0;
                 let criticalRisksUnmitigated = 0;
-                let riskScores: Record<string, number> = {}; // Category -> Score Sum
+                const riskScores: Record<string, number> = {}; // Category -> Score Sum
 
                 risks.forEach((r: any) => {
                     const likelihood = r.likelihood || 0;

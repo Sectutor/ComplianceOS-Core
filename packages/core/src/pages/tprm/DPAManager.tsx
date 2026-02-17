@@ -70,7 +70,7 @@ export default function DPAManager() {
     };
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
 
                 <PageGuide

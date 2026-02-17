@@ -428,17 +428,29 @@ export default function ContactDetail() {
 
             {/* Tabs: Activities, Notes, Deals, Tasks */}
             <Tabs defaultValue="activities" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="activities">
+                <TabsList className="bg-[#1C4D8D]/10 p-1.5 h-auto flex flex-wrap justify-start gap-2 w-full border border-[#1C4D8D]/20 rounded-xl mb-6">
+                    <TabsTrigger
+                        value="activities"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
                         Timeline ({contact.activities?.filter((a: any) => !a.scheduledAt || a.completedAt).length || 0})
                     </TabsTrigger>
-                    <TabsTrigger value="tasks">
+                    <TabsTrigger
+                        value="tasks"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
                         Tasks ({contact.activities?.filter((a: any) => a.scheduledAt && !a.completedAt).length || 0})
                     </TabsTrigger>
-                    <TabsTrigger value="deals">
+                    <TabsTrigger
+                        value="deals"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
                         Deals ({contact.deals?.length || 0})
                     </TabsTrigger>
-                    <TabsTrigger value="notes">
+                    <TabsTrigger
+                        value="notes"
+                        className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg flex items-center gap-2"
+                    >
                         Notes ({contact.notes?.length || 0})
                     </TabsTrigger>
                 </TabsList>

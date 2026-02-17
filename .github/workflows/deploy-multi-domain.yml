@@ -1,0 +1,110 @@
+name: Deploy Multi-Domain
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  DOCKER_IMAGE: ghcr.io/${{ github.repository }}/compliance-os
+  LANDING_DIR: packages/landing
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:latest
+          build-args: |
+            VITE_ENABLE_PREMIUM=true
+
+  deploy-landing:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Deploy Landing Page via SCP (Modify target path as needed)
+      - name: Deploy Landing Page to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "packages/landing/*"
+          target: "/var/www/grcompliance-landing"
+          strip_components: 2 # specialized for 'packages/landing' -> target root
+
+  deploy-apps:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Deploy Containers via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Login to Registry
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull latest image
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
+
+            # ---------------------------------------------------------
+            # 1. DEPLOY PROD APP (app.grcompliance.com)
+            # ---------------------------------------------------------
+            echo "Deploying Production App..."
+            docker stop compliance-prod || true
+            docker rm compliance-prod || true
+            
+            docker run -d \
+              --name compliance-prod \
+              --restart unless-stopped \
+              -p 3001:3001 \
+              -e NODE_ENV=production \
+              -e VITE_APP_MODE=production \
+              -e VITE_ENABLE_PREMIUM=true \
+              -e DATABASE_URL="${{ secrets.PROD_DATABASE_URL }}" \
+              -e REDIS_URL="${{ secrets.REDIS_URL }}" \
+              ${{ env.DOCKER_IMAGE }}:latest
+
+            # ---------------------------------------------------------
+            # 2. DEPLOY DEMO APP (demo.grcompliance.com)
+            # ---------------------------------------------------------
+            echo "Deploying Demo App..."
+            docker stop compliance-demo || true
+            docker rm compliance-demo || true
+
+            docker run -d \
+              --name compliance-demo \
+              --restart unless-stopped \
+              -p 3002:3001 \
+              -e NODE_ENV=production \
+              -e VITE_APP_MODE=demo \
+              -e VITE_ENABLE_PREMIUM=true \
+              -e DATABASE_URL="${{ secrets.DEMO_DATABASE_URL }}" \
+              -e REDIS_URL="${{ secrets.REDIS_URL }}" \
+              ${{ env.DOCKER_IMAGE }}:latest
+
+            # Cleanup old images
+            docker image prune -f

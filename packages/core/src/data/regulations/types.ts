@@ -1,33 +1,35 @@
-export interface RegulationSubArticle {
-    id: string;
-    title: string;
-    description: string;
-}
-
-export interface RegulationArticle {
-    id: string;
-    numericId: string;
-    title: string;
-    description: string; // The legal text or summary
-    subArticles?: RegulationSubArticle[];
-    mappedControls?: string[] | Record<string, string[]>; // IDs of controls (legacy array) or Map of Framework -> Control IDs
-}
-
-export interface WizardQuestion {
-    id: string;
-    text: string;
-    type: 'boolean' | 'select' | 'scale';
-    options?: string[]; // For select type
-    relatedArticles?: string[]; // IDs of articles this question impacts
-    failureGuidance?: string; // Recommendation if answer is negative/low
-}
-
 export interface Regulation {
     id: string;
     name: string;
     description: string;
-    type: 'Privacy' | 'Security' | 'Financial' | 'Operational';
+    type: string;
     logo?: string;
-    articles: RegulationArticle[];
-    questions?: WizardQuestion[]; // Readiness wizard questions
+    articles: Article[];
+    questions?: Question[];
+    link?: string;
+}
+
+export interface Article {
+    id: string;
+    numericId: string;
+    title: string;
+    description: string;
+    subArticles?: SubArticle[];
+}
+
+export interface SubArticle {
+    id: string;
+    title: string;
+    description: string;
+}
+
+export interface Question {
+    id: string;
+    text: string;
+    type: string;
+    options?: string[];
+    relatedArticles?: string[];
+    section?: string;
+    subSection?: string;
+    boolean?: boolean;
 }

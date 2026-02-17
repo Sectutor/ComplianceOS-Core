@@ -82,7 +82,7 @@ export default function RiskThreatsPage() {
     };
 
     const sortedThreats = React.useMemo(() => {
-        let items = threats?.filter(t =>
+        const items = threats?.filter(t =>
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.threatId.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.category?.toLowerCase().includes(searchQuery.toLowerCase())

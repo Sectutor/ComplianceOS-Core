@@ -1,14 +1,15 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { getDb } from "../../db";
+import { getDb, getClientControls } from "../../db";
 import * as schema from "../../schema";
 import {
     riskAssessments, riskTreatments, treatmentControls,
     riskAssessmentStatusEnum,
-    threats, vulnerabilities
+    threats, vulnerabilities,
+    riskPolicyMappings
 } from "../../schema";
-import { eq, and, desc, asc, sql, inArray, ilike, or, lt, lte, gt, gte, not } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, ilike, or, lt, lte, gt, gte, not, getTableColumns } from "drizzle-orm";
 import { calculateResidualScore, scoreToRiskLevel, getMatrixScoreLevel } from "../../lib/riskCalculations";
 import { logActivity } from "../../lib/audit";
 import { llmService } from "../../lib/llm/service";
@@ -27,15 +28,16 @@ export const createRisksRouter = (t: any, procedure: any, premiumClientProcedure
                 const db = await getDb();
 
                 // Fetch assets with risk counts
+                // Fetch assets with risk counts using JSONB link to riskAssessments
                 const rawAssets = await db
                     .select({
                         ...schema.assets,
-                        riskCount: sql<number>`count(DISTINCT ${schema.riskScenarios.id})`.mapWith(Number),
+                        riskCount: sql<number>`count(DISTINCT ${schema.riskAssessments.id})`.mapWith(Number),
                         suggestionCount: sql<number>`count(DISTINCT ${schema.assetCveMatches.id}) FILTER (WHERE ${schema.assetCveMatches.status} = 'suggested')`.mapWith(Number),
                         vulnerabilityCount: sql<number>`count(DISTINCT ${schema.vulnerabilities.id})`.mapWith(Number)
                     })
                     .from(schema.assets)
-                    .leftJoin(schema.riskScenarios, eq(schema.riskScenarios.assetId, schema.assets.id))
+                    .leftJoin(schema.riskAssessments, sql`${schema.riskAssessments.contextSnapshot}->>'assetId' = ${schema.assets.id}::text`)
                     .leftJoin(schema.assetCveMatches, eq(schema.assetCveMatches.assetId, schema.assets.id))
                     // Vulnerabilities join is tricky because it's a JSON array. 
                     // For now, we'll join on the JSON array if possible or use a subquery if needed.
@@ -1031,13 +1033,32 @@ ${reportData.conclusion}
 
         // Risk Assessments (alias for list)
         getRiskAssessments: procedure
-            .input(z.object({ clientId: z.coerce.number() }))
+            .input(z.object({
+                clientId: z.number(),
+                assetId: z.number().optional()
+            }))
             .query(async ({ input }: any) => {
                 const db = await getDb();
-                return await db.select()
+
+                const conditions = [eq(riskAssessments.clientId, input.clientId)];
+                if (input.assetId) {
+                    conditions.push(sql`${riskAssessments.contextSnapshot}->>'assetId' = ${input.assetId}::text`);
+                }
+
+                const results = await db
+                    .select({
+                        ...getTableColumns(riskAssessments),
+                        treatmentCount: sql<number>`count(distinct ${riskTreatments.id})::int`.as('treatment_count'),
+                        policyCount: sql<number>`count(distinct ${riskPolicyMappings.id})::int`.as('policy_count'),
+                    })
                     .from(riskAssessments)
-                    .where(eq(riskAssessments.clientId, input.clientId))
-                    .orderBy(desc(riskAssessments.updatedAt));
+                    .leftJoin(riskTreatments, eq(riskTreatments.riskAssessmentId, riskAssessments.id))
+                    .leftJoin(riskPolicyMappings, eq(riskPolicyMappings.riskAssessmentId, riskAssessments.id))
+                    .where(and(...conditions))
+                    .groupBy(riskAssessments.id)
+                    .orderBy(desc(riskAssessments.createdAt));
+
+                return results;
             }),
 
         createRiskAssessment: procedure
@@ -1095,7 +1116,7 @@ ${reportData.conclusion}
                 const { id, clientId, ...data } = input;
 
                 // Recalculate scores if likelihood or impact changed
-                let updateData: any = { ...data, updatedAt: new Date() };
+                const updateData: any = { ...data, updatedAt: new Date() };
                 if (data.likelihood !== undefined || data.impact !== undefined) {
                     const [current] = await db.select().from(riskAssessments).where(eq(riskAssessments.id, id));
                     const likelihood = data.likelihood !== undefined ? data.likelihood : Number(current.likelihood);
@@ -1292,18 +1313,154 @@ ${reportData.conclusion}
             }),
 
 
+        suggestControls: procedure
+            .input(z.object({
+                clientId: z.number(),
+                threat: z.string(),
+                vulnerability: z.string(),
+                framework: z.string().optional()
+            }))
+            .mutation(async ({ input }: any) => {
+                const { llmService } = await import('../../lib/llm/service');
+                const dbConn = await getDb();
+
+                // 1. Get all available client controls (filtered by framework if provided)
+                const clientControlsList = await getClientControls(input.clientId, input.framework);
+
+                if (clientControlsList.length === 0) {
+                    return { suggestions: [] };
+                }
+
+                // 2. Simplify control list for token efficiency
+                const controlContext = clientControlsList.map(c => ({
+                    id: c.clientControl.id,
+                    code: c.control?.controlId || c.clientControl.clientControlId,
+                    name: c.control?.name || c.clientControl.customDescription,
+                    description: c.control?.description,
+                }));
+
+                const prompt = `You are a risk management expert. Analyze the following Threat and Vulnerability and recommend the most effective controls from the provided list to mitigate this specific risk.
+
+Threat: ${input.threat}
+Vulnerability: ${input.vulnerability}
+
+Available Controls:
+${JSON.stringify(controlContext.map(c => `${c.id}: [${c.code}] ${c.name} - ${c.description || ''}`).slice(0, 50), null, 2)} 
+(Note: Only top 50 controls shown to save space)
+
+Return a JSON object with a list of "suggestions". Each suggestion must have:
+- "clientControlId": The numeric ID from the list above.
+- "reasoning": A brief explanation (1 sentence) of why this control is relevant.
+- "relevance": A score from 1-10 (10 being critical).
+
+Rank by relevance (descending). Return at most 5 suggestions.
+
+Example format:
+{
+  "suggestions": [
+    { "clientControlId": 12, "reasoning": "Encrypting data at rest directly mitigates the risk of data theft.", "relevance": 9 }
+  ]
+}`;
+
+                try {
+                    const response = await llmService.generate({
+                        systemPrompt: "You are a JSON-only API. You must strictly output valid JSON.",
+                        userPrompt: prompt,
+                        temperature: 0.1,
+                    });
+
+                    // Clean markdown code blocks if present
+                    const cleanJson = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    if (!cleanJson) throw new Error("Empty response from LLM");
+                    const result = JSON.parse(cleanJson);
+
+                    return result;
+                } catch (error) {
+                    console.error("AI Control suggestion failed:", error);
+                    return { suggestions: [] };
+                }
+            }),
+
+        saveTreatmentPlan: procedure
+            .input(z.object({
+                riskAssessmentId: z.number(),
+                clientId: z.number(),
+                treatmentType: z.enum(['mitigate', 'transfer', 'accept', 'avoid']),
+                strategy: z.string().optional(),
+                owner: z.string().optional(),
+                controlIds: z.array(z.number()).optional(),
+                effectiveness: z.enum(['effective', 'partially_effective', 'ineffective']).optional(),
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                if (ctx.clientRole === 'viewer') throw new TRPCError({ code: 'FORBIDDEN' });
+                const dbConn = await getDb();
+
+                return await dbConn.transaction(async (tx: any) => {
+                    // 1. Create/Update Treatment Record
+                    let [treatment] = await tx.select().from(riskTreatments)
+                        .where(eq(riskTreatments.riskAssessmentId, input.riskAssessmentId))
+                        .limit(1);
+
+                    if (treatment) {
+                        [treatment] = await tx.update(riskTreatments)
+                            .set({
+                                treatmentType: input.treatmentType,
+                                strategy: input.strategy,
+                                owner: input.owner,
+                                updatedAt: new Date()
+                            })
+                            .where(eq(riskTreatments.id, treatment.id))
+                            .returning();
+                    } else {
+                        [treatment] = await tx.insert(riskTreatments)
+                            .values({
+                                riskAssessmentId: input.riskAssessmentId,
+                                treatmentType: input.treatmentType,
+                                strategy: input.strategy,
+                                owner: input.owner,
+                                status: 'planned'
+                            })
+                            .returning();
+                    }
+
+                    // 2. Clear old links if any? Or just add new ones?
+                    if (input.controlIds) {
+                        // Delete existing links for this treatment
+                        await tx.delete(treatmentControls).where(eq(treatmentControls.treatmentId, treatment.id));
+
+                        // Insert new ones
+                        const toInsert = input.controlIds.map((cid: number) => ({
+                            clientId: input.clientId,
+                            treatmentId: treatment.id,
+                            controlId: cid,
+                            effectiveness: input.effectiveness || 'effective'
+                        }));
+
+                        if (toInsert.length > 0) {
+                            await tx.insert(treatmentControls).values(toInsert);
+                        }
+                    }
+
+                    // 3. Recalculate Risk Score
+                    await recalculateRiskScore(tx, input.riskAssessmentId);
+
+                    return treatment;
+                });
+            }),
+
+
         // --- STAKEHOLDERS ---
         getStakeholders: procedure
             .input(z.object({ clientId: z.number() }))
             .query(async ({ input }: any) => {
-                const db = await getDb();
+                const dbConn = await getDb();
 
                 // Fetch from different tables
                 const [employees, crmContacts, vendorContacts, clientContacts] = await Promise.all([
-                    db.select().from(schema.employees).where(eq(schema.employees.clientId, input.clientId)),
-                    db.select().from(schema.crmContacts).where(eq(schema.crmContacts.clientId, input.clientId)),
-                    db.select().from(schema.vendorContacts).where(eq(schema.vendorContacts.clientId, input.clientId)),
-                    db.select().from(schema.clientContacts).where(eq(schema.clientContacts.clientId, input.clientId))
+                    dbConn.select().from(schema.employees).where(eq(schema.employees.clientId, input.clientId)),
+                    dbConn.select().from(schema.crmContacts).where(eq(schema.crmContacts.clientId, input.clientId)),
+                    dbConn.select().from(schema.vendorContacts).where(eq(schema.vendorContacts.clientId, input.clientId)),
+                    dbConn.select().from(schema.clientContacts).where(eq(schema.clientContacts.clientId, input.clientId))
                 ]);
 
                 // Normalize and combine

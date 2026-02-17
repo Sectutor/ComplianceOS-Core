@@ -72,7 +72,7 @@ export const createHarmonizationRouter = (t: any, protectedProcedure: any) => {
 
             const opportunities: any[] = [];
             let totalSavedHours = 0;
-            let currentPlanTotalHours = plan.estimatedHours || 100; // Fallback
+            const currentPlanTotalHours = plan.estimatedHours || 100; // Fallback
 
             // Get all controls to resolve string IDs to Int IDs
             // optimize: fetch only relevant controls? For now fetch all is safer or use where inArray

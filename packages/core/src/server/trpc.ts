@@ -1,28 +1,15 @@
-
-import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
-import { Context } from "./context";
+import { TRPCError } from "@trpc/server";
 import * as db from "../db";
 import * as schema from "../schema";
 import { userClients } from "../schema";
 import { eq, and, asc } from "drizzle-orm";
+import { rateLimiter } from "../lib/redis";
+import { router, publicProcedure, middleware, t } from "./trpc-base";
+export { router, publicProcedure, middleware, t };
 
-const t = initTRPC.context<Context>().create({
-    // transformer: superjson,
-    errorFormatter({ shape, error }) {
-        return {
-            ...shape,
-            data: {
-                ...shape.data,
-                zodError: error.cause instanceof Error ? error.cause.message : null,
-            },
-        };
-    },
-});
+// Import enterprise middlewares after defining base exports to avoid circular dependency issues
+import { performanceTracker, auditLogger } from "./enterprise-middleware";
 
-export const router = t.router;
-export const publicProcedure = t.procedure;
-export const middleware = t.middleware;
 
 export const isAuthed = middleware(async ({ ctx, next }) => {
     if (!ctx.user) {
@@ -42,6 +29,41 @@ export const isAuthed = middleware(async ({ ctx, next }) => {
             user: ctx.user,
         },
     });
+});
+
+/**
+ * Enterprise Rate Limiting Middleware - AL 3 Tiered Implementation
+ */
+export const rateLimit = middleware(async ({ ctx, next, path }) => {
+    // Skip rate limiting if disabled in env
+    if (process.env.RATE_LIMITING_ENABLED !== 'true') return next();
+
+    const isAuthed = !!ctx.user;
+    const isPremium = (ctx as any).isPremium;
+    const isSensitive = path.includes('ai') || path.includes('auth') || path.includes('users.create') || path.includes('export');
+
+    const identifier = ctx.user?.id?.toString() || ctx.ip || 'anonymous';
+
+    // Tiered Logic
+    let limit = Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100;
+    if (!isAuthed) limit = Math.ceil(limit / 2); // Unauthed is 50% stricter
+    if (isPremium) limit = limit * 2; // Premium has 2x capacity
+    if (isSensitive) limit = Math.min(limit, 10); // Sensitive paths limited to 10 per window
+
+    const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS) || 60000;
+
+    const limited = await rateLimiter.isRateLimited(`rl:${path}:${identifier}`, limit, windowMs);
+
+    if (limited) {
+        throw new TRPCError({
+            code: 'TOO_MANY_REQUESTS',
+            message: isSensitive
+                ? 'Rate limit exceeded for sensitive operation. Please wait before trying again.'
+                : 'Too many requests. Please try again later.'
+        });
+    }
+
+    return next();
 });
 
 export const isAdmin = middleware(async ({ ctx, next }) => {
@@ -92,8 +114,27 @@ export const checkClientAccess = middleware(async (opts) => {
         });
     }
 
-    // Enforce maxClients limit for owned clients
-    if (member.role === 'owner') {
+    // ARCHITECTURE ENFORCEMENT: Community Edition Single-Tenancy
+    // This cannot be overridden by database values.
+    if (process.env.VITE_ENABLE_PREMIUM === 'false') {
+        // In Community Edition, authorized users can only access their FIRST workspace.
+        const allMemberships = await dbConn.select()
+            .from(userClients)
+            .where(eq(userClients.userId, ctx.user.id))
+            .orderBy(asc(userClients.joinedAt));
+
+        // If they have multiple (e.g. from a previous trial), they can only access the first one.
+        // This effectively renders multi-tenancy dead in the water for the open source build.
+        if (allMemberships.length > 0 && allMemberships[0].clientId !== clientId) {
+            throw new TRPCError({
+                code: 'FORBIDDEN',
+                message: 'Community Edition is limited to a single workspace. Please upgrade to Enterprise for multi-tenancy.'
+            });
+        }
+    }
+
+    // Enforce maxClients limit for owned clients (Premium/Standard limits)
+    if (member.role === 'owner' && process.env.VITE_ENABLE_PREMIUM !== 'false') {
         const fullUser = await db.getUserById(ctx.user.id);
         const maxClients = fullUser?.maxClients || 2;
 
@@ -133,6 +174,15 @@ export const checkPremiumAccess = middleware(async (opts) => {
     const input = rawInput as any;
     const clientId = input?.clientId || ctx.clientId;
 
+    // STRICT CHECK: Premium must be enabled in environment
+    // Note: process.env.VITE_ENABLE_PREMIUM works in Node/Server environment if loaded via dotenv
+    if (process.env.VITE_ENABLE_PREMIUM === 'false') {
+        throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Premium features are disabled in this environment. Please upgrade to the Enterprise Edition.'
+        });
+    }
+
     if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner' || ctx.user?.role === 'super_admin') {
         return next({ ctx: { ...ctx, isPremium: true } });
     }
@@ -142,15 +192,6 @@ export const checkPremiumAccess = middleware(async (opts) => {
     }
 
     try {
-        // STRICT CHECK: Premium must be enabled in environment
-        // Note: process.env.VITE_ENABLE_PREMIUM works in Node/Server environment if loaded via dotenv
-        if (process.env.VITE_ENABLE_PREMIUM === 'false') {
-            throw new TRPCError({
-                code: 'FORBIDDEN',
-                message: 'Premium features are disabled in this environment.'
-            });
-        }
-
         const dbConn = await db.getDb();
         const [client] = await dbConn.select({ planTier: schema.clients.planTier })
             .from(schema.clients)
@@ -177,54 +218,42 @@ export const checkPremiumAccess = middleware(async (opts) => {
     }
 });
 
-export const requiresMFA = middleware(async ({ ctx, next }) => {
+/**
+ * MFA Enforcement Middleware - AL 3 High Assurance
+ * Enforces aal2 for all privileged/sensitive operations.
+ */
+export const requiresMFA = middleware(async ({ ctx, next, path }) => {
     const aal = (ctx as any).aal;
-    if (aal === 'aal2') return next(); // Already at max level
-
-    let clientId = (ctx as any).clientId;
     const dbUser = ctx.user;
     if (!dbUser) return next();
+
+    // AL 3: Mandatory MFA for all Global Admins and Owners
+    const isPrivilegedRole = dbUser.role === 'admin' || dbUser.role === 'super_admin' || dbUser.role === 'owner';
+
+    if (aal === 'aal2') return next(); // Already at max level
+
+    const clientId = (ctx as any).clientId;
 
     try {
         const dbConn = await db.getDb();
 
-        // Strategy: 
-        // 1. If we have a clientId, check that specific client's requirement.
-        // 2. If no clientId (global context), check if ANY of the user's memberships require MFA.
+        let must = isPrivilegedRole; // Forced for admins
 
-        let must = false;
-        if (clientId) {
+        if (!must && clientId) {
+            // Check specific client's requirement for standard users
             const [client] = await dbConn.select({ requireMfa: schema.clients.requireMfa })
                 .from(schema.clients)
                 .where(eq(schema.clients.id, clientId))
                 .limit(1);
             must = !!client?.requireMfa;
-        } else {
-            // Check all memberships for user
-            const memberships = await dbConn.select({ requireMfa: schema.clients.requireMfa })
-                .from(schema.userClients)
-                .innerJoin(schema.clients, eq(schema.userClients.clientId, schema.clients.id))
-                .where(eq(schema.userClients.userId, dbUser.id));
-
-            must = memberships.some((m: any) => !!m.requireMfa);
         }
 
         if (must && aal !== 'aal2') {
-            // Second check: Does the user actually have factors enrolled?
-            // If they don't have factors, they can't verify 'aal2' anyway.
-            // We return next() and let the frontend handle the redirect to enrollment.
-            // HOWEVER, if they DO have factors (Supabase currentLevel < nextLevel),
-            // then we MUST throw to trigger the challenge modal.
-
-            // Since we don't want to call Supabase Auth API from the backend on every request,
-            // we rely on the client-side event listener and aal check in AppWithMFA.
-            // But to force the first request to fail, we can throw here if we suspect they need it.
-
-            // For now, let's keep it simple: if Org requires it and AAL is 1, throw.
-            // This will trigger the CustomEvent('require-mfa') in main.tsx
             throw new TRPCError({
                 code: 'PRECONDITION_FAILED',
-                message: 'Multi-factor authentication required'
+                message: isPrivilegedRole
+                    ? 'Administrative access requires active Multi-factor Authentication (MFA).'
+                    : 'This organization requires Multi-factor authentication to proceed.'
             });
         }
     } catch (err) {
@@ -235,7 +264,27 @@ export const requiresMFA = middleware(async ({ ctx, next }) => {
     return next();
 });
 
-export const protectedProcedure = publicProcedure.use(isAuthed);
+
+/**
+ * Demo Mode Guard
+ * Blocks all mutations in demo environment, except for authentication-related ones.
+ */
+export const demoModeGuard = middleware(async ({ ctx, type, path, next }) => {
+    if (process.env.VITE_APP_MODE === 'demo' && type === 'mutation') {
+        const allowedMutations = ['auth.', 'users.login', 'users.register', 'users.logout'];
+        const isAllowed = allowedMutations.some(p => path.startsWith(p));
+
+        if (!isAllowed) {
+            throw new TRPCError({
+                code: 'FORBIDDEN',
+                message: 'This is a read-only demo environment. Data modifications are disabled.'
+            });
+        }
+    }
+    return next();
+});
+
+export const protectedProcedure = publicProcedure.use(rateLimit).use(performanceTracker).use(auditLogger).use(demoModeGuard).use(isAuthed);
 export const adminProcedure = protectedProcedure.use(requiresMFA).use(isAdmin);
 export const clientProcedure = protectedProcedure.use(requiresMFA).use(checkClientAccess);
 export const clientEditorProcedure = clientProcedure.use(checkClientEditor);

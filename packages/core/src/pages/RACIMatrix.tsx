@@ -50,7 +50,7 @@ export default function RACIMatrix() {
   const filteredAndSortedMatrix = useMemo(() => {
     if (!raciMatrix) return [];
 
-    let filtered = raciMatrix.filter((emp: any) => {
+    const filtered = raciMatrix.filter((emp: any) => {
       const matchesSearch = (emp.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (emp.department || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = filterDepartment === 'all' || emp.department === filterDepartment;

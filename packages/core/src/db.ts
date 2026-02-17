@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 
 import postgres from "postgres";
 import { encrypt } from "./lib/crypto";
+import { getSecret } from "./lib/secrets";
 
 import {
 
@@ -172,7 +173,7 @@ import { logger } from './lib/logger';
 
 let _sql: postgres.Sql | null = null;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 
 let _db: any | null = null;
 
@@ -197,20 +198,16 @@ export class DatabaseConnectionError extends Error {
 export async function getDb(): Promise<NonNullable<typeof _db>> {
 
   if (!_db) {
-
-    if (!process.env.DATABASE_URL) {
-
+    const databaseUrl = getSecret('DATABASE_URL');
+    if (!databaseUrl) {
       throw new DatabaseConnectionError("DATABASE_URL environment variable is not set");
-
     }
 
     console.log('[DB] Attempting to connect to database...');
 
     try {
-
       if (!_sql) {
-
-        _sql = postgres(process.env.DATABASE_URL, {
+        _sql = postgres(databaseUrl, {
           ssl: { rejectUnauthorized: false }, // Critical for Supabase Transaction Pooler compatibility
           prepare: false, // Required for Supabase Transaction Pooler (port 6543)
           idle_timeout: 60, // Close idle connections after 60s (increased from 20s)
@@ -582,13 +579,24 @@ const ROLE_HIERARCHY = {
 
 export async function isUserAllowedForClient(userId: number, clientId: number, minRole?: 'owner' | 'admin' | 'editor' | 'viewer' | 'auditor') {
   const db = await getDb();
+  console.log(`[DEBUG isUserAllowedForClient] Checking userId=${userId}, clientId=${clientId}, minRole=${minRole}`);
 
+  // 1. Check Global Role First
+  const [user] = await db.select({ role: users.role }).from(users).where(eq(users.id, userId)).limit(1);
+  console.log(`[DEBUG isUserAllowedForClient] Found user global role: ${user?.role}`);
+  if (user && (user.role === 'admin' || user.role === 'owner' || user.role === 'super_admin')) {
+    console.log('[DEBUG isUserAllowedForClient] Global admin access granted');
+    return true; // Global admins have access to everything
+  }
+
+  // 2. Check Specific Client Membership
   const results = await db.select().from(userClients)
     .where(and(
       eq(userClients.userId, userId),
       eq(userClients.clientId, clientId)
     ));
 
+  console.log(`[DEBUG isUserAllowedForClient] Membership search results: ${results.length}`);
   if (results.length === 0) return false;
 
   const userRole = results[0].role as keyof typeof ROLE_HIERARCHY;
@@ -597,7 +605,9 @@ export async function isUserAllowedForClient(userId: number, clientId: number, m
   if (minRole) {
     const userLevel = ROLE_HIERARCHY[userRole] || 0;
     const requiredLevel = ROLE_HIERARCHY[minRole] || 0;
-    return userLevel >= requiredLevel;
+    const result = userLevel >= requiredLevel;
+    console.log(`[DEBUG isUserAllowedForClient] Role level check: user=${userLevel}, required=${requiredLevel} -> ${result}`);
+    return result;
   }
 
   return true;
@@ -1621,7 +1631,7 @@ export async function createClientControl(data: InsertClientControl) {
 
 
 
-export async function getClientControls(clientId: number) {
+export async function getClientControls(clientId: number, framework?: string) {
 
   const db = await getDb();
 
@@ -1686,7 +1696,14 @@ export async function getClientControls(clientId: number) {
 
     .leftJoin(controls, eq(clientControls.controlId, controls.id))
 
-    .where(eq(clientControls.clientId, clientId));
+    .where(and(
+      eq(clientControls.clientId, clientId),
+      framework
+        ? (['ISO 27001:2022', 'ISO 27001'].includes(framework)
+          ? inArray(controls.framework, ['ISO 27001:2022', 'ISO 27001'])
+          : eq(controls.framework, framework))
+        : undefined
+    ));
 
 
 
@@ -4182,7 +4199,7 @@ export async function globalSearch(
 
   if (!filters?.type || filters.type === 'control') {
 
-    let controlQuery = db.select()
+    const controlQuery = db.select()
 
       .from(controls)
 

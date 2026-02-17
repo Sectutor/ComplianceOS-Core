@@ -63,7 +63,8 @@ export const createEvidenceFilesRouter = (
                 // Let's assume we can fetch all files and filter (not efficient but safe for v1) or join.
                 // Better: Select from evidenceFiles inner join evidence on evidenceId
 
-                const files = await dbConn.selectDistinctOn([schema.evidenceFiles.fileKey], {
+                // Use standard selectQuery
+                const files = await dbConn.select({
                     id: schema.evidenceFiles.id,
                     filename: schema.evidenceFiles.filename,
                     fileUrl: schema.evidenceFiles.fileUrl,
@@ -71,7 +72,7 @@ export const createEvidenceFilesRouter = (
                     contentType: schema.evidenceFiles.contentType,
                     fileSize: schema.evidenceFiles.fileSize,
                     createdAt: schema.evidenceFiles.createdAt,
-                    evidenceTitle: schema.evidence.description // Get context
+                    evidenceTitle: schema.evidence.description
                 })
                     .from(schema.evidenceFiles)
                     .innerJoin(schema.evidence, eq(schema.evidenceFiles.evidenceId, schema.evidence.id))
@@ -79,8 +80,8 @@ export const createEvidenceFilesRouter = (
                         eq(schema.evidence.clientId, input.clientId),
                         input.search ? like(schema.evidenceFiles.filename, `%${input.search}%`) : undefined
                     ))
-                    .orderBy(schema.evidenceFiles.fileKey, desc(schema.evidenceFiles.createdAt))
-                    .limit(50); // Limit to 50 recent files for performance
+                    .orderBy(desc(schema.evidenceFiles.createdAt))
+                    .limit(50);
 
                 return files;
             }),
@@ -136,6 +137,55 @@ export const createEvidenceFilesRouter = (
                 await dbConn.delete(schema.evidenceFiles)
                     .where(eq(schema.evidenceFiles.id, input.id));
                 return { success: true };
+            }),
+
+        registerQuickUpload: publicProcedure
+            .input(z.object({
+                clientId: z.number(),
+                title: z.string(),
+                filename: z.string(),
+                fileKey: z.string(),
+                url: z.string(),
+                contentType: z.string().optional(),
+                size: z.number().optional(),
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                const dbConn = await getDb();
+
+                // 1. Create a generic evidence container
+                const [evidence] = await dbConn.insert(schema.evidence).values({
+                    clientId: input.clientId,
+                    clientControlId: 0, // Unlinked
+                    evidenceId: `UPLOAD-${Date.now()}`,
+                    description: input.title,
+                    status: 'collected',
+                    framework: 'General',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                } as any).returning();
+
+                // 2. Create the file record
+                const [file] = await dbConn.insert(schema.evidenceFiles).values({
+                    evidenceId: evidence.id,
+                    filename: input.filename,
+                    fileKey: input.fileKey,
+                    fileUrl: input.url,
+                    contentType: input.contentType,
+                    fileSize: input.size,
+                    uploadedBy: ctx.user?.id,
+                } as any).returning();
+
+                // 3. Return combined shape for UI
+                return {
+                    id: file.id,
+                    filename: file.filename,
+                    fileUrl: file.fileUrl,
+                    fileKey: file.fileKey,
+                    contentType: file.contentType,
+                    fileSize: file.fileSize,
+                    createdAt: file.createdAt,
+                    evidenceTitle: evidence.description
+                };
             }),
     });
 };
