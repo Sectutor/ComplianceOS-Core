@@ -82,7 +82,7 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
     const { data: requests, refetch: refetchRequests } = trpc.vendorRequests.list.useQuery({ clientId }, { enabled: !!clientId });
 
     // --- Mutations ---
-    const createMutation = trpc.vendors.create.useMutation({
+    const createMutation = trpc.vendors.createVendor.useMutation({
         onSuccess: () => {
             toast.success("Vendor added successfully");
             setIsAddOpen(false);

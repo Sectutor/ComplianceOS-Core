@@ -13,6 +13,12 @@ import { LLMProvider, llmProviders, aiUsageMetrics, llmRouterRules } from '../..
 import { desc, eq, and } from 'drizzle-orm';
 import { logger } from '../logger';
 
+// GLOBAL FIX: Force OpenAI to recognize this as a server environment
+if (typeof globalThis !== 'undefined') {
+    (globalThis as any).process = (globalThis as any).process || {};
+    (globalThis as any).process.browser = false;
+}
+
 export interface CompletionRequest {
     systemPrompt?: string;
     userPrompt: string;
@@ -41,6 +47,10 @@ export interface UsageMetadata {
 }
 
 export class LLMService {
+    // Cache for provider configuration ( TTL: 5 minutes)
+    private static providerCache: { providers: LLMProvider[]; timestamp: number } | null = null;
+    private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
     /**
      * Get the highest priority enabled provider
      */
@@ -48,6 +58,14 @@ export class LLMService {
      * Get the configured provider for a feature, or fallback to highest priority
      */
     private async getProviders(feature?: string): Promise<LLMProvider[]> {
+        // Check cache first
+        const now = Date.now();
+        if (LLMService.providerCache && 
+            (now - LLMService.providerCache.timestamp) < LLMService.CACHE_TTL_MS) {
+            console.log('[LLMService] Using cached providers');
+            return LLMService.providerCache.providers;
+        }
+
         const db = await getDb();
         if (!db) return [];
 
@@ -84,7 +102,17 @@ export class LLMService {
             }
         }
 
+        // Update cache
+        LLMService.providerCache = { providers, timestamp: now };
+
         return providers;
+    }
+
+    /**
+     * Clear the provider cache (useful when providers are updated)
+     */
+    public static clearCache(): void {
+        LLMService.providerCache = null;
     }
 
     /**
@@ -123,8 +151,8 @@ export class LLMService {
                 errorMessage,
                 requestMetadata: metadata as any,
             });
-        } catch (error) {
-            logger.error('Failed to track AI usage:', error);
+        } catch (error: any) {
+            logger.error({ message: 'Failed to track AI usage', error: error.message });
         }
     }
 
@@ -156,13 +184,43 @@ export class LLMService {
      */
     private getOpenAIClient(provider: LLMProvider): OpenAI {
         const apiKey = decrypt(provider.apiKey);
-        const config: any = { apiKey };
 
-        if (provider.baseUrl) {
-            config.baseURL = provider.baseUrl;
+        // CLOAKING: Temporarily hide browser polyfills from OpenAI's environment check
+        const g = global as any;
+        const oldWindow = g.window;
+        const oldLocation = g.location;
+        const oldDocument = g.document;
+
+        console.log(`[LLMService] Creating OpenAI client for ${provider.name}. Cloaking globals...`);
+        console.log(`- window: ${typeof oldWindow}, location: ${typeof oldLocation}, document: ${typeof oldDocument}`);
+
+        try {
+            // Unset globals that trigger "isBrowser" checks in OpenAI SDK
+            if (g.window) delete (global as any).window;
+            if (g.location) delete (global as any).location;
+            if (g.document) delete (global as any).document;
+
+            const config: any = {
+                apiKey,
+                dangerouslyAllowBrowser: true, // Double-down on security override
+                maxRetries: 3,
+                timeout: 60000 // 60s timeout for complex compliance tasks
+            };
+
+            if (provider.baseUrl) {
+                config.baseURL = provider.baseUrl;
+            }
+
+            const client = new OpenAI(config);
+            console.log(`[LLMService] OpenAI client instantiated successfully.`);
+            return client;
+        } finally {
+            // RESTORE: Put polyfills back for PDF/Word generation libraries
+            if (oldWindow) (global as any).window = oldWindow;
+            if (oldLocation) (global as any).location = oldLocation;
+            if (oldDocument) (global as any).document = oldDocument;
+            console.log(`[LLMService] Globals restored.`);
         }
-
-        return new OpenAI(config);
     }
 
     /**
@@ -224,7 +282,7 @@ export class LLMService {
                         const parsed = JSON.parse(response.text);
                         request.schema.parse(parsed);
                     } catch (error: any) {
-                        logger.warn(`Structured output validation failed (${provider.name}):`, error.message);
+                        logger.warn({ message: `Structured output validation failed (${provider.name})`, error: error.message });
                         // Continue anyway failure here is not provider failure
                     }
                 }
@@ -252,7 +310,7 @@ export class LLMService {
         }
 
         // If we get here, all providers failed
-        logger.error("All LLM providers failed:", lastError);
+        logger.error({ message: "All LLM providers failed", error: lastError?.message });
         throw new Error(`All LLM providers failed. Last error: ${lastError?.message}`);
     }
 
@@ -487,7 +545,7 @@ export class LLMService {
             params.system = request.systemPrompt;
         }
 
-        const stream = await client.messages.create(params);
+        const stream = await client.messages.create(params) as any;
 
         for await (const event of stream) {
             if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
@@ -601,7 +659,7 @@ export class LLMService {
                 false,
                 error.message
             );
-            logger.error("Embedding Generation Failed:", error);
+            logger.error({ message: "Embedding Generation Failed", error: error.message });
             throw error;
         }
     }
@@ -635,7 +693,10 @@ export class LLMService {
                 }
 
                 default: {
-                    const config: any = { apiKey: provider.apiKey };
+                    const config: any = {
+                        apiKey: provider.apiKey,
+                        dangerouslyAllowBrowser: true
+                    };
                     if (provider.baseUrl) config.baseURL = provider.baseUrl;
 
                     const client = new OpenAI(config);
@@ -649,8 +710,8 @@ export class LLMService {
             }
 
             return true;
-        } catch (e) {
-            logger.error("Test connection failed", e);
+        } catch (e: any) {
+            logger.error({ message: "Test connection failed", error: e.message });
             return false;
         }
     }

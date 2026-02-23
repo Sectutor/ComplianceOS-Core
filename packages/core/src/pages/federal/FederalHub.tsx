@@ -87,7 +87,7 @@ export default function FederalHub() {
 
     return (
         <DashboardLayout>
-            <div className="p-8 space-y-6 max-w-7xl mx-auto">
+            <div className="p-8 space-y-6 w-full">
                 <Breadcrumb items={[
                     { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                     { label: "Federal Compliance Hub" }
@@ -102,7 +102,7 @@ export default function FederalHub() {
                         <p className="text-slate-500 text-lg">Manage your DFARS, NIST 800-171/172, and CMMC documentation requirements.</p>
                     </div>
                     <div className="flex gap-4">
-                        <Link href={`/clients/${clientId}/workflows/nist-rmf`}>
+                        <Link href={`/clients/${clientId}/federal/rmf`}>
                             <Button className="bg-slate-900 hover:bg-black font-bold h-12 px-6 gap-2 shadow-xl shadow-slate-200">
                                 <Zap className="h-4 w-4 text-blue-400 fill-current" />
                                 Start Guided RMF Journey

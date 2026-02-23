@@ -83,13 +83,15 @@ const learningZoneMenuItem = {
 };
 
 const adminMenuItems = [
+  { label: "Organizations", path: "/admin/organizations" },
   { label: "User Management", path: "/admin/user-management" },
   { label: "User Invitations", path: "/admin/invitations" },
   { label: "Audit Logs", path: "/admin/audit" },
   { label: "LLM Settings", path: "/admin/llm" },
-  // { label: "Integrations Marketplace", path: "/admin/integrations" },
   { label: "Billing", path: "/admin/billing" },
   { label: "Waitlist Management", path: "/sales/waitlist" },
+  { label: "Global CRM", path: "/admin/crm" },
+  { label: "System Feedback", path: "/admin/system-feedback" },
 ];
 
 const adminMenuItem = {
@@ -687,61 +689,7 @@ function DashboardLayoutContent({
           { icon: ShieldCheck, label: "Governance Review", path: "/iso27001/governance" },
         ]
       },
-      {
-        label: "NIST Ecosystem",
-        items: [
-          { icon: LayoutGrid, label: "NIST Hub", path: "/nist" },
-          {
-            icon: ShieldCheck,
-            label: "NIST CSF 2.0",
-            path: "/nist/dashboard",
-            submenu: [
-              { label: "Dashboard", path: "/nist/dashboard" },
-              { label: "Control Assessment", path: "/nist/assessment" },
-              { label: "Tiers & Profiles", path: "/nist/profiles" },
-              { label: "POA&M Tracker", path: "/nist/poam" },
-              { label: "Document Hub", path: "/nist/documents" },
-            ]
-          },
-          {
-            icon: Activity,
-            label: "NIST SP 800-37 (RMF)",
-            path: "/nist/rmf",
-            submenu: [
-              { label: "Dashboard", path: "/nist/rmf" },
-              { label: "0. Prepare", path: "/nist/rmf/prepare" },
-              { label: "1. Categorize", path: "/nist/rmf/categorize" },
-              { label: "2. Select", path: "/nist/rmf/select" },
-              { label: "3. Implement", path: "/nist/rmf/implement" },
-              { label: "4. Assess", path: "/nist/rmf/assess" },
-              { label: "5. Authorize", path: "/nist/rmf/authorize" },
-              { label: "6. Monitor", path: "/nist/rmf/monitor" },
-            ]
-          },
-          {
-            icon: Target,
-            label: "NIST SP 800-30",
-            path: "/nist/800-30",
-            submenu: [
-              { label: "Risk Assessment", path: "/nist/800-30" },
-              { label: "Threat Modeling", path: "/nist/800-30/threats" },
-              { label: "Impact Analysis", path: "/nist/800-30/impact" },
-            ]
-          },
-          {
-            icon: Lock,
-            label: "NIST SP 800-53",
-            path: "/nist/800-53",
-            submenu: [
-              { label: "Control Catalog", path: "/nist/800-53" },
-              { label: "Baselines", path: "/nist/800-53/baselines" },
-              { label: "Inheritance", path: "/nist/800-53/inheritance" },
-              { label: "Assessments", path: "/nist/800-53/assessments" },
-              { label: "Continuous Monitoring", path: "/nist/800-53/monitoring" },
-            ]
-          },
-        ]
-      },
+
       {
         label: "Governance",
         items: [
@@ -1059,7 +1007,7 @@ function DashboardLayoutContent({
             <Dialog open={brandingOpen} onOpenChange={setBrandingOpen}>
               <DialogTrigger asChild>
                 <div className="cursor-pointer hover:opacity-80 transition-opacity w-full h-full flex items-center">
-                  <BrandLogo className="text-white scale-110 origin-left" showText={!isCollapsed} />
+                  <BrandLogo className="text-white origin-left" showText={!isCollapsed} />
                 </div>
               </DialogTrigger>
               <DialogContent>

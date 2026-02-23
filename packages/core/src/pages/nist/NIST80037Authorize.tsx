@@ -78,7 +78,7 @@ export default function NIST80037Authorize() {
             toast.error("No system selected", { description: "Please select a system first." });
             return;
         }
-        
+
         setIsSaving(true);
         try {
             await updateChecklistMutation.mutateAsync({
@@ -143,7 +143,7 @@ export default function NIST80037Authorize() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
                         { label: "Dashboard", href: `/dashboard` },
@@ -245,7 +245,7 @@ export default function NIST80037Authorize() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="package" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -261,7 +261,7 @@ export default function NIST80037Authorize() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="package" className="p-10 space-y-10 m-0">
                                     <div className="space-y-6">
                                         <div className="space-y-1">
@@ -270,30 +270,55 @@ export default function NIST80037Authorize() {
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            {[
-                                                { title: "SSP", desc: "System Security Plan", status: "Finalized", date: "Feb 14, 2026", icon: FileText, color: "indigo", path: `/clients/${clientId}/federal/ssp` },
-                                                { title: "SAR", desc: "Security Assessment Report", status: "Review Complete", date: "Feb 15, 2026", icon: ShieldCheck, color: "emerald", path: `/clients/${clientId}/federal/sar` },
-                                                { title: "POA&M", desc: "Plan of Action & Milestones", status: "Active", date: "Ongoing", icon: AlertTriangle, color: "amber", path: `/clients/${clientId}/federal/poam` }
-                                            ].map((doc, i) => (
-                                                <Link key={i} href={doc.path}>
-                                                    <div className="p-8 rounded-[3rem] border border-slate-100 bg-white hover:border-slate-200 transition-all group cursor-pointer h-full">
-                                                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6", `bg-${doc.color}-50 text-${doc.color}-600`)}>
-                                                            <doc.icon className="w-7 h-7" />
-                                                        </div>
-                                                        <h4 className="text-xl font-black text-slate-900 mb-1">{doc.title}</h4>
-                                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">{doc.desc}</p>
-                                                        <div className="space-y-4">
-                                                            <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                                                                <span className="text-slate-400">Status</span>
-                                                                <span className={cn(doc.status === 'Finalized' ? "text-emerald-500" : "text-slate-900")}>{doc.status}</span>
-                                                            </div>
-                                                            <Button variant="outline" className="w-full rounded-xl h-10 font-bold text-[10px] uppercase tracking-widest gap-2">
-                                                                <Download className="w-3.5 h-3.5" /> View Package
-                                                            </Button>
-                                                        </div>
+                                            {/* Dynamic document list would come from checklist data */}
+                                            <div className="p-8 rounded-[3rem] border border-slate-100 bg-white hover:border-slate-200 transition-all group cursor-pointer h-full opacity-50">
+                                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 bg-indigo-50 text-indigo-600">
+                                                    <FileText className="w-7 h-7" />
+                                                </div>
+                                                <h4 className="text-xl font-black text-slate-900 mb-1">SSP</h4>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">System Security Plan</p>
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                                                        <span className="text-slate-400">Status</span>
+                                                        <span className="text-slate-900">No Data</span>
                                                     </div>
-                                                </Link>
-                                            ))}
+                                                    <Button variant="outline" className="w-full rounded-xl h-10 font-bold text-[10px] uppercase tracking-widest gap-2">
+                                                        <Download className="w-3.5 h-3.5" /> View Package
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 rounded-[3rem] border border-slate-100 bg-white hover:border-slate-200 transition-all group cursor-pointer h-full opacity-50">
+                                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 bg-emerald-50 text-emerald-600">
+                                                    <ShieldCheck className="w-7 h-7" />
+                                                </div>
+                                                <h4 className="text-xl font-black text-slate-900 mb-1">SAR</h4>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Security Assessment Report</p>
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                                                        <span className="text-slate-400">Status</span>
+                                                        <span className="text-slate-900">No Data</span>
+                                                    </div>
+                                                    <Button variant="outline" className="w-full rounded-xl h-10 font-bold text-[10px] uppercase tracking-widest gap-2">
+                                                        <Download className="w-3.5 h-3.5" /> View Package
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 rounded-[3rem] border border-slate-100 bg-white hover:border-slate-200 transition-all group cursor-pointer h-full opacity-50">
+                                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 bg-amber-50 text-amber-600">
+                                                    <AlertTriangle className="w-7 h-7" />
+                                                </div>
+                                                <h4 className="text-xl font-black text-slate-900 mb-1">POA&M</h4>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Plan of Action & Milestones</p>
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-center text-[10px] font-black uppercase">
+                                                        <span className="text-slate-400">Status</span>
+                                                        <span className="text-slate-900">No Data</span>
+                                                    </div>
+                                                    <Button variant="outline" className="w-full rounded-xl h-10 font-bold text-[10px] uppercase tracking-widest gap-2">
+                                                        <Download className="w-3.5 h-3.5" /> View Package
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="p-8 bg-indigo-50 border border-indigo-100 rounded-[3rem] flex items-center justify-between gap-8">
@@ -430,9 +455,9 @@ export default function NIST80037Authorize() {
                                         </Button>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </NIST80037Layout>

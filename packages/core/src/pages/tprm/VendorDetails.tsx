@@ -39,7 +39,7 @@ export default function VendorDetails() {
     const utils = trpc.useContext();
 
     // Optimized consolidated vendor data endpoint
-    const { data: vendorData, isLoading } = trpc.vendorAssessments.getVendorDetails.useQuery(
+    const { data: vendorData, isLoading } = trpc.vendors.getVendorDetails.useQuery(
         { vendorId: vId, clientId },
         { enabled: !!vId && !!clientId }
     );
@@ -53,7 +53,7 @@ export default function VendorDetails() {
     const runScanMutation = trpc.vendors.runRiskScan.useMutation({
         onSuccess: () => {
             toast.success("Risk scan completed");
-            utils.vendorAssessments.getVendorDetails.invalidate({ vendorId: vId, clientId });
+            utils.vendors.getVendorDetails.invalidate({ vendorId: vId, clientId });
         },
         onError: (err) => toast.error("Scan failed: " + err.message)
     });
@@ -111,7 +111,7 @@ export default function VendorDetails() {
         status: "Planned"
     });
 
-    const createAssessmentMutation = trpc.vendorAssessments.create.useMutation({
+    const createAssessmentMutation = trpc.vendors.create.useMutation({
         onSuccess: () => {
             toast.success("Assessment scheduled");
             setIsAssessmentOpen(false);
@@ -134,9 +134,9 @@ export default function VendorDetails() {
         dueDate: ""
     });
 
-    const { data: templates } = trpc.vendorAssessments.listTemplates.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: templates } = trpc.vendors.listTemplates.useQuery({ clientId }, { enabled: !!clientId });
 
-    const sendConsolidatedMutation = trpc.vendorAssessments.sendConsolidatedRequest.useMutation({
+    const sendConsolidatedMutation = trpc.vendors.sendConsolidatedRequest.useMutation({
         onSuccess: () => {
             toast.success("Requests sent to vendor");
             setIsSendOpen(false);
@@ -166,7 +166,7 @@ export default function VendorDetails() {
         });
     };
 
-    const updateAssessmentMutation = trpc.vendorAssessments.update.useMutation({
+    const updateAssessmentMutation = trpc.vendors.update.useMutation({
         onSuccess: () => {
             toast.success("Assessment updated");
             setIsConductOpen(false);
@@ -462,7 +462,7 @@ export default function VendorDetails() {
         trustCenterUrl: ""
     });
 
-    const updateVendorMutation = trpc.vendors.update.useMutation({
+    const updateVendorMutation = trpc.vendors.updateVendor.useMutation({
         onSuccess: () => {
             toast.success("Vendor updated");
             setIsEditOpen(false);

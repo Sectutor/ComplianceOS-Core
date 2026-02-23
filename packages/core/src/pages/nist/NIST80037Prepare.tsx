@@ -95,7 +95,9 @@ export default function NIST80037Prepare() {
     const trpcContext = trpc.useContext();
     const { data: checklistState } = trpc.checklist.get.useQuery({
         clientId: clientId,
-        checklistId: `nist-800-37-prepare-${systemId}`
+        checklistId: systemId ? `nist-800-37-prepare-${systemId}` : 'no-system'
+    }, {
+        enabled: !!systemId
     });
 
     const updateChecklistMutation = trpc.checklist.update.useMutation({
@@ -128,6 +130,21 @@ export default function NIST80037Prepare() {
         { id: "system_owner", title: "System Owner", icon: Briefcase, assigneeId: null },
         { id: "isso", title: "Information System Security Officer (ISSO)", icon: Zap, assigneeId: null }
     ]);
+
+    // Reset local state when systemId changes
+    useEffect(() => {
+        setUploadedFiles([]);
+        setUploadedPolicy(null);
+        setLinkedPolicyId(null);
+        setRmfRoles([
+            { id: "ao", title: "Authorizing Official (AO)", icon: Building2, assigneeId: null },
+            { id: "ciso", title: "Chief Information Security Officer (CISO)", icon: Shield, assigneeId: null },
+            { id: "system_owner", title: "System Owner", icon: Briefcase, assigneeId: null },
+            { id: "isso", title: "Information System Security Officer (ISSO)", icon: Zap, assigneeId: null }
+        ]);
+        setStakeholders([]);
+        setRiskMatrix(defaultMatrix);
+    }, [systemId]);
 
     const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
     const [newRoleData, setNewRoleData] = useState({ roleTitle: "", employeeId: "" });
@@ -428,7 +445,7 @@ export default function NIST80037Prepare() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
                         { label: "Dashboard", href: `/dashboard` },
@@ -485,12 +502,10 @@ export default function NIST80037Prepare() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    {/* Progress Card */}
-                    <Card className="lg:col-span-1 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/50 backdrop-blur-sm h-fit">
-                        <CardHeader>
-                            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600">Prepare Task Checklist</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
+                    {/* Progress Checklist */}
+                    <div className="lg:col-span-1 space-y-4 h-fit pt-4">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-emerald-600 px-2">Prepare Task Checklist</h3>
+                        <div className="space-y-4 px-2">
                             {checklistItems.map((item, i) => {
                                 const status = getStatus(item.id);
                                 return (
@@ -502,10 +517,10 @@ export default function NIST80037Prepare() {
                                     </div>
                                 )
                             })}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="identification" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -524,7 +539,7 @@ export default function NIST80037Prepare() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="identification" className="p-10 space-y-8 m-0">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-4 md:col-span-2">
@@ -902,9 +917,9 @@ export default function NIST80037Prepare() {
                                         </div>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
             <Dialog open={isAddStakeholderOpen} onOpenChange={setIsAddStakeholderOpen}>

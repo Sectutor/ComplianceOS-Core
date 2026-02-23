@@ -64,6 +64,24 @@ export default function NISTDashboard() {
         return { overall, byFunction };
     }, [assessments, frameworkData]);
 
+    // Mock action items (in reality, pulling from failing assessments, open POAMs, or expired policies)
+    const actionItems = useMemo(() => {
+        if (!assessments || !frameworkData) return [];
+        return assessments
+            .filter(a => !a.isAchieved && (a.status === 'not_implemented' || a.status === 'partially_implemented'))
+            .map(a => {
+                const req = frameworkData.requirements.find(r => r.id === a.requirementId);
+                return {
+                    id: a.id,
+                    title: req ? `${req.code} - ${req.title}` : 'Review pending control',
+                    type: 'Assessment Action',
+                    priority: 'High',
+                    path: `/clients/${selectedClientId}/nist/assessment`
+                };
+            })
+            .slice(0, 5); // Take top 5 for the primary queue
+    }, [assessments, frameworkData]);
+
     const tiers = useMemo(() => {
         const result = {
             current: 'Tier 1',
@@ -178,16 +196,16 @@ export default function NISTDashboard() {
                         <div className="space-y-6">
                             <div className="inline-flex items-center space-x-2 bg-white/10 px-3 py-1 rounded-full border border-white/20">
                                 <Shield className="w-4 h-4 text-blue-400" />
-                                <span className="text-xs font-bold uppercase tracking-wider text-blue-100">NIST CSF 2.0</span>
+                                <span className="text-xs font-bold uppercase tracking-wider text-blue-100">Unified Compliance Hub</span>
                             </div>
                             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
-                                Cybersecurity <br />
+                                Command <br />
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
-                                    Framework
+                                    Center
                                 </span>
                             </h1>
                             <p className="text-lg text-slate-300 leading-relaxed max-w-lg">
-                                Align your organization with the global standard for managing cybersecurity risk.
+                                Your central hub for cross-framework readiness, prioritised actions, and continuous monitoring.
                             </p>
                             <div className="flex flex-wrap gap-4 pt-4">
                                 <Button
@@ -235,47 +253,99 @@ export default function NISTDashboard() {
                     </div>
                 </div>
 
+                {/* Action Queue */}
+                <Card className="border-rose-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                    <CardHeader className="bg-gradient-to-r from-rose-50/80 to-white pb-6 border-b border-rose-100/50 relative z-10">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle className="text-2xl text-rose-950 flex items-center gap-2 mb-1">
+                                    <div className="bg-rose-100 p-2 rounded-xl">
+                                        <AlertTriangle className="w-6 h-6 text-rose-600" />
+                                    </div>
+                                    Needs Attention
+                                </CardTitle>
+                                <CardDescription className="text-rose-700/80 font-medium ml-12">Prioritized compliance tasks and failing controls across your ecosystem</CardDescription>
+                            </div>
+                            <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-200 border-rose-200 shadow-sm px-3 py-1 font-bold">{actionItems.length} Pending</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0 relative z-10">
+                        {actionItems.length === 0 ? (
+                            <div className="p-12 text-center text-slate-500 flex flex-col items-center bg-white">
+                                <div className="bg-emerald-50 p-4 rounded-full mb-4 ring-8 ring-emerald-50/50">
+                                    <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+                                </div>
+                                <p className="text-xl font-bold text-slate-900 mb-1">All caught up!</p>
+                                <p className="text-slate-500">No critical actions required at this time.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-rose-100/50 bg-white">
+                                {actionItems.map((item, idx) => (
+                                    <div key={idx} className="p-5 hover:bg-rose-50/40 flex justify-between items-center transition-all group">
+                                        <div className="flex items-center gap-5">
+                                            <div className="bg-white border rounded-xl p-3 shadow-sm ring-1 ring-black/5 group-hover:border-rose-300 transition-colors">
+                                                <Target className="w-5 h-5 text-rose-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-extrabold text-slate-900 text-base group-hover:text-rose-700">{item.title}</p>
+                                                <p className="text-sm text-slate-500">{item.type}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <Badge variant="outline" className="border-rose-200 text-rose-600 bg-rose-50/50 uppercase tracking-widest text-[10px]">{item.priority}</Badge>
+                                            <Button size="sm" onClick={() => setLocation(item.path)} className="bg-rose-600 hover:bg-rose-700 text-white shadow-sm shadow-rose-200">Review</Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* NIST Functions Grid */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {functions.map((func, idx) => (
-                        <Card key={idx} className="group overflow-hidden border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => setLocation(func.path)}>
-                            <CardContent className="p-0">
-                                <div className={`h-1.5 bg-gradient-to-r ${func.color}`} />
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`p-3 rounded-xl ${func.bgLight} ${func.textColor}`}>
-                                            <func.icon className="w-6 h-6" />
+                <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-slate-900 px-1">Posture by NIST CSF Function</h3>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {functions.map((func, idx) => (
+                            <Card key={idx} className="group overflow-hidden border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => setLocation(func.path)}>
+                                <CardContent className="p-0">
+                                    <div className={`h-1.5 bg-gradient-to-r ${func.color}`} />
+                                    <div className="p-6">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className={`p-3 rounded-xl ${func.bgLight} ${func.textColor}`}>
+                                                <func.icon className="w-6 h-6" />
+                                            </div>
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{func.progress}%</span>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{func.progress}%</span>
+
+                                        <h2 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{func.title}</h2>
+                                        <p className="text-sm text-slate-500 mb-6 line-clamp-2 h-10">
+                                            {func.description}
+                                        </p>
+
+                                        <Progress value={func.progress} className="h-1.5 mb-4" />
+
+                                        <div className="flex justify-between items-center text-xs font-medium text-slate-400">
+                                            <span>Click to assess</span>
+                                            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform text-primary" />
                                         </div>
                                     </div>
-
-                                    <h2 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{func.title}</h2>
-                                    <p className="text-sm text-slate-500 mb-6 line-clamp-2 h-10">
-                                        {func.description}
-                                    </p>
-
-                                    <Progress value={func.progress} className="h-1.5 mb-4" />
-
-                                    <div className="flex justify-between items-center text-xs font-medium text-slate-400">
-                                        <span>Click to assess</span>
-                                        <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform text-primary" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Info Section */}
                 <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
                     <div className="flex flex-col md:flex-row items-center gap-8">
                         <div className="flex-1">
-                            <h2 className="text-2xl font-bold text-slate-900 mb-2">What is NIST CSF 2.0?</h2>
+                            <h2 className="text-2xl font-bold text-slate-900 mb-2">The Compliance Command Center</h2>
                             <p className="text-slate-600 mb-4">
-                                The NIST Cybersecurity Framework (CSF) 2.0 provides guidance to industry, government agencies, and other organizations to manage cybersecurity risks. It is organized around six core functions: Govern, Identify, Protect, Detect, Respond, and Recover.
+                                This unified dashboard maps your organization's internal compliance efforts to the six core functions of the NIST Cybersecurity Framework (CSF) 2.0: Govern, Identify, Protect, Detect, Respond, and Recover. Action items from your System Scoping (RMF) and Risk Management (800-30) activities automatically feed into this view.
                             </p>
                             <Button variant="outline" onClick={() => window.open('https://www.nist.gov/cyberframework', '_blank')}>
                                 Learn More at NIST.gov
@@ -285,15 +355,15 @@ export default function NISTDashboard() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                                    <span className="font-medium">Universal Applicability</span>
+                                    <span className="font-medium">Actionable Insights</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                                    <span className="font-medium">Risk-Based Approach</span>
+                                    <span className="font-medium">Cross-Framework Mapping</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                                    <span className="font-medium">Supply Chain Focus</span>
+                                    <span className="font-medium">Continuous Monitoring</span>
                                 </div>
                             </div>
                         </div>

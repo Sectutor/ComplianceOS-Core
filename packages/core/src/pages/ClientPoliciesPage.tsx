@@ -1,35 +1,24 @@
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@complianceos/ui/ui/button";
-import { marked } from "marked";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { Input } from "@complianceos/ui/ui/input";
 import { Label } from "@complianceos/ui/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
 import { Switch } from "@complianceos/ui/ui/switch";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Skeleton } from "@complianceos/ui/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, FileText, Plus, Trash2, Edit, FileDown, Sparkles, FileSearch, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Plus, Trash2, Edit, Sparkles, FileSearch, Send, Loader2, Layers } from "lucide-react";
+import { BulkGenerateDialog } from "@/components/policy/BulkGenerateDialog";
 import { DistributionDialog } from "@/components/policy/DistributionDialog";
 import PolicyReviewDialog from "@/components/PolicyReviewDialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@complianceos/ui/ui/dropdown-menu";
-import RichTextEditor from "@/components/RichTextEditor";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { useStreamingAI } from "@/hooks/useStreamingAI";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -67,29 +56,8 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
     const [customInstruction, setCustomInstruction] = useState("");
     const [deletePolicyId, setDeletePolicyId] = useState<number | null>(null);
     const [distributionPolicyId, setDistributionPolicyId] = useState<number | null>(null);
-    const [editedContent, setEditedContent] = useState("");
-    const [isFetchingPreview, setIsFetchingPreview] = useState(false);
+    const [isBulkGenerateOpen, setIsBulkGenerateOpen] = useState(false);
 
-    const { text: streamedContent, isLoading: isStreaming, generate: generateStream, reset: resetStream } = useStreamingAI();
-
-    const ensureTitleHeading = (html: string, title: string) => {
-        try {
-            const container = document.createElement("div");
-            container.innerHTML = html || "";
-            let h1 = container.querySelector("h1");
-            const t = (title || "Information Security Policy").trim();
-            if (!h1) {
-                h1 = document.createElement("h1");
-                h1.textContent = t;
-                container.insertBefore(h1, container.firstChild);
-            } else if (t && (h1.textContent || "").trim() !== t) {
-                h1.textContent = t;
-            }
-            return container.innerHTML;
-        } catch {
-            return html;
-        }
-    };
     useEffect(() => {
         const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         if (params?.get('create') === 'true') {
@@ -101,52 +69,25 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
         }
     }, [clientId, setLocation]);
 
-    const previewMutation = trpc.policyTemplates.preview.useMutation({
-        onSuccess: (data) => {
-            if (data.content) {
-                const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
-                const title = nameInput?.value || "Information Security Policy";
-                setEditedContent(ensureTitleHeading(data.content, title));
-            }
-            setIsFetchingPreview(false);
-        },
-        onError: (err) => {
-            console.error("Preview failed:", err);
-            setIsFetchingPreview(false);
-        }
-    });
-
-    // Sync streamed content to editor
-    useEffect(() => {
-        if (streamedContent) {
-            const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
-            const title = nameInput?.value || "Information Security Policy";
-            setEditedContent(ensureTitleHeading(streamedContent, title));
-        }
-    }, [streamedContent]);
-
-    // Fetch initial template content when selection/step changes
-    useEffect(() => {
-        if (creationStep === 'config' && selectedTemplateId && !editedContent && !isStreaming) {
-            setIsFetchingPreview(true);
-            previewMutation.mutate({
-                clientId,
-                templateId: parseInt(selectedTemplateId),
-                tailor: tailorToIndustry,
-                instruction: customInstruction
-            });
-        }
-    }, [creationStep, selectedTemplateId, tailorToIndustry]);
-
     const addPolicyMutation = trpc.clientPolicies.create.useMutation({
-        onSuccess: () => {
-            toast.success("Policy created");
+        onSuccess: (newPolicy: any) => {
+            console.log('[PolicyCreate] Success response:', newPolicy);
             setIsAddPolicyOpen(false);
-            refetchPolicies();
-            resetStream();
             setCreationStep('select');
             setSelectedTemplateId(undefined);
             setCustomInstruction("");
+            refetchPolicies();
+            // Navigate to the new policy after dialog closes
+            const policyId = newPolicy?.id;
+            if (policyId) {
+                toast.success("Policy created! Opening editor...");
+                setTimeout(() => {
+                    setLocation(`/clients/${clientId}/policies/${policyId}`);
+                }, 300);
+            } else {
+                toast.success("Policy created successfully!");
+                console.warn('[PolicyCreate] No policy ID returned, cannot redirect. Response:', JSON.stringify(newPolicy));
+            }
         },
         onError: (error) => toast.error(error.message),
     });
@@ -160,21 +101,7 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
         onError: (error) => toast.error(error.message),
     });
 
-    const bulkGeneratePoliciesMutation = trpc.clientPolicies.generateBulk.useMutation({
-        onSuccess: () => {
-            toast.success("All policies generated!");
-            refetchPolicies();
-        },
-        onError: (error) => toast.error(error.message),
-    });
-
-    const handleBulkGeneratePolicies = () => {
-        if (!client?.name) {
-            toast.error("Client name is required");
-            return;
-        }
-        bulkGeneratePoliciesMutation.mutate({ clientId, companyName: client.name });
-    };
+    // Bulk generation is now handled by the BulkGenerateDialog component
 
     const handleAddPolicy = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -186,7 +113,6 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
             clientId,
             name,
             templateId,
-            content: editedContent || streamedContent || undefined,
             tailor: tailorToIndustry,
             instruction: customInstruction || undefined,
             status: 'draft' as const,
@@ -247,10 +173,11 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                     {(user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin') && !hideLayout && (
                         <Button
                             variant="outline"
-                            onClick={handleBulkGeneratePolicies}
-                            disabled={bulkGeneratePoliciesMutation.isPending}
+                            onClick={() => setIsBulkGenerateOpen(true)}
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
                         >
-                            {bulkGeneratePoliciesMutation.isPending ? 'Generating...' : 'Generate All Policies'}
+                            <Layers className="mr-2 h-4 w-4" />
+                            Bulk Generate
                         </Button>
                     )}
                     <Button onClick={() => setIsAddPolicyOpen(true)} size={hideLayout ? "sm" : "default"} className="bg-sky-600 hover:bg-sky-700 text-white">
@@ -281,14 +208,18 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                                     if (form) form.requestSubmit();
                                 }}
                                 disabled={addPolicyMutation.isPending}
+                                className="bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-semibold min-w-[160px]"
                             >
                                 {addPolicyMutation.isPending ? (
                                     <>
-                                        <Sparkles className="mr-2 h-4 w-4 animate-pulse" />
-                                        Generating...
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Generating Policy...
                                     </>
                                 ) : (
-                                    'Create Policy'
+                                    <>
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Create Policy
+                                    </>
                                 )}
                             </Button>
                         )}
@@ -365,68 +296,49 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                                 <Label className="text-xs text-muted-foreground mb-1.5 block">
                                     Custom Instructions (Optional)
                                 </Label>
-                                <div className="flex gap-2">
-                                    <Textarea
-                                        placeholder="e.g., 'Make it strict regarding password complexity'"
-                                        value={customInstruction}
-                                        onChange={(e) => setCustomInstruction(e.target.value)}
-                                        className="h-20 text-sm resize-none bg-background flex-1"
-                                    />
+                                <Textarea
+                                    placeholder="e.g., 'Make it strict regarding password complexity'"
+                                    value={customInstruction}
+                                    onChange={(e) => setCustomInstruction(e.target.value)}
+                                    className="h-20 text-sm resize-none bg-background"
+                                />
+                            </div>
+
+                            <div className="border rounded-lg p-4 bg-blue-50/50 dark:bg-blue-950/20 text-sm text-muted-foreground">
+                                <div className="flex items-start gap-2">
+                                    <Sparkles className="h-4 w-4 text-[#1C4D8D] mt-0.5 flex-shrink-0" />
+                                    <p>Clicking <strong>Create Policy</strong> will use AI to generate the full policy content{selectedTemplateId ? ' based on the selected template' : ''}. You can review and edit it in the Policy Editor afterwards.</p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => {
-                                        const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;
-                                        if (!nameInput?.value) {
-                                            toast.error("Please enter a policy name first");
-                                            return;
+                            {addPolicyMutation.isPending && (
+                                <div className="space-y-3 py-4 animate-in fade-in duration-300">
+                                    <div className="flex items-center gap-3">
+                                        <Loader2 className="h-5 w-5 animate-spin text-[#1C4D8D]" />
+                                        <div>
+                                            <p className="text-sm font-medium text-[#1C4D8D]">Generating your policy...</p>
+                                            <p className="text-xs text-muted-foreground">AI is crafting a tailored policy. This may take a moment.</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                                        <div
+                                            className="bg-gradient-to-r from-[#1C4D8D] to-[#3ABEF9] h-2 rounded-full"
+                                            style={{
+                                                animation: 'progressPulse 2.5s ease-in-out infinite',
+                                                width: '100%',
+                                                transformOrigin: 'left',
+                                            }}
+                                        />
+                                    </div>
+                                    <style>{`
+                                        @keyframes progressPulse {
+                                            0% { transform: scaleX(0); opacity: 0.7; }
+                                            50% { transform: scaleX(0.7); opacity: 1; }
+                                            100% { transform: scaleX(1); opacity: 0.7; }
                                         }
-
-                                        const selectedTemplate = policyTemplates?.find(t => t.id.toString() === selectedTemplateId);
-                                        const industry = client?.industry || 'tech';
-
-                                        generateStream({
-                                            clientId,
-                                            templateId: selectedTemplateId ? parseInt(selectedTemplateId) : undefined,
-                                            tailor: tailorToIndustry,
-                                            instruction: customInstruction,
-                                            temperature: 0.7
-                                        });
-                                    }}
-                                    disabled={isStreaming}
-                                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                                >
-                                    <Sparkles className="h-3 w-3 mr-2" />
-                                    {isStreaming ? "Generating..." : "Generate Preview"}
-                                </Button>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium">Policy Content Preview</Label>
-                                {(isFetchingPreview || isStreaming) && !editedContent ? (
-                                    <div className="border rounded-md p-8 flex flex-col items-center justify-center bg-muted/20 space-y-4">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                        <p className="text-sm text-muted-foreground">Preparing preview...</p>
-                                    </div>
-                                ) : (
-                                    <RichTextEditor
-                                        value={editedContent}
-                                        onChange={setEditedContent}
-                                        minHeight="400px"
-                                        className="border-primary/20 shadow-sm"
-                                    />
-                                )}
-                                {isStreaming && (
-                                    <div className="flex items-center gap-2 text-xs text-purple-600 font-medium animate-pulse">
-                                        <Sparkles className="h-3 w-3" />
-                                        <span>AI is generating content...</span>
-                                    </div>
-                                )}
-                            </div>
+                                    `}</style>
+                                </div>
+                            )}
                         </div>
                     </form>
                 )}
@@ -448,6 +360,17 @@ export default function ClientPoliciesPage({ hideLayout = false, clientId: propC
                     open={isPolicyReviewOpen}
                     onOpenChange={setIsPolicyReviewOpen}
                     clientId={clientId}
+                />
+            )}
+
+            {/* Bulk Generate Dialog */}
+            {!hideLayout && (
+                <BulkGenerateDialog
+                    open={isBulkGenerateOpen}
+                    onOpenChange={setIsBulkGenerateOpen}
+                    clientId={clientId}
+                    clientName={client?.name || "Client"}
+                    onComplete={() => refetchPolicies()}
                 />
             )}
 

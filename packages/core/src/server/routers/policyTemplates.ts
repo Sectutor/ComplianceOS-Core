@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import * as schema from "../../schema";
 import { policyTemplates, clientPolicies } from "../../schema";
 import { getDb } from "../../db";
-import { eq, desc, or, and, sql } from "drizzle-orm";
+import { eq, desc, or, and, sql, inArray } from "drizzle-orm";
 
 export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuthed: any) => {
     return t.router({
@@ -78,7 +78,8 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
                 content: z.string().optional(),
                 sections: z.any().optional(),
                 isPublic: z.boolean().default(false),
-                clientId: z.number().optional()
+                clientId: z.number().optional(),
+                tailoringQuestions: z.any().optional()
             }))
             .mutation(async ({ input, ctx }: any) => {
                 const db = await getDb();
@@ -91,7 +92,8 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
                     sections: input.sections,
                     ownerId: ctx.user.id,
                     isPublic: input.isPublic,
-                    clientId: input.clientId
+                    clientId: input.clientId,
+                    tailoringQuestions: input.tailoringQuestions
                 }).returning();
 
                 return template;
@@ -105,6 +107,7 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
                 content: z.string().optional(),
                 isPublic: z.boolean().optional(),
                 sections: z.any().optional(),
+                tailoringQuestions: z.any().optional()
             }))
             .mutation(async ({ input, ctx }: any) => {
                 const db = await getDb();
@@ -147,10 +150,12 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
             .use(isAuthed)
             .input(z.object({
                 templateId: z.string(),
-                clientIds: z.array(z.number())
+                clientIds: z.array(z.number()),
+                answers: z.record(z.any()).optional()
             }))
             .mutation(async ({ input, ctx }: any) => {
                 const dbConn = await getDb();
+                const { policyGenerator } = await import("../../lib/policy/policy-generation");
 
                 // Get Template
                 const [template] = await dbConn.select().from(policyTemplates)
@@ -171,20 +176,80 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
 
                     if (membership.length === 0 && ctx.user.role !== 'admin') continue;
 
+                    // Generate tailored content
+                    const tailoredContent = await policyGenerator.generate(clientId, template.id, {
+                        answers: input.answers
+                    });
+
                     // Create policy from template
                     const [policy] = await dbConn.insert(schema.clientPolicies).values({
                         clientId,
+                        templateId: template.id,
                         name: template.name,
-                        content: template.content,
+                        content: tailoredContent,
                         status: 'draft',
-                        version: '1.0',
-                        createdById: ctx.user.id,
-                        policyType: 'custom'
+                        version: 1,
+                        owner: ctx.user.name,
+                        tailoringAnswers: input.answers
                     }).returning();
                     results.push({ clientId, policyId: policy.id });
                 }
 
                 return { success: true, deployedTo: results.length, details: results };
+            }),
+
+        bulkDeploy: publicProcedure
+            .use(isAuthed)
+            .input(z.object({
+                clientId: z.number(),
+                templateIds: z.array(z.number()),
+                answers: z.record(z.any()).optional(),
+                tailor: z.boolean().optional(),
+                instruction: z.string().optional()
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                const dbConn = await getDb();
+                const { policyGenerator } = await import("../../lib/policy/policy-generation");
+
+                // Check client access
+                const membership = await dbConn.select().from(schema.userClients)
+                    .where(and(eq(schema.userClients.userId, ctx.user.id), eq(schema.userClients.clientId, input.clientId)));
+
+                if (membership.length === 0 && ctx.user.role !== 'admin') {
+                    throw new TRPCError({ code: "FORBIDDEN", message: "No access to client" });
+                }
+
+                // Get templates
+                const templates = await dbConn.select().from(policyTemplates)
+                    .where(inArray(policyTemplates.id, input.templateIds));
+
+                const results = [];
+                for (const template of templates) {
+                    // Check template access
+                    if (!template.isPublic && template.ownerId !== ctx.user.id && ctx.user.role !== 'admin') {
+                        continue;
+                    }
+
+                    const tailoredContent = await policyGenerator.generate(input.clientId, template.id, {
+                        answers: input.answers,
+                        tailorToIndustry: input.tailor,
+                        customInstruction: input.instruction
+                    });
+
+                    const [policy] = await dbConn.insert(schema.clientPolicies).values({
+                        clientId: input.clientId,
+                        templateId: template.id,
+                        name: template.name,
+                        content: tailoredContent,
+                        status: 'draft',
+                        version: 1,
+                        owner: ctx.user.name,
+                        tailoringAnswers: input.answers,
+                        isAiGenerated: !!input.tailor
+                    }).returning();
+                    results.push({ templateId: template.id, policyId: policy.id });
+                }
+                return { success: true, deployed: results };
             }),
 
         preview: publicProcedure
@@ -194,7 +259,8 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
                 templateId: z.number().optional(),
                 sections: z.array(z.string()).optional(),
                 tailor: z.boolean().optional(),
-                instruction: z.string().optional()
+                instruction: z.string().optional(),
+                answers: z.record(z.any()).optional()
             }))
             .mutation(async ({ input }: any) => {
                 const { policyGenerator } = await import("../../lib/policy/policy-generation");
@@ -203,16 +269,34 @@ export const createPolicyTemplatesRouter = (t: any, publicProcedure: any, isAuth
                 if (input.templateId) {
                     content = await policyGenerator.generate(input.clientId, input.templateId, {
                         tailorToIndustry: input.tailor,
-                        customInstruction: input.instruction
+                        customInstruction: input.instruction,
+                        answers: input.answers
                     });
                 } else if (input.sections && input.sections.length > 0) {
                     content = await policyGenerator.generateFromSections(input.clientId, "New Policy", input.sections, {
                         tailorToIndustry: input.tailor,
-                        customInstruction: input.instruction
+                        customInstruction: input.instruction,
+                        answers: input.answers
                     });
                 }
 
                 return { content };
+            }),
+
+        suggestQuestions: publicProcedure
+            .use(isAuthed)
+            .input(z.object({
+                policyName: z.string(),
+                industry: z.string().optional(),
+                existingQuestions: z.array(z.string()).optional()
+            }))
+            .mutation(async ({ input }: any) => {
+                const { policyGenerator } = await import("../../lib/policy/policy-generation");
+                return await policyGenerator.suggestTailoringQuestions(
+                    input.policyName,
+                    input.industry,
+                    input.existingQuestions
+                );
             }),
 
         upgradeAll: publicProcedure

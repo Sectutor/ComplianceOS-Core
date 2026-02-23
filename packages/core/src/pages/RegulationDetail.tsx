@@ -29,8 +29,9 @@ export default function RegulationDetail() {
     // Handle not found
     if (!regulation) return <Redirect to="/404" />;
 
+    const allItems = regulation.articles.flatMap(a => [a, ...(a.subArticles || [])]);
     const [activeArticleId, setActiveArticleId] = useState(regulation.articles[0]?.id);
-    const activeArticle = regulation.articles.find(a => a.id === activeArticleId);
+    const activeArticle: any = allItems.find(a => a.id === activeArticleId) || regulation.articles[0];
 
     const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
@@ -175,6 +176,11 @@ export default function RegulationDetail() {
             description: "The organization develops, documents, and disseminates a personnel security policy.",
             guidance: "Include security requirements in job descriptions and employee contracts."
         },
+        "PT-2": {
+            title: "Authority to Collect",
+            description: "The organization determines the authority to collect personally identifiable information and restricts collection to only that PII which is legally authorized and necessary.",
+            guidance: "Only collect what you strictly need (Data Minimization)."
+        },
         "PT-5": {
             title: "Privacy Notice",
             description: "The organization provides effective notice to the public and to individuals regarding its privacy activities.",
@@ -222,7 +228,9 @@ export default function RegulationDetail() {
         "A.9.1.1": { title: "Access Control Policy", description: "An access control policy shall be established, documented and reviewed.", guidance: "Define who can access what." },
         "A.9.2.1": { title: "User Registration and De-registration", description: "A formal user registration and de-registration process shall be implemented to enable assignment of access rights.", guidance: "Automate onboarding and offboarding." },
         "A.12.6.1": { title: "Management of Technical Vulnerabilities", description: "Information about technical vulnerabilities of information systems being used shall be obtained in a timely fashion.", guidance: "Patch management is crucial." },
+        "A.15.1.1": { title: "Information Security Policy for Supplier Relationships", description: "Information security requirements for mitigating the risks associated with supplier's access to the organization's assets shall be agreed with the supplier and documented.", guidance: "Ensure security clauses are included in all vendor contracts." },
         "A.16.1.1": { title: "Reporting Information Security Events", description: "Information security events shall be reported through appropriate management channels as quickly as possible.", guidance: "Encourage 'See something, say something'." },
+        "A.18.1.1": { title: "Identification of Applicable Legislation and Contractual Requirements", description: "All relevant legislative statutory, regulatory, contractual requirements and the organization's approach to meet these requirements shall be explicitly identified, documented and kept up to date for each information system and the organization.", guidance: "Regularly review legal and regulatory changes that affect your specific industry or data handling." },
         "A.18.1.4": { title: "Privacy and Protection of Personally Identifiable Information", description: "Privacy and protection of PII shall be ensured as required in relevant legislation and regulation.", guidance: "GDPR compliance is built on this control." }
     };
 
@@ -239,14 +247,14 @@ export default function RegulationDetail() {
     };
 
     // Calculate Coverage Stats
-    const totalArticles = regulation.articles.length;
-    const mappedArticles = regulation.articles.filter(a => a.mappedControls).length;
-    const coveragePercentage = Math.round((mappedArticles / totalArticles) * 100);
+    const totalArticles = allItems.length;
+    const mappedArticles = allItems.filter(item => item.mappedControls).length;
+    const coveragePercentage = totalArticles > 0 ? Math.round((mappedArticles / totalArticles) * 100) : 0;
     const unmappedArticles = totalArticles - mappedArticles;
 
     const frameworkStats: Record<string, number> = {};
-    regulation.articles.forEach(a => {
-        const mappings = getNormalizedMappings(a.mappedControls);
+    allItems.forEach(item => {
+        const mappings = getNormalizedMappings(item.mappedControls);
         Object.keys(mappings).forEach(fw => {
             frameworkStats[fw] = (frameworkStats[fw] || 0) + 1;
         });
@@ -295,20 +303,40 @@ export default function RegulationDetail() {
                                 <ScrollArea className="flex-1">
                                     <div className="p-3 space-y-1">
                                         {regulation.articles.map((article) => (
-                                            <Button
-                                                key={article.id}
-                                                variant={activeArticleId === article.id ? "secondary" : "ghost"}
-                                                className={cn(
-                                                    "w-full justify-start text-left h-auto py-3 whitespace-normal",
-                                                    activeArticleId === article.id ? "bg-secondary font-medium" : ""
+                                            <div key={article.id} className="space-y-1 mb-2">
+                                                <Button
+                                                    variant={activeArticleId === article.id ? "secondary" : "ghost"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left h-auto py-3 whitespace-normal",
+                                                        activeArticleId === article.id ? "bg-secondary font-medium border border-primary/20" : ""
+                                                    )}
+                                                    onClick={() => setActiveArticleId(article.id)}
+                                                >
+                                                    <div className="flex items-start gap-3 w-full">
+                                                        <Badge variant="outline" className="mt-0.5 shrink-0 min-w-10 h-6 flex items-center justify-center p-0 px-1 text-xs">
+                                                            {article.numericId}
+                                                        </Badge>
+                                                        <span className="text-sm leading-snug font-semibold">{article.title}</span>
+                                                    </div>
+                                                </Button>
+                                                {article.subArticles && article.subArticles.length > 0 && (
+                                                    <div className="pl-6 space-y-1 border-l ml-3 my-1">
+                                                        {article.subArticles.map((sub: any) => (
+                                                            <Button
+                                                                key={sub.id}
+                                                                variant={activeArticleId === sub.id ? "secondary" : "ghost"}
+                                                                className={cn(
+                                                                    "w-full justify-start text-left h-auto py-2 whitespace-normal text-xs",
+                                                                    activeArticleId === sub.id ? "bg-secondary font-medium text-primary" : "text-muted-foreground hover:text-foreground"
+                                                                )}
+                                                                onClick={() => setActiveArticleId(sub.id)}
+                                                            >
+                                                                <span className="leading-snug">{sub.title}</span>
+                                                            </Button>
+                                                        ))}
+                                                    </div>
                                                 )}
-                                                onClick={() => setActiveArticleId(article.id)}
-                                            >
-                                                <div className="flex items-start gap-3 w-full">
-                                                    <Badge variant="outline" className="mt-0.5 shrink-0 w-10 h-6 flex items-center justify-center p-0 text-xs">{article.numericId}</Badge>
-                                                    <span className="text-sm leading-snug">{article.title}</span>
-                                                </div>
-                                            </Button>
+                                            </div>
                                         ))}
                                     </div>
                                 </ScrollArea>
@@ -320,7 +348,7 @@ export default function RegulationDetail() {
                                     <Card className="h-full flex flex-col border-none shadow-md">
                                         <CardHeader className="border-b bg-muted/20 pb-6">
                                             <div className="flex items-center gap-3 mb-2">
-                                                <Badge>{regulation.name} Article {activeArticle.numericId}</Badge>
+                                                <Badge>{regulation.name} {activeArticle.numericId ? `Article ${activeArticle.numericId}` : 'Sub-Article'}</Badge>
                                                 {regulation.type && <Badge variant="outline">{regulation.type}</Badge>}
                                             </div>
                                             <CardTitle className="text-2xl">{activeArticle.title}</CardTitle>
@@ -334,9 +362,16 @@ export default function RegulationDetail() {
                                                         <div className="mt-8 space-y-6">
                                                             <h3 className="text-xl font-semibold">Sub-Articles</h3>
                                                             <div className="grid gap-4">
-                                                                {activeArticle.subArticles.map(sub => (
-                                                                    <div key={sub.id} className="p-4 rounded-lg border bg-card/50">
-                                                                        <h4 className="font-medium mb-2">{sub.title}</h4>
+                                                                {activeArticle.subArticles.map((sub: any) => (
+                                                                    <div
+                                                                        key={sub.id}
+                                                                        className="p-4 rounded-lg border bg-card/50 hover:border-primary/50 cursor-pointer transition-colors"
+                                                                        onClick={() => setActiveArticleId(sub.id)}
+                                                                    >
+                                                                        <div className="flex justify-between items-start">
+                                                                            <h4 className="font-medium mb-2 text-primary">{sub.title}</h4>
+                                                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                        </div>
                                                                         <p className="text-sm text-muted-foreground">{sub.description}</p>
                                                                     </div>
                                                                 ))}
@@ -474,7 +509,7 @@ export default function RegulationDetail() {
                                         <Info className="h-5 w-5 shrink-0 mt-0.5" />
                                         <div className="space-y-1">
                                             <p className="font-semibold text-sm">
-                                                Displaying {regulation.articles.filter(a => a.mappedControls).length} of {regulation.articles.length} Articles
+                                                Displaying {allItems.filter(a => a.mappedControls).length} of {allItems.length} Articles & Sub-Articles
                                             </p>
                                             <p className="text-sm opacity-90">
                                                 This view filters to only show articles that have specific control mappings defined (NIST 800-53, ISO 27001, etc).
@@ -483,18 +518,18 @@ export default function RegulationDetail() {
                                         </div>
                                     </div>
 
-                                    {regulation.articles.filter(a => a.mappedControls).length > 0 ? (
-                                        regulation.articles.filter(a => a.mappedControls).map(article => (
-                                            <div key={article.id} className="flex flex-col border-b pb-4 last:border-0 last:pb-0 gap-3">
+                                    {allItems.filter(a => a.mappedControls).length > 0 ? (
+                                        allItems.filter(a => a.mappedControls).map((item: any) => (
+                                            <div key={item.id} className="flex flex-col border-b pb-4 last:border-0 last:pb-0 gap-3">
                                                 <div>
-                                                    <h4 className="font-semibold text-sm">Article {article.numericId}: {article.title}</h4>
+                                                    <h4 className="font-semibold text-sm">Article {item.numericId || item.id}: {item.title}</h4>
                                                 </div>
                                                 <div className="flex flex-col gap-2">
-                                                    {Object.entries(getNormalizedMappings(article.mappedControls)).map(([framework, controls]) => (
+                                                    {Object.entries(getNormalizedMappings(item.mappedControls)).map(([framework, controls]) => (
                                                         <div key={framework} className="flex items-center gap-3 text-sm">
                                                             <span className="w-24 shrink-0 text-muted-foreground text-xs font-semibold">{framework}</span>
                                                             <div className="flex gap-2 flex-wrap">
-                                                                {controls.map(c => (
+                                                                {controls.map((c: any) => (
                                                                     <Badge
                                                                         key={c}
                                                                         variant="outline"

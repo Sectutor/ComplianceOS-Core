@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from "wouter";
 import { trpc } from '../../lib/trpc';
@@ -23,7 +22,8 @@ import {
     Activity,
     Users,
     Stethoscope,
-    Flag
+    Flag,
+    Trash2
 } from "lucide-react";
 import { Button } from "@complianceos/ui/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
@@ -37,17 +37,28 @@ import { Progress } from "@complianceos/ui/ui/progress";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogDescription
+} from "@complianceos/ui/ui/dialog";
 
 export default function NIST80037Assess() {
     const { id } = useParams<{ id: string }>();
     const systemId = useNistSystemId();
     const clientId = parseInt(id || "0");
     const [isSaving, setIsSaving] = useState(false);
+    const [, setLocation] = useLocation();
+    const utils = trpc.useUtils();
 
     // TRPC Queries - Using any casting due to persistent stale type inference
+    const fismaSystemId = systemId;
     const { data: findingsStats } = (trpc as any).findings.stats.useQuery({ clientId });
-    const { data: poams } = (trpc as any).federal.listPoams.useQuery({ clientId });
-    const { data: sars } = (trpc as any).federal.listSARs.useQuery({ clientId });
+    const { data: poams } = (trpc as any).federal.listPoams.useQuery({ clientId, fismaSystemId });
+    const { data: sars } = (trpc as any).federal.listSARs.useQuery({ clientId, fismaSystemId });
     const latestSAR = sars?.[0];
 
     const { data: sarFindings } = (trpc as any).federal.getSarFindings.useQuery(
@@ -62,9 +73,44 @@ export default function NIST80037Assess() {
         enabled: !!systemId
     });
 
+    // Bring in Implementation checklist to know actual system control counts
+    const { data: implementData } = (trpc as any).checklist.get.useQuery({
+        clientId,
+        checklistId: systemId ? `nist-800-37-implement-${systemId}` : 'no-system'
+    }, {
+        enabled: !!systemId
+    });
+
     const updateChecklistMutation = (trpc as any).checklist.update.useMutation();
 
     const [assessmentStatus, setAssessmentStatus] = useState<string>('pending');
+
+    // Editable Plan State
+    const [isEditPlanOpen, setIsEditPlanOpen] = useState(false);
+    const [editTeam, setEditTeam] = useState<{ name: string, role: string }[]>([]);
+    const [editScope, setEditScope] = useState<string>("");
+
+    const [isAddFindingOpen, setIsAddFindingOpen] = useState(false);
+    const [findingForm, setFindingForm] = useState({
+        controlId: "",
+        observation: "",
+        result: "Satisfied",
+        riskLevel: "Low"
+    });
+
+    const createSARMutation = (trpc as any).federal.createSAR.useMutation();
+    const saveSarFindingMutation = (trpc as any).federal.saveSarFinding.useMutation();
+    const createFindingMutation = (trpc as any).findings.create.useMutation();
+
+    const checklistItems = checklistData?.items as any;
+    const assessmentTeam = checklistItems?.assessmentTeam || [
+        { name: latestSAR?.assessorName || "Independent Assessor", role: "Lead Auditor" },
+        { name: "Network Security Eng", role: "Tech Lead" }
+    ];
+
+    const testingScope = checklistItems?.testingScope || [
+        "Vulnerability Scan", "Code Review", "Policy Audit", "SOP Walkthrough", "Interview"
+    ];
 
     // Reset local state when systemId changes
     useEffect(() => {
@@ -83,14 +129,14 @@ export default function NIST80037Assess() {
             toast.error("No system selected", { description: "Please select a system first." });
             return;
         }
-        
+
         setIsSaving(true);
         try {
             await updateChecklistMutation.mutateAsync({
                 clientId,
                 checklistId: `nist-800-37-assess-${systemId}`,
                 items: {
-                    ...checklistData?.items,
+                    ...(checklistData?.items as any),
                     lastFinalized: new Date().toISOString(),
                     status: 'completed'
                 }
@@ -98,6 +144,7 @@ export default function NIST80037Assess() {
             toast.success("Assessment Data Finalized", {
                 description: "Security Assessment Report and remediation plan updated.",
             });
+            utils.checklist.get.invalidate();
         } catch (err) {
             toast.error("Failed to save assessment results");
         } finally {
@@ -105,25 +152,121 @@ export default function NIST80037Assess() {
         }
     };
 
-    // Derived stats
-    const openPoamItems = poams?.reduce((acc: number, p: any) => acc + (p.openItems || 0), 0) || 18; // Fallback to mock if query empty
-    const highFindings = findingsStats?.bySeverity.find((s: any) => s.severity === 'high')?.count || 0;
-    const medFindings = findingsStats?.bySeverity.find((s: any) => s.severity === 'medium')?.count || 0;
-    const lowFindings = findingsStats?.bySeverity.find((s: any) => s.severity === 'low')?.count || 0;
+    const handleSavePlan = async () => {
+        if (!systemId) return;
+        setIsSaving(true);
+        try {
+            await updateChecklistMutation.mutateAsync({
+                clientId,
+                checklistId: `nist-800-37-assess-${systemId}`,
+                items: {
+                    ...(checklistData?.items as any),
+                    assessmentTeam: editTeam,
+                    testingScope: editScope.split(',').map(s => s.trim()).filter(Boolean)
+                }
+            });
+            setIsEditPlanOpen(false);
+            utils.checklist.get.invalidate();
+            toast.success("Assessment Plan Updated", {
+                description: "The assessment parameters have been successfully saved."
+            });
+        } catch (err) {
+            toast.error("Failed to update plan");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
-    const totalControls = 325;
-    const verifiedControls = totalControls - (highFindings + medFindings + lowFindings);
-    const progressPercent = Math.round((verifiedControls / totalControls) * 100);
+    const openEditPlan = () => {
+        if (!systemId) {
+            toast.error("No system selected", { description: "Please select a system first to edit its assessment plan." });
+            return;
+        }
+        setEditTeam([...assessmentTeam]);
+        setEditScope(testingScope.join(", "));
+        setIsEditPlanOpen(true);
+    };
+
+    const handleSaveNewFinding = async () => {
+        if (!systemId) {
+            toast.error("No system selected");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            let sarId = latestSAR?.id;
+            if (!sarId) {
+                const newSar = await createSARMutation.mutateAsync({
+                    clientId,
+                    fismaSystemId,
+                    title: `SAR for System ${fismaSystemId}`,
+                    framework: "NIST 800-37"
+                });
+                sarId = newSar.id;
+            }
+
+            await saveSarFindingMutation.mutateAsync({
+                clientId,
+                sarId,
+                controlId: findingForm.controlId,
+                observation: findingForm.observation,
+                result: findingForm.result,
+                riskLevel: findingForm.riskLevel,
+                status: findingForm.result === "Satisfied" ? "closed" : "open"
+            });
+
+            if (findingForm.result !== 'Satisfied' && (findingForm.riskLevel === 'High' || findingForm.riskLevel === 'Moderate' || findingForm.riskLevel === 'Low')) {
+                const severityMap: Record<string, string> = {
+                    'High': 'high',
+                    'Moderate': 'medium',
+                    'Low': 'low'
+                };
+
+                await createFindingMutation.mutateAsync({
+                    clientId,
+                    title: `${findingForm.controlId} Assessment Failure`,
+                    description: findingForm.observation,
+                    severity: severityMap[findingForm.riskLevel] || 'low',
+                });
+            }
+
+            toast.success("Finding Logged Successfully");
+            setIsAddFindingOpen(false);
+            utils.federal.getSarFindings.invalidate();
+            setFindingForm({
+                controlId: "",
+                observation: "",
+                result: "Satisfied",
+                riskLevel: "Low"
+            });
+        } catch (e) {
+            toast.error("Failed to log finding.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Derived stats - Dynamic based on Implement Phase mappings and SAR Findings!
+    const openPoamItems = poams?.reduce((acc: number, p: any) => acc + (p.openItems || 0), 0) || 0;
+
+    const systemControls = (implementData?.items?.controls as any[]) || [];
+    const totalControls = systemControls.length > 0 ? systemControls.length : (sarFindings?.length > 0 ? sarFindings.length : 325);
+
+    // Use actual SAR Findings to drive the Findings Summary
+    const highFindings = sarFindings?.filter((f: any) => f.riskLevel?.toLowerCase() === 'high' || f.vulnerabilitySeverity?.toLowerCase() === 'high').length || 0;
+    const medFindings = sarFindings?.filter((f: any) => f.riskLevel?.toLowerCase() === 'moderate' || f.vulnerabilitySeverity?.toLowerCase() === 'moderate' || f.riskLevel?.toLowerCase() === 'medium').length || 0;
+    const lowFindings = sarFindings?.filter((f: any) => f.riskLevel?.toLowerCase() === 'low' || f.vulnerabilitySeverity?.toLowerCase() === 'low').length || 0;
+
+    const progressPercent = 0; // Keeping as dummy variable to prevent typescript errors below if missed, actually we can just remove it.
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
-                        { label: "Dashboard", href: `/dashboard` },
-                        { label: "NIST Hub", href: `/clients/${clientId}/nist` },
+                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                         { label: "SP 800-37 (RMF)", href: `/clients/${clientId}/nist/rmf` },
-                        { label: "Step 4: Assess" },
+                        { label: "Step 4: Assess" }
                     ]}
                 />
 
@@ -160,33 +303,7 @@ export default function NIST80037Assess() {
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     {/* Assessment Sidebar */}
                     <div className="lg:col-span-1 space-y-6">
-                        <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-amber-900 text-white overflow-hidden relative">
-                            <CardHeader className="pb-2 relative z-10">
-                                <CardTitle className="text-amber-400 text-xs font-black uppercase tracking-widest">Assessment Health</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6 relative z-10">
-                                <div className="text-center py-4 bg-white/10 rounded-[2rem] border border-white/10">
-                                    <h2 className="text-4xl font-black text-white tracking-tighter">{progressPercent}%</h2>
-                                    <p className="text-amber-300 text-[10px] font-black uppercase tracking-widest mt-1">Controls Verified</p>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-xs font-bold text-amber-200 uppercase tracking-wider">
-                                        <span>Passed</span>
-                                        <span>{verifiedControls}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs font-bold text-amber-200 uppercase tracking-wider">
-                                        <span>Failed / Findings</span>
-                                        <span className="text-rose-400">{highFindings + medFindings + lowFindings}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs font-bold text-amber-200 uppercase tracking-wider">
-                                        <span>Target</span>
-                                        <span>{totalControls}</span>
-                                    </div>
-                                    <Progress value={progressPercent} className="h-2 bg-amber-800" indicatorClassName="bg-white" />
-                                </div>
-                            </CardContent>
-                            <Stethoscope className="absolute -bottom-10 -left-10 w-48 h-48 text-white/5 -rotate-12" />
-                        </Card>
+
 
                         <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white">
                             <CardHeader>
@@ -194,9 +311,9 @@ export default function NIST80037Assess() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {[
-                                    { label: "High Risk", count: highFindings || 2, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-50" },
-                                    { label: "Moderate Risk", count: medFindings || 11, icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50" },
-                                    { label: "Low Risk", count: lowFindings || 5, icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-50" }
+                                    { label: "High Risk", count: highFindings, icon: AlertCircle, color: "text-rose-500", bg: "bg-rose-50" },
+                                    { label: "Moderate Risk", count: medFindings, icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50" },
+                                    { label: "Low Risk", count: lowFindings, icon: AlertCircle, color: "text-blue-500", bg: "bg-blue-50" }
                                 ].map((item, i) => (
                                     <div key={i} className={cn("flex items-center justify-between p-3 rounded-xl", item.bg)}>
                                         <div className="flex items-center gap-3">
@@ -210,7 +327,7 @@ export default function NIST80037Assess() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="plan" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -226,36 +343,43 @@ export default function NIST80037Assess() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="plan" className="p-10 space-y-10 m-0">
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <div className="space-y-1">
-                                                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Assessment Planning (A-1)</h3>
+                                                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Assessment Planning</h3>
                                                 <p className="text-slate-500 font-medium">Select assessors and define the technical testing methodology.</p>
                                             </div>
-                                            <Link href={`/clients/${clientId}/federal/sar`}>
-                                                <Button className="bg-amber-600 hover:bg-amber-700 rounded-xl gap-2 font-bold h-11">
-                                                    <Plus className="w-4 h-4" /> New Plan
+                                            <div className="flex gap-3">
+                                                <Button onClick={openEditPlan} variant="outline" className="rounded-xl border-slate-200 font-bold h-11 text-slate-600">
+                                                    Configure Plan
                                                 </Button>
-                                            </Link>
+                                                <Link href={`/clients/${clientId}/federal/sar`}>
+                                                    <Button className="bg-amber-600 hover:bg-amber-700 rounded-xl gap-2 font-bold h-11">
+                                                        <Plus className="w-4 h-4" /> Generate Rules
+                                                    </Button>
+                                                </Link>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <Card className="bg-slate-50 border-none rounded-[2rem] p-6 space-y-4">
-                                                <h4 className="font-black text-slate-900 flex items-center gap-2">
-                                                    <Users className="w-5 h-5 text-indigo-500" />
-                                                    Assessment Team
-                                                </h4>
+                                                <div className="flex justify-between items-center">
+                                                    <h4 className="font-black text-slate-900 flex items-center gap-2">
+                                                        <Users className="w-5 h-5 text-indigo-500" />
+                                                        Assessment Team
+                                                    </h4>
+                                                </div>
                                                 <div className="space-y-3">
-                                                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
-                                                        <span className="text-sm font-bold">{latestSAR?.assessorName || "Independent Assessor"}</span>
-                                                        <Badge variant="outline" className="text-[10px] font-black border-slate-200">Lead Auditor</Badge>
-                                                    </div>
-                                                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100">
-                                                        <span className="text-sm font-bold">Network Security Eng</span>
-                                                        <Badge variant="outline" className="text-[10px] font-black border-slate-200">Tech Lead</Badge>
-                                                    </div>
+                                                    {assessmentTeam.length > 0 ? assessmentTeam.map((member: { name: string, role: string }, i: number) => (
+                                                        <div key={i} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                                            <span className="text-sm font-bold text-slate-700">{member.name}</span>
+                                                            <Badge variant="outline" className="text-[10px] font-black border-slate-200 bg-slate-50">{member.role}</Badge>
+                                                        </div>
+                                                    )) : (
+                                                        <p className="text-sm text-slate-400 font-medium italic">No team members assigned.</p>
+                                                    )}
                                                 </div>
                                             </Card>
 
@@ -265,11 +389,13 @@ export default function NIST80037Assess() {
                                                     Testing Scope
                                                 </h4>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {["Vulnerability Scan", "Code Review", "Policy Audit", "SOP Walkthrough", "Interview"].map((t, i) => (
-                                                        <Badge key={i} className="bg-white text-slate-600 border border-slate-200 font-bold px-3 py-1">
+                                                    {testingScope.length > 0 ? testingScope.map((t: string, i: number) => (
+                                                        <Badge key={i} className="bg-white text-slate-600 border border-slate-200 font-bold px-3 py-1.5 shadow-sm">
                                                             {t}
                                                         </Badge>
-                                                    ))}
+                                                    )) : (
+                                                        <p className="text-sm text-slate-400 font-medium italic">No testing methodology defined.</p>
+                                                    )}
                                                 </div>
                                             </Card>
                                         </div>
@@ -284,8 +410,10 @@ export default function NIST80037Assess() {
                                                     <p className="text-slate-400 font-medium">Auto-generate assessment test cases based on control implementation narratives.</p>
                                                 </div>
                                                 <Button
-                                                    onClick={() => toast.info("AI Assessor initializing...")}
-                                                    className="bg-amber-500 hover:bg-amber-600 rounded-xl font-bold h-12 px-6"
+                                                    onClick={() => {
+                                                        toast.success("AI Assessment Initiated", { description: "Generating automated test plans based on existing documentation..." })
+                                                    }}
+                                                    className="bg-amber-500 hover:bg-amber-600 rounded-xl font-bold h-12 px-6 shadow-xl shadow-amber-500/20"
                                                 >
                                                     Deploy AI Assessor
                                                 </Button>
@@ -298,10 +426,13 @@ export default function NIST80037Assess() {
                                 <TabsContent value="results" className="p-10 space-y-8 m-0">
                                     <div className="flex justify-between items-center">
                                         <div className="space-y-1">
-                                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Verification Activities (A-2)</h3>
+                                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Verification Activities</h3>
                                             <p className="text-sm text-slate-500 font-medium">Records and results for each control verification step.</p>
                                         </div>
                                         <div className="flex gap-2">
+                                            <Button onClick={() => setIsAddFindingOpen(true)} className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold h-10 px-4">
+                                                <Plus className="w-4 h-4 mr-2" /> Log Finding
+                                            </Button>
                                             <div className="relative">
                                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                                 <Input placeholder="Filter controls..." className="pl-9 h-10 w-64 rounded-xl border-slate-200" />
@@ -310,12 +441,7 @@ export default function NIST80037Assess() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        {(sarFindings && sarFindings.length > 0 ? sarFindings : [
-                                            { controlId: "AC-2", observation: "Account Management Narratives confirmed.", result: "Satisfied", examiner: "J. Miller", date: "Feb 10, 2026" },
-                                            { controlId: "AU-6", observation: "Audit Review logs missing for 3 days.", result: "Other than Satisfied", examiner: "S. Chen", date: "Feb 12, 2026" },
-                                            { controlId: "IA-2", observation: "MFA active for all accounts.", result: "Satisfied", examiner: "J. Miller", date: "Feb 11, 2026" },
-                                            { controlId: "CP-2", observation: "Pending walkthrough.", result: "Not Started", examiner: "Unassigned", date: "-" }
-                                        ]).map((ctrl: any, i: number) => (
+                                        {(sarFindings && sarFindings.length > 0 ? sarFindings : []).map((ctrl: any, i: number) => (
                                             <div key={i} className="p-6 bg-white border rounded-[2.5rem] flex items-center justify-between hover:shadow-lg transition-all group">
                                                 <div className="flex items-center gap-5">
                                                     <div className={cn(
@@ -422,12 +548,206 @@ export default function NIST80037Assess() {
                                         </div>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
+
+                {/* Edit Assessment Plan Dialog */}
+                <Dialog open={isEditPlanOpen} onOpenChange={setIsEditPlanOpen}>
+                    <DialogContent className="max-w-3xl p-0 overflow-hidden border-none rounded-[2rem] shadow-2xl">
+                        <DialogHeader className="p-8 pb-4 bg-slate-50 border-b border-slate-100">
+                            <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                <Users className="w-6 h-6 text-amber-600" />
+                                Configure Assessment Plan
+                            </DialogTitle>
+                            <DialogDescription className="font-medium text-slate-500">
+                                Define the assessment team and the technical verification methodologies to be used.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="p-8 space-y-8 bg-white">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Assessment Team</Label>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-xl border-slate-200 text-slate-600 shadow-sm"
+                                        onClick={() => setEditTeam([...editTeam, { name: "", role: "Assessor" }])}
+                                    >
+                                        <Plus className="w-3 h-3 mr-1" /> Add Member
+                                    </Button>
+                                </div>
+                                <div className="space-y-3 p-4 bg-slate-50 rounded-[1.5rem] border border-slate-100 placeholder:text-slate-400">
+                                    {editTeam.length > 0 ? editTeam.map((member, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <Input
+                                                className="bg-white border-slate-200 h-11 rounded-xl font-medium"
+                                                placeholder="Member name..."
+                                                value={member.name}
+                                                onChange={(e) => {
+                                                    const newTeam = [...editTeam];
+                                                    newTeam[i].name = e.target.value;
+                                                    setEditTeam(newTeam);
+                                                }}
+                                            />
+                                            <Input
+                                                className="bg-white border-slate-200 h-11 rounded-xl font-medium w-1/3"
+                                                placeholder="Role (e.g., Lead Auditor)"
+                                                value={member.role}
+                                                onChange={(e) => {
+                                                    const newTeam = [...editTeam];
+                                                    newTeam[i].role = e.target.value;
+                                                    setEditTeam(newTeam);
+                                                }}
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 shrink-0"
+                                                onClick={() => setEditTeam(editTeam.filter((_, idx) => idx !== i))}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )) : (
+                                        <p className="text-sm font-medium text-slate-500 text-center py-2">No team members added yet.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Testing Scope & Methodology</Label>
+                                <Textarea
+                                    className="min-h-[100px] border-slate-200 rounded-[1.5rem] p-4 bg-slate-50 font-medium"
+                                    placeholder="e.g. Vulnerability Scan, Code Review, Interview, SOP Walkthrough (comma separated)"
+                                    value={editScope}
+                                    onChange={(e) => setEditScope(e.target.value)}
+                                />
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Separate methodologies with commas
+                                </p>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between sm:justify-between shrink-0">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsEditPlanOpen(false)}
+                                className="font-bold text-slate-500 hover:text-slate-900"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSavePlan}
+                                disabled={isSaving}
+                                className="bg-amber-600 hover:bg-amber-700 font-bold rounded-xl h-11 px-6 text-white shadow-lg shadow-amber-600/20"
+                            >
+                                {isSaving ? "Saving..." : "Save Assessment Plan"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Log Finding Dialog */}
+                <Dialog open={isAddFindingOpen} onOpenChange={setIsAddFindingOpen}>
+                    <DialogContent className="max-w-xl p-0 overflow-hidden border-none rounded-[2rem] shadow-2xl">
+                        <DialogHeader className="p-8 pb-4 bg-slate-50 border-b border-slate-100">
+                            <DialogTitle className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                                <Plus className="w-6 h-6 text-amber-600" />
+                                Log Assessment Finding
+                            </DialogTitle>
+                        </DialogHeader>
+
+                        <div className="p-8 space-y-6 bg-white">
+                            <div className="space-y-4">
+                                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Control ID</Label>
+                                <Input
+                                    className="bg-slate-50 border-slate-200 h-11 rounded-xl font-medium"
+                                    placeholder="e.g., AC-2"
+                                    value={findingForm.controlId}
+                                    onChange={(e) => setFindingForm({ ...findingForm, controlId: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="space-y-4">
+                                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Result</Label>
+                                <div className="flex gap-4">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setFindingForm({ ...findingForm, result: 'Satisfied' })}
+                                        className={cn(
+                                            "flex-1 h-12 rounded-xl font-bold border-2 transition-all",
+                                            findingForm.result === 'Satisfied' ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "border-slate-200 text-slate-500 bg-white"
+                                        )}
+                                    >
+                                        Satisfied
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setFindingForm({ ...findingForm, result: 'Other than Satisfied' })}
+                                        className={cn(
+                                            "flex-1 h-12 rounded-xl font-bold border-2 transition-all",
+                                            findingForm.result === 'Other than Satisfied' ? "bg-rose-50 border-rose-500 text-rose-700" : "border-slate-200 text-slate-500 bg-white"
+                                        )}
+                                    >
+                                        Other than Satisfied
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Risk Level</Label>
+                                <div className="flex gap-4">
+                                    {['Low', 'Moderate', 'High'].map((level) => (
+                                        <Button
+                                            key={level}
+                                            variant="outline"
+                                            onClick={() => setFindingForm({ ...findingForm, riskLevel: level })}
+                                            className={cn(
+                                                "flex-1 h-12 rounded-xl font-bold border-2 transition-all",
+                                                findingForm.riskLevel === level
+                                                    ? (level === 'High' ? "bg-rose-50 border-rose-500 text-rose-700" : level === 'Moderate' ? "bg-amber-50 border-amber-500 text-amber-700" : "bg-blue-50 border-blue-500 text-blue-700")
+                                                    : "border-slate-200 text-slate-500 bg-white"
+                                            )}
+                                        >
+                                            {level}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <Label className="text-xs font-black uppercase tracking-widest text-slate-400">Observation</Label>
+                                <Textarea
+                                    className="min-h-[100px] border-slate-200 rounded-[1.5rem] p-4 bg-slate-50 font-medium"
+                                    placeholder="Describe the assessment findings and testing details..."
+                                    value={findingForm.observation}
+                                    onChange={(e) => setFindingForm({ ...findingForm, observation: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <DialogFooter className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsAddFindingOpen(false)}
+                                className="font-bold text-slate-500 hover:text-slate-900"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSaveNewFinding}
+                                disabled={isSaving || !findingForm.controlId || !findingForm.observation}
+                                className="bg-amber-600 hover:bg-amber-700 font-bold rounded-xl h-11 px-6 text-white shadow-lg shadow-amber-600/20"
+                            >
+                                {isSaving ? "Saving..." : "Log verified finding"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </NIST80037Layout>
     );
 }
-

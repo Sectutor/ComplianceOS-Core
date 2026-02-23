@@ -12,10 +12,12 @@ interface BrandingContextType extends BrandingConfig {
     resetBranding: () => void;
 }
 
+import logoUrl from '../assets/logo.png';
+
 const defaultBranding: BrandingConfig = {
     appName: 'GRCompliance',
-    logoUrl: null,
-    primaryColor: '#0066CC',
+    logoUrl: logoUrl,
+    primaryColor: '#003366',
     logoSize: 100,
 };
 
@@ -24,12 +26,12 @@ const BrandingContext = createContext<BrandingContextType | undefined>(undefined
 export const BrandingProvider = ({ children }: { children: React.ReactNode }) => {
     // Load from localStorage if available
     const [config, setConfig] = useState<BrandingConfig>(() => {
-        const saved = localStorage.getItem('branding-config');
+        const saved = localStorage.getItem('branding-config-v2');
         return saved ? JSON.parse(saved) : defaultBranding;
     });
 
     useEffect(() => {
-        localStorage.setItem('branding-config', JSON.stringify(config));
+        localStorage.setItem('branding-config-v2', JSON.stringify(config));
         // Apply primary color to CSS variable if needed
         document.documentElement.style.setProperty('--primary', config.primaryColor);
     }, [config]);
@@ -57,22 +59,25 @@ export const useBranding = () => {
     return context;
 };
 
-export const BrandLogo = ({ className = "", showText = true }: { className?: string, showText?: boolean }) => {
-    const { appName, logoUrl, logoSize } = useBranding();
-    const scale = logoSize / 100;
+export const BrandLogo = ({ className = "", showText = false, invert = false }: { className?: string, showText?: boolean, invert?: boolean }) => {
+    const { appName, logoUrl: configLogoUrl, logoSize } = useBranding();
+    const scale = (logoSize / 100) * 1.2; // Adjusted base scale
+
+    // Check if we have the white logo file
+    const displayLogo = configLogoUrl;
 
     return (
-        <div className={`flex items-center gap-3 ${className}`}>
-            {logoUrl ? (
+        <div className={`flex items-center gap-2 ${className}`}>
+            {displayLogo ? (
                 <img
-                    src={logoUrl}
+                    src={displayLogo}
                     alt={appName}
-                    className="h-10 w-auto object-contain transition-all"
-                    style={{ height: `${2.5 * scale}rem` }} // Base 2.5rem (h-10) * scale
+                    className="h-12 w-auto object-contain transition-all"
+                    style={{ height: `${3 * scale}rem` }}
                 />
             ) : (
                 <div
-                    className="bg-blue-600/10 p-2 rounded-lg transition-all"
+                    className={`${invert ? 'bg-white/20' : 'bg-blue-600/10'} p-2 rounded-lg transition-all`}
                     style={{ transform: `scale(${scale})` }}
                 >
                     <svg
@@ -83,13 +88,13 @@ export const BrandLogo = ({ className = "", showText = true }: { className?: str
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="h-8 w-8 text-blue-600"
+                        className={`h-8 w-8 ${invert ? 'text-white' : 'text-blue-600'}`}
                     >
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
                     </svg>
                 </div>
             )}
-            {showText && <span className="font-bold text-xl tracking-tight">{appName}</span>}
+            {showText && <span className={`font-bold text-lg tracking-tight ${invert ? 'text-white' : ''}`}>{appName}</span>}
         </div>
     );
 };

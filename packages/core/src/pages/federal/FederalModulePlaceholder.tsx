@@ -164,3 +164,21 @@ export const Fips140TrackingPlaceholder = () => (
         framework="FIPS 140"
     />
 );
+
+export const MonitorPlaceholder = () => (
+    <FederalModulePlaceholder
+        title="Continuous Monitoring"
+        description="Monitor security control effectiveness, track system changes, and perform ongoing risk assessments to maintain your system's Authorization to Operate (ATO)."
+        icon={Target}
+        framework="NIST RMF"
+    />
+);
+
+export const SPRSPlaceholder = () => (
+    <FederalModulePlaceholder
+        title="SPRS Scoring"
+        description="Calculate and document your NIST 800-171 assessment score for Supplier Performance Risk System (SPRS) submission as required by DoD Assessment Methodology."
+        icon={Target}
+        framework="CMMC / DFARS"
+    />
+);

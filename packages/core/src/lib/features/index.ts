@@ -103,6 +103,28 @@ export const FEATURE_DEFINITIONS: Record<string, {
     availableIn: ['AGPLv3', 'COMMERCIAL', 'TRIAL'],
   },
 
+  [FEATURES.POLICY_MANAGEMENT]: {
+    name: 'Policy Management',
+    description: 'Create and manage compliance policies',
+    category: FEATURE_CATEGORIES.COMMUNITY,
+    availableIn: ['AGPLv3', 'COMMERCIAL', 'TRIAL'],
+  },
+
+  [FEATURES.RISK_REGISTER]: {
+    name: 'Risk Register',
+    description: 'Track and manage risks',
+    category: FEATURE_CATEGORIES.COMMUNITY,
+    availableIn: ['AGPLv3', 'COMMERCIAL', 'TRIAL'],
+  },
+
+  [FEATURES.EVIDENCE_COLLECTION]: {
+    name: 'Evidence Collection',
+    description: 'Collect and organize compliance evidence',
+    category: FEATURE_CATEGORIES.COMMUNITY,
+    availableIn: ['AGPLv3', 'COMMERCIAL', 'TRIAL'],
+  },
+
+  // AI Features
   [FEATURES.AI_EVIDENCE_ANALYSIS]: {
     name: 'AI Evidence Analysis',
     description: 'AI-powered analysis of compliance evidence',
@@ -112,6 +134,52 @@ export const FEATURE_DEFINITIONS: Record<string, {
     licenseType: 'enterprise',
   },
 
+  [FEATURES.AI_RISK_TRIAGE]: {
+    name: 'AI Risk Triage',
+    description: 'AI-assisted risk prioritization',
+    category: FEATURE_CATEGORIES.AI,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.AI_POLICY_DRAFTING]: {
+    name: 'AI Policy Drafting',
+    description: 'Generate policies with AI',
+    category: FEATURE_CATEGORIES.AI,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.AI_CONTROL_GUIDANCE]: {
+    name: 'AI Control Guidance',
+    description: 'AI guidance for control implementation',
+    category: FEATURE_CATEGORIES.AI,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.AI_GAP_ANALYSIS]: {
+    name: 'AI Gap Analysis',
+    description: 'Automated gap analysis using AI',
+    category: FEATURE_CATEGORIES.AI,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.AI_MULTI_LLM]: {
+    name: 'Multi-LLM Support',
+    description: 'Support for multiple LLM providers',
+    category: FEATURE_CATEGORIES.AI,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Advisor Features
   [FEATURES.ADVISOR_WORKBENCH]: {
     name: 'Advisor Workbench',
     description: 'Advanced compliance advisor with AI assistance',
@@ -121,6 +189,34 @@ export const FEATURE_DEFINITIONS: Record<string, {
     licenseType: 'enterprise',
   },
 
+  [FEATURES.ADVISOR_WHITE_LABEL]: {
+    name: 'White Labeling',
+    description: 'Custom branding for advisor portal',
+    category: FEATURE_CATEGORIES.ADVISOR,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.ADVISOR_MULTI_TENANT]: {
+    name: 'Multi-Tenancy',
+    description: 'Manage multiple clients',
+    category: FEATURE_CATEGORIES.ADVISOR,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.ADVISOR_TEMPLATE_DEPLOYMENT]: {
+    name: 'Template Deployment',
+    description: 'Deploy templates across clients',
+    category: FEATURE_CATEGORIES.ADVISOR,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Enterprise Features
   [FEATURES.ENTERPRISE_SCALABILITY]: {
     name: 'Enterprise Scalability',
     description: 'High-performance scaling for large deployments',
@@ -130,9 +226,182 @@ export const FEATURE_DEFINITIONS: Record<string, {
     licenseType: 'enterprise',
   },
 
+  [FEATURES.ENTERPRISE_REDIS]: {
+    name: 'Redis Caching',
+    description: 'Redis integration for caching',
+    category: FEATURE_CATEGORIES.ENTERPRISE,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.ENTERPRISE_CONNECTION_POOLING]: {
+    name: 'Connection Pooling',
+    description: 'Advanced DB connection pooling',
+    category: FEATURE_CATEGORIES.ENTERPRISE,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.ENTERPRISE_READ_REPLICA]: {
+    name: 'Read Replicas',
+    description: 'Support for database read replicas',
+    category: FEATURE_CATEGORIES.ENTERPRISE,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Security Features
+  [FEATURES.SECURITY_SSO_SAML]: {
+    name: 'SSO / SAML',
+    description: 'Single Sign-On integration',
+    category: FEATURE_CATEGORIES.SECURITY,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.SECURITY_ADVANCED_RBAC]: { // Added mapping for security.advanced_rbac
+    name: 'Advanced RBAC',
+    description: 'Granular role-based access control',
+    category: FEATURE_CATEGORIES.SECURITY,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.SECURITY_AUDIT_TRAIL]: {
+    name: 'Audit Trail',
+    description: 'Comprehensive audit logging',
+    category: FEATURE_CATEGORIES.SECURITY,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.SECURITY_DATA_ENCRYPTION]: {
+    name: 'Advanced Encryption',
+    description: 'BYOK and advanced encryption options',
+    category: FEATURE_CATEGORIES.SECURITY,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Reporting Features
+  [FEATURES.REPORTING_PROFESSIONAL]: {
+    name: 'Professional Reporting',
+    description: 'Advanced reporting templates',
+    category: FEATURE_CATEGORIES.REPORTING,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.REPORTING_EXECUTIVE_DASHBOARDS]: {
+    name: 'Executive Dashboards',
+    description: 'C-level view dashboards',
+    category: FEATURE_CATEGORIES.REPORTING,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.REPORTING_SCHEDULED]: {
+    name: 'Scheduled Reports',
+    description: 'Automated report delivery',
+    category: FEATURE_CATEGORIES.REPORTING,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.REPORTING_CUSTOM_BRANDING]: {
+    name: 'Custom Branding',
+    description: 'White-labeling for reports',
+    category: FEATURE_CATEGORIES.REPORTING,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Integration Features
+  [FEATURES.INTEGRATION_PREBUILT]: {
+    name: 'Pre-built Integrations',
+    description: 'Access to standard integration library',
+    category: FEATURE_CATEGORIES.INTEGRATION,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.INTEGRATION_ENTERPRISE_STORAGE]: {
+    name: 'Enterprise Storage',
+    description: 'Integration with S3, Azure Blob, etc.',
+    category: FEATURE_CATEGORIES.INTEGRATION,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.INTEGRATION_SIEM]: {
+    name: 'SIEM Integration',
+    description: 'Push logs to external SIEM',
+    category: FEATURE_CATEGORIES.INTEGRATION,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.INTEGRATION_CRM]: {
+    name: 'CRM Integration',
+    description: 'Sync with Salesforce, HubSpot, etc.',
+    category: FEATURE_CATEGORIES.INTEGRATION,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  // Deployment Features
+  [FEATURES.DEPLOYMENT_MANAGED_SAAS]: {
+    name: 'Managed SaaS',
+    description: 'Fully managed cloud deployment',
+    category: FEATURE_CATEGORIES.DEPLOYMENT,
+    availableIn: ['COMMERCIAL', 'TRIAL'],
+  },
+
+  [FEATURES.DEPLOYMENT_PRIVATE_CLOUD]: {
+    name: 'Private Cloud',
+    description: 'Dedicated cloud environment',
+    category: FEATURE_CATEGORIES.DEPLOYMENT,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
   [FEATURES.DEPLOYMENT_ON_PREMISES]: {
     name: 'On-Premises Deployment',
     description: 'Deploy ComplianceOS in your own infrastructure',
+    category: FEATURE_CATEGORIES.DEPLOYMENT,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.DEPLOYMENT_HYBRID]: {
+    name: 'Hybrid Deployment',
+    description: 'Mix of cloud and on-prem components',
+    category: FEATURE_CATEGORIES.DEPLOYMENT,
+    availableIn: ['COMMERCIAL'],
+    requiresLicense: true,
+    licenseType: 'enterprise',
+  },
+
+  [FEATURES.DEPLOYMENT_AIR_GAPPED]: {
+    name: 'Air-Gapped',
+    description: 'Fully offline deployment support',
     category: FEATURE_CATEGORIES.DEPLOYMENT,
     availableIn: ['COMMERCIAL'],
     requiresLicense: true,

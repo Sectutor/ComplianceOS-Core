@@ -66,7 +66,7 @@ export default function NonComplianceReport() {
 
     return (
         <DashboardLayout>
-            <div className="p-8 space-y-8 max-w-7xl mx-auto">
+            <div className="p-8 space-y-8 w-full">
                 <Breadcrumb items={[
                     { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                     { label: "Federal Compliance", href: `/clients/${clientId}/federal` },

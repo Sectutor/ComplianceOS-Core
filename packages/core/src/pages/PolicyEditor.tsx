@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import { Input } from "@complianceos/ui/ui/input";
@@ -10,16 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Breadcrumb } from "@/components/Breadcrumb";
-import { ArrowLeft, Check, Copy, Eye, History, Loader2, Save, Sparkles, Trash2, Shield, AlertTriangle, Clock, Target, CheckCircle2, FileText, Users, Wand2, ShieldAlert, Link as LinkIcon, Unlink, TrendingDown, TrendingUp, ExternalLink, BarChart3, X, Send, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, Copy, Eye, History, Loader2, Save, Sparkles, Trash2, Shield, AlertTriangle, Clock, Target, CheckCircle2, FileText, Users, Wand2, ShieldAlert, Link as LinkIcon, Unlink, TrendingDown, TrendingUp, ExternalLink, BarChart3, X, Send, RotateCcw, Activity, MessageSquare, Plus } from "lucide-react";
 import { marked } from "marked";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@complianceos/ui/ui/dialog";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditor, { RichTextEditorRef } from "@/components/RichTextEditor";
 import TurndownService from "turndown";
 
-// @ts-expect-error - html-docx-js-typescript types are missing
 import { asBlob } from "html-docx-js-typescript";
 import { saveAs } from "file-saver";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@complianceos/ui/ui/command";
@@ -32,7 +32,9 @@ import { Slot } from "@/registry";
 import { SlotNames } from "@/registry/slotNames";
 import { DistributionDialog } from "@/components/policy/DistributionDialog";
 import { PageGuide } from "@/components/PageGuide";
+
 import PolicyLinter from "@/components/policy/PolicyLinter";
+import { AiRewriteDialog } from "@/components/policy/AiRewriteDialog";
 
 // Helper logic for Policy Analysis
 
@@ -100,6 +102,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
         policyId
     });
     const [location, setLocation] = useLocation();
+    const { user } = useAuth();
 
     const { data: policyData, isLoading: loadingPolicy, refetch: refetchPolicy } = trpc.clientPolicies.get.useQuery(
         { id: policyId, clientId },
@@ -122,6 +125,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
     const { data: availableRisks } = trpc.risks.getAll.useQuery({ clientId }, { enabled: !!clientId });
     const { data: availableControls } = trpc.clientControls.list.useQuery({ clientId }, { enabled: !!clientId });
     const { data: clientData } = trpc.clients.get.useQuery({ id: clientId }, { enabled: !!clientId });
+    const { data: employeesList } = trpc.employees.list.useQuery({ clientId }, { enabled: !!clientId });
 
     const { data: assignments, isLoading: loadingAssignments } = trpc.policyManagement.getAssignments.useQuery(
         { policyId },
@@ -134,6 +138,60 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
     const unlinkControlMutation = trpc.clientPolicies.unlinkControl.useMutation();
 
 
+
+    const requestReviewMutation = trpc.clientPolicies.requestReview.useMutation();
+    const submitApprovalMutation = trpc.clientPolicies.submitApproval.useMutation();
+
+    const { data: activityLogs, refetch: refetchActivity } = trpc.clientPolicies.activity.useQuery(
+        { policyId, clientId },
+        { enabled: !!policyId && !!clientId }
+    );
+
+    const policy = useMemo(() => policyData?.clientPolicy || policyData, [policyData]);
+
+    const handleRequestReview = async () => {
+        if (!selectedReviewers.length) {
+            toast.error("Please select at least one reviewer");
+            return;
+        }
+
+        try {
+            await requestReviewMutation.mutateAsync({
+                id: policyId,
+                clientId,
+                reviewers: selectedReviewers,
+                dueDate: reviewDueDate,
+                message: reviewMessage
+            });
+            toast.success("Review requested successfully");
+            setShowReviewDialog(false);
+            setReviewMessage("");
+            setSelectedReviewers([]);
+            refetchPolicy();
+            refetchActivity();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to request review");
+        }
+    };
+
+    const handleReviewDecision = async (decision: 'approve' | 'reject') => {
+        const feedback = decision === 'reject' ? prompt("Please provide feedback or required changes:") : undefined;
+        if (decision === 'reject' && !feedback) return;
+
+        try {
+            await submitApprovalMutation.mutateAsync({
+                id: policyId,
+                clientId,
+                decision: decision === 'approve' ? 'approved' : 'changes_requested',
+                notes: feedback || `Decision submitted via ${decision === 'approve' ? 'Approval' : 'Rejection'} banner`
+            });
+            toast.success(decision === 'approve' ? "Policy approved" : "Changes requested");
+            refetchPolicy();
+            refetchActivity();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to submit decision");
+        }
+    };
 
     const sendToIntakeMutation = trpc.intake.createFromPolicy.useMutation({
         onSuccess: () => {
@@ -150,12 +208,29 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
     const [status, setStatus] = useState("draft");
     const [owner, setOwner] = useState("");
     const [isSaving, setIsSaving] = useState(false);
-    const [viewMode, setViewMode] = useState<"edit" | "preview">("edit");
+    const [viewMode, setViewMode] = useState<"edit" | "preview" | "links" | "employees" | "history">("edit");
     const [isContentReady, setIsContentReady] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [publishNotes, setPublishNotes] = useState("");
     const [publishVersion, setPublishVersion] = useState("");
     const [showPublishDialog, setShowPublishDialog] = useState(false);
+
+    // Review Process States
+    const [showReviewDialog, setShowReviewDialog] = useState(false);
+    const [selectedReviewers, setSelectedReviewers] = useState<string[]>([]);
+    const [reviewDueDate, setReviewDueDate] = useState<string>("");
+    const [reviewMessage, setReviewMessage] = useState("");
+
+    const [draftComment, setDraftComment] = useState<{ quote: string; index: number; length: number } | null>(null);
+
+    const handleInlineComment = (selection: { quote: string; index: number; length: number }) => {
+        setDraftComment(selection);
+        toast.info("Comment context captured. Type your feedback below.");
+        const commentsEl = document.getElementById('collaboration-hub');
+        if (commentsEl) {
+            commentsEl.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     const [showGuide, setShowGuide] = useState(false);
 
@@ -171,8 +246,10 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
     const [selectedRisk, setSelectedRisk] = useState<any>(null);
     const [selectedControl, setSelectedControl] = useState<any>(null);
     const [showDistributionDialog, setShowDistributionDialog] = useState(false);
+    const [showRewriteDialog, setShowRewriteDialog] = useState(false);
 
-    // Initialize turndown service for HTML to markdown conversion (matching PolicyTemplates.tsx pattern)
+    const editorRef = useRef<RichTextEditorRef>(null); // Initialized editorRef
+
     // Initialize turndown service for HTML to markdown conversion (matching PolicyTemplates.tsx pattern)
     // Use 'atx' heading style (## Header) instead of setext (Header\n------)
     const turndownService = useMemo(() => {
@@ -204,16 +281,30 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
         return {
             totalRisks: risks.length,
             totalInherentScore,
-            totalResidualScore,
-            highRiskCount,
-            criticalRiskCount,
-            averageInherentScore,
-            riskReduction,
-            riskLevelCounts,
+            totalResidualScore, highRiskCount, criticalRiskCount,
+            averageInherentScore, riskReduction, riskLevelCounts,
             hasHighRisks: highRiskCount > 0,
             hasCriticalRisks: criticalRiskCount > 0,
         };
     }, [linkedRisks]);
+
+    const suggestedRisks = useMemo(() => {
+        if (!content || !availableRisks || (availableRisks as any[]).length === 0) return [];
+        const cleanContent = content.replace(/<[^>]*>/g, ' ').toLowerCase();
+        const keywords = cleanContent.split(/\s+/).filter((word: string) => word.length > 4);
+        const linkedIds = new Set(linkedRisks?.map((r: any) => r.risk?.id));
+
+        return (availableRisks as any[])
+            .filter(r => r && r.id && !linkedIds.has(r.id))
+            .map(risk => {
+                const text = `${risk.title || ''} ${risk.description || ''}`.toLowerCase();
+                const score = keywords.reduce((t: number, k: string) => t + (text.includes(k) ? 1 : 0), 0);
+                return { ...risk, score };
+            })
+            .filter(r => r.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 3);
+    }, [content, availableRisks, linkedRisks]);
 
     // Control Coverage Metrics
     const controlMetrics = useMemo(() => {
@@ -235,21 +326,34 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
 
         const implementationRate = Math.round((implementedCount / controls.length) * 100);
 
-        // Check for gaps: high-risk linked risks without adequate control coverage
-        const linkedRiskIds = new Set((linkedRisks || []).filter((item: any) => item?.risk).map((item: any) => item.risk.id));
+        // Check for gaps
         const hasUnmitigatedHighRisks = riskMetrics?.highRiskCount && implementedCount < riskMetrics.highRiskCount;
 
         return {
             totalControls: controls.length,
-            implementedCount,
-            inProgressCount,
-            notImplementedCount,
-            notApplicableCount,
-            implementationRate,
-            hasUnmitigatedHighRisks,
+            implementedCount, inProgressCount, notImplementedCount, notApplicableCount,
+            implementationRate, hasUnmitigatedHighRisks,
             allImplemented: implementedCount === controls.length,
         };
     }, [linkedControls, linkedRisks, riskMetrics]);
+
+    const suggestedControls = useMemo(() => {
+        if (!content || !availableControls || (availableControls as any[]).length === 0) return [];
+        const cleanContent = content.replace(/<[^>]*>/g, ' ').toLowerCase();
+        const keywords = cleanContent.split(/\s+/).filter((word: string) => word.length > 4);
+        const linkedIds = new Set(linkedControls?.map((r: any) => r.clientControl?.id));
+
+        return (availableControls as any[])
+            .filter(item => item && item.clientControl && !linkedIds.has(item.clientControl.id))
+            .map(item => {
+                const text = `${item.clientControl.clientControlId || ''} ${item.control?.name || ''} ${item.control?.description || ''}`.toLowerCase();
+                const score = keywords.reduce((t: number, k: string) => t + (text.includes(k) ? 1 : 0), 0);
+                return { ...item, score };
+            })
+            .filter(r => r.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 3);
+    }, [content, availableControls, linkedControls]);
 
     // Gap Analysis Alerts
     const gapAlerts = useMemo(() => {
@@ -316,6 +420,11 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
             setName(policy.name || "");
             setStatus(policy.status || "draft");
             setOwner(policy.owner || "");
+            if (policy.reviewDueDate) {
+                setReviewDueDate(new Date(policy.reviewDueDate).toISOString().split('T')[0]);
+            } else {
+                setReviewDueDate("");
+            }
 
             // Always parse content as Markdown and convert to HTML for the RichTextEditor
             // This ensures consistent behavior regardless of stored format
@@ -382,11 +491,13 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                 name,
                 content: contentToSave,
                 status,
-                owner
+                owner,
+                reviewDueDate: reviewDueDate || null
             });
 
             toast.success("Policy updated successfully");
             refetchPolicy();
+            refetchActivity();
         } catch (error: any) {
             console.error("Error saving policy:", error);
             toast.error(error.message || "Failed to save policy");
@@ -426,6 +537,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
             setShowPublishDialog(false);
             refetchPolicy();
             refetchHistory();
+            refetchActivity();
         } catch (error: any) {
             console.error("Error publishing version:", error);
             toast.error(error.message || "Failed to publish version");
@@ -446,6 +558,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
             });
             toast.success("Version restored to draft");
             refetchPolicy();
+            refetchActivity();
             // Need to reload content - useEffect will handle it when policyData changes
         } catch (error: any) {
             console.error("Error restoring version:", error);
@@ -453,33 +566,53 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
         }
     };
 
-    const handleAiRewrite = async () => {
+    const handleAiRewrite = () => {
+        setShowRewriteDialog(true);
+    };
+
+    const executeAiRewrite = async (instruction: string) => {
         if (!content || !clientId) return;
-        try {
-            toast.info("Rewriting policy with AI...");
-            const res = await refineMutation.mutateAsync({
-                clientId,
-                content,
-                instruction: "Improve clarity, tone, and formatting.",
-                mode: 'refine',
-                context: {
-                    clientName: policyData?.clientName || clientData?.name || "the Organization",
+
+        toast.promise(
+            async () => {
+                const res = await refineMutation.mutateAsync({
+                    clientId,
+                    content,
+                    instruction: instruction || "Improve clarity, tone, and formatting.",
+                    mode: 'refine',
+                    context: {
+                        clientName: policyData?.clientName || clientData?.name || "the Organization",
+                    }
+                });
+
+                const text = res.content || "";
+                const cleaned = cleanGeneratedHtml(text);
+                const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
+
+                setContent(html);
+                setShowRewriteDialog(false);
+                return "Policy rewritten successfully";
+            },
+            {
+                loading: 'Rewriting policy with AI... This process may take a minute.',
+                success: (msg) => msg,
+                error: (err) => {
+                    console.error("AI Rewrite failed:", err);
+                    return "Failed to rewrite policy";
                 }
-            });
+            }
+        );
+    };
 
-            const text = res.content || "";
-            const cleaned = cleanGeneratedHtml(text);
-            const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
-
-            setContent(html);
-            toast.success("Policy rewritten successfully");
-        } catch (error: any) {
-            console.error("AI Rewrite failed:", error);
-            toast.error("Failed to rewrite policy");
+    const handleCheckCompliance = () => {
+        const element = document.getElementById("policy-linter-section");
+        if (element) {
+            element.scrollIntoView({ behavior: "smooth" });
+            toast.info("Review compliance checks below");
         }
     };
 
-    const handleAiFix = async () => {
+    const handleAiFixPlaceholders = async () => {
         if (!content || !clientId) return;
 
         let clientName = clientData?.name || policyData?.clientName || "the Organization";
@@ -495,29 +628,35 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
             }
         }
 
-        try {
-            toast.info(`Fixing placeholders for ${clientName}...`);
-            const res = await refineMutation.mutateAsync({
-                clientId,
-                content,
-                instruction: "Identify and fix placeholders.",
-                mode: 'fix_placeholders',
-                context: {
-                    clientName: clientName,
-                    industry: industry
+        toast.promise(
+            async () => {
+                const res = await refineMutation.mutateAsync({
+                    clientId,
+                    content,
+                    instruction: "Identify and fix placeholders.",
+                    mode: 'fix_placeholders',
+                    context: {
+                        clientName: clientName,
+                        industry: industry
+                    }
+                });
+
+                const text = res.content || "";
+                const cleaned = cleanGeneratedHtml(text);
+                const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
+
+                setContent(html);
+                return "Placeholders fixed successfully";
+            },
+            {
+                loading: `Fixing placeholders for ${clientName}...`,
+                success: (msg) => msg,
+                error: (err) => {
+                    console.error("AI Fix failed:", err);
+                    return "Failed to fix placeholders";
                 }
-            });
-
-            const text = res.content || "";
-            const cleaned = cleanGeneratedHtml(text);
-            const html = /<[a-z][\s\S]*>/i.test(cleaned) ? cleaned : (marked.parse(cleaned, { async: false }) as string);
-
-            setContent(html);
-            toast.success("Placeholders fixed successfully");
-        } catch (error: any) {
-            console.error("AI Fix failed:", error);
-            toast.error("Failed to fix placeholders");
-        }
+            }
+        );
     };
 
     const handleLinkRisk = async () => {
@@ -603,6 +742,9 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
 
 
 
+
+
+
     const handleExportWord = async () => {
         try {
             const htmlString = `
@@ -632,7 +774,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
             `;
 
             const blob = await asBlob(htmlString);
-            saveAs(blob, `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.docx`);
+            saveAs(blob as Blob, `${name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.docx`);
             toast.success("Word export downloaded");
         } catch (error) {
             console.error("Export failed:", error);
@@ -686,16 +828,19 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back to Policies
                     </Button>
+                    <AiRewriteDialog
+                        open={showRewriteDialog}
+                        onOpenChange={setShowRewriteDialog}
+                        onRewrite={executeAiRewrite}
+                        isPending={refineMutation.isPending}
+                    />
                 </div>
             </DashboardLayout>
         );
     }
-
-    const policy = policyData.clientPolicy || policyData;
-
     return (
         <DashboardLayout>
-            <div className="space-y-6">
+            <div className="w-full max-w-full space-y-6 pl-4 pr-4 py-8 md:pl-20 md:pr-8">
                 <Breadcrumb
                     items={[
                         { label: "Clients", href: "/clients" },
@@ -765,6 +910,60 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                     </div>
                 </div>
 
+                {/* Review Banner */}
+                {((policy as any).approvalStatus === 'requested' || (policy.status === 'review' && (policy as any).approvalStatus !== 'changes_requested')) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-amber-100 p-2 rounded-full">
+                                <Users className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-medium text-amber-900">Review Requested</h3>
+                                <p className="text-sm text-amber-700">
+                                    This policy is currently under review. Please review the content and provide your approval or request changes.
+                                </p>
+                                {(policy as any).reviewDueDate && (
+                                    <p className="text-xs text-amber-600 mt-1 flex items-center">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        Due by: {new Date((policy as any).reviewDueDate).toLocaleDateString()}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                            <Button
+                                variant="outline"
+                                className="border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800 w-full md:w-auto"
+                                onClick={() => handleReviewDecision('reject')}
+                                disabled={submitApprovalMutation.isPending}
+                            >
+                                <X className="mr-2 h-4 w-4" />
+                                Request Changes
+                            </Button>
+                            <Button
+                                className="bg-amber-600 hover:bg-amber-700 text-white w-full md:w-auto"
+                                onClick={() => handleReviewDecision('approve')}
+                                disabled={submitApprovalMutation.isPending}
+                            >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Approve Policy
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {(policy as any).approvalStatus === 'changes_requested' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+                        <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <div>
+                            <h3 className="font-medium text-red-900">Changes Requested</h3>
+                            <p className="text-sm text-red-700">
+                                A reviewer has requested changes. Please address the feedback and request review again.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         <PageGuide
@@ -784,9 +983,9 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                         />
 
                         <Card>
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div>
+                            <CardHeader className="pb-0 border-b mb-4">
+                                <div className="flex flex-col xl:flex-row items-start xl:items-end justify-between gap-4">
+                                    <div className="pb-4">
                                         <CardTitle>Policy Content</CardTitle>
                                         <CardDescription>
                                             {viewMode === "edit"
@@ -794,20 +993,129 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                 : "Preview how your policy will appear"}
                                         </CardDescription>
                                     </div>
-                                    <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)}>
-                                        <TabsList>
-                                            <TabsTrigger value="edit">Edit</TabsTrigger>
-                                            <TabsTrigger value="preview">Preview</TabsTrigger>
-                                            <TabsTrigger value="integrations">Integrations</TabsTrigger>
-                                            <TabsTrigger value="employees">Employees</TabsTrigger>
-                                            <TabsTrigger value="history">History</TabsTrigger>
-                                        </TabsList>
+                                    <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)} className="w-full xl:w-auto max-w-full">
+                                        <div className="w-full overflow-x-auto no-scrollbar">
+                                            <TabsList className="bg-transparent p-0 gap-1 h-auto flex w-max min-w-full">
+                                                <TabsTrigger
+                                                    value="edit"
+                                                    className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold px-6 py-2.5 rounded-t-lg data-[state=active]:shadow-none"
+                                                >
+                                                    Edit
+                                                </TabsTrigger>
+                                                <TabsTrigger
+                                                    value="preview"
+                                                    className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold px-6 py-2.5 rounded-t-lg data-[state=active]:shadow-none"
+                                                >
+                                                    Preview
+                                                </TabsTrigger>
+                                                <TabsTrigger
+                                                    value="links"
+                                                    className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold px-6 py-2.5 rounded-t-lg data-[state=active]:shadow-none"
+                                                >
+                                                    Links
+                                                </TabsTrigger>
+                                                <TabsTrigger
+                                                    value="employees"
+                                                    className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold px-6 py-2.5 rounded-t-lg data-[state=active]:shadow-none"
+                                                >
+                                                    Employees
+                                                </TabsTrigger>
+                                                <TabsTrigger
+                                                    value="history"
+                                                    className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold px-6 py-2.5 rounded-t-lg data-[state=active]:shadow-none"
+                                                >
+                                                    History
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </div>
                                     </Tabs>
                                 </div>
                             </CardHeader>
                             <CardContent>
                                 <Tabs value={viewMode}>
                                     <TabsContent value="edit" className="m-0 space-y-4">
+                                        {/* Approval Status Banners */}
+                                        {(policy as any)?.approvalStatus === 'requested' && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                                        <Users className="h-5 w-5 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold text-blue-900">Review Requested</h4>
+                                                        <p className="text-sm text-blue-700">
+                                                            This policy is currently under review by assigned team members.
+                                                            {(policy as any).reviewDueDate && ` Due by ${new Date((policy as any).reviewDueDate).toLocaleDateString()}`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {user && (policy as any).reviewers?.includes(String(user.id)) && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                                                            onClick={() => handleReviewDecision('reject')}
+                                                        >
+                                                            Request Changes
+                                                        </Button>
+                                                        <Button
+                                                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                                                            onClick={() => handleReviewDecision('approve')}
+                                                        >
+                                                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                            Approve Policy
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {(policy as any)?.approvalStatus === 'changes_requested' && (
+                                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                                        <AlertTriangle className="h-5 w-5 text-amber-600" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold text-amber-900">Changes Requested</h4>
+                                                        <p className="text-sm text-amber-700">
+                                                            Reviewers have requested changes. Please check the Collaboration Hub for feedback and resolve issues before resubmitting.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                                                    onClick={() => setShowReviewDialog(true)}
+                                                >
+                                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                                    Resubmit for Review
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {(policy as any)?.approvalStatus === 'approved' && (policy as any)?.status !== 'approved' && (
+                                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                                        <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold text-emerald-900">Policy Approved</h4>
+                                                        <p className="text-sm text-emerald-700">
+                                                            This policy has passed review and is ready to be published as a formal version.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                                    onClick={() => setShowPublishDialog(true)}
+                                                >
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    Publish Version
+                                                </Button>
+                                            </div>
+                                        )}
                                         <div>
                                             <Label htmlFor="policy-name">Policy Name</Label>
                                             <Input
@@ -825,7 +1133,10 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                     onChange={setContent}
                                                     className="min-h-[400px]"
                                                     onAiRewrite={handleAiRewrite}
-                                                    onAiFix={handleAiFix}
+                                                    onAiFix={handleAiFixPlaceholders}
+                                                    onComment={handleInlineComment}
+                                                    onCheckCompliance={handleCheckCompliance}
+                                                    ref={editorRef}
                                                 />
                                             ) : (
                                                 <div className="min-h-[400px] flex items-center justify-center bg-slate-50 rounded-lg border">
@@ -833,30 +1144,61 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                 </div>
                                             )}
                                         </div>
-                                        <PolicyLinter
-                                            content={content}
-                                            onInsertSection={(html) => {
-                                                setContent((prev) => `${prev || ""}\n${html}`);
-                                            }}
-                                            onReplaceContent={(html) => {
-                                                setContent(html);
-                                            }}
-                                            clientId={clientId}
-                                            policyId={policyId}
-                                            orgName={clientData?.name}
-                                        />
+                                        <div id="policy-linter-section">
+                                            <PolicyLinter
+                                                content={content}
+                                                onInsertSection={(html) => {
+                                                    setContent((prev) => `${prev || ""}\n${html}`);
+                                                }}
+                                                onReplaceContent={(html) => {
+                                                    setContent(html);
+                                                }}
+                                                clientId={clientId}
+                                                policyId={policyId}
+                                                orgName={clientData?.name}
+                                                onPublish={() => setShowPublishDialog(true)}
+                                                onExportWord={handleExportWord}
+                                                publishDisabled={policy?.approvalStatus !== 'approved'}
+                                                publishTooltip={policy?.approvalStatus === 'requested' ? "Awaiting Review" : "Requires Approval"}
+                                            />
+                                        </div>
+                                        <div className="mt-8 border-t pt-6" id="collaboration-hub">
+                                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                                <MessageSquare className="h-5 w-5 text-blue-600" />
+                                                Collaboration Hub
+                                            </h3>
+                                            <CommentsSection
+                                                clientId={clientId}
+                                                entityType="policy"
+                                                entityId={policyId}
+                                                initialContext={draftComment || undefined}
+                                                onClearContext={() => setDraftComment(null)}
+                                                onCommentSelect={(ctx) => {
+                                                    editorRef.current?.scrollToHighlight(ctx.index, ctx.length, ctx.quote);
+                                                }}
+                                            />
+                                        </div>
                                     </TabsContent>
                                     <TabsContent value="preview" className="m-0">
                                         <div className="prose prose-sm max-w-none">
                                             <h1>{name}</h1>
                                             <div dangerouslySetInnerHTML={renderPreview()} />
 
-                                            <div className="mt-8 border-t pt-6">
+                                            <div className="mt-8 border-t pt-6" id="collaboration-hub-preview">
                                                 <h3 className="text-lg font-medium mb-4">Auditor Comments & Feedback</h3>
                                                 <CommentsSection
                                                     clientId={clientId}
                                                     entityType="policy"
                                                     entityId={policyId}
+                                                    initialContext={draftComment || undefined}
+                                                    onClearContext={() => setDraftComment(null)}
+                                                    onCommentSelect={(ctx) => {
+                                                        setViewMode("edit"); // Switch to edit mode to see the editor
+                                                        // Wait for tab switch
+                                                        setTimeout(() => {
+                                                            editorRef.current?.scrollToHighlight(ctx.index, ctx.length, ctx.quote);
+                                                        }, 100);
+                                                    }}
                                                 />
                                             </div>
                                         </div>
@@ -925,40 +1267,240 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                         </div>
                                     </TabsContent>
                                     <TabsContent value="history" className="m-0">
-                                        <div className="space-y-4">
-                                            {versionHistory && versionHistory.length > 0 ? (
-                                                versionHistory.map((v: any) => (
-                                                    <div key={v.version.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold">{v.version.version}</span>
-                                                                <Badge variant="outline">{v.version.status}</Badge>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {new Date(v.version.createdAt).toLocaleString()}
-                                                                </span>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                            {/* Version History Column */}
+                                            <div className="space-y-4">
+                                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 pb-2 border-b">
+                                                    <History className="h-5 w-5 text-purple-600" />
+                                                    Version History
+                                                </h3>
+                                                <div className="space-y-3">
+                                                    {versionHistory && versionHistory.length > 0 ? (
+                                                        versionHistory.map((v: any) => (
+                                                            <div key={v.version.id} className="relative group">
+                                                                <div className="flex items-start justify-between p-4 border rounded-xl bg-white hover:border-purple-200 hover:shadow-sm transition-all">
+                                                                    <div className="space-y-1.5 flex-1 pr-4">
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-sm">{v.version.version}</span>
+                                                                            <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold border-purple-200 text-purple-700 bg-purple-50">
+                                                                                {v.version.status}
+                                                                            </Badge>
+                                                                            <span className="text-xs text-muted-foreground ml-auto sm:ml-0">
+                                                                                {new Date(v.version.createdAt).toLocaleString()}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-sm text-slate-600 leading-relaxed">
+                                                                            {v.version.description || <span className="italic text-slate-400">No description provided</span>}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2 pt-1">
+                                                                            <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                                                                {(v.publisher?.name || "?").charAt(0)}
+                                                                            </div>
+                                                                            <span className="text-xs text-slate-500 font-medium">
+                                                                                Published by {v.publisher?.name || "Unknown"}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100 text-slate-600"
+                                                                        onClick={() => handleRestoreVersion(v.version.id)}
+                                                                    >
+                                                                        <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                                                                        Restore
+                                                                    </Button>
+                                                                </div>
                                                             </div>
-                                                            <p className="text-sm">{v.version.description || "No description provided."}</p>
-                                                            <p className="text-xs text-muted-foreground">Published by: {v.publisher?.name || "Unknown"}</p>
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl bg-slate-50/50">
+                                                            <History className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                                            <p className="font-medium">No published versions yet</p>
+                                                            <p className="text-xs text-slate-400 mt-1">Publish a version to see history here</p>
                                                         </div>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleRestoreVersion(v.version.id)}
-                                                        >
-                                                            <RotateCcw className="mr-2 h-4 w-4" />
-                                                            Restore
-                                                        </Button>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center py-12 text-muted-foreground">
-                                                    <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                                    <p>No version history available for this policy.</p>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
+
+                                            {/* Activity Log Column */}
+                                            <div className="space-y-4">
+                                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 pb-2 border-b">
+                                                    <Activity className="h-5 w-5 text-blue-600" />
+                                                    Activity Log
+                                                </h3>
+                                                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {activityLogs && activityLogs.length > 0 ? (
+                                                        activityLogs.map((item: any) => {
+                                                            const details = typeof item.log.details === 'string'
+                                                                ? JSON.parse(item.log.details || '{}')
+                                                                : (item.log.details || {});
+
+                                                            let Icon = Activity;
+                                                            let bgClass = "bg-blue-50 text-blue-600 border-blue-100";
+
+                                                            switch (item.log.action) {
+                                                                case 'approve_policy': Icon = CheckCircle2; bgClass = "bg-green-50 text-green-600 border-green-100"; break;
+                                                                case 'reject_policy': Icon = X; bgClass = "bg-red-50 text-red-600 border-red-100"; break;
+                                                                case 'request_review': Icon = Users; bgClass = "bg-indigo-50 text-indigo-600 border-indigo-100"; break;
+                                                                case 'publish': Icon = Save; bgClass = "bg-purple-50 text-purple-600 border-purple-100"; break;
+                                                                case 'update': Icon = FileText; bgClass = "bg-slate-50 text-slate-600 border-slate-200"; break;
+                                                                case 'restore': Icon = RotateCcw; bgClass = "bg-amber-50 text-amber-600 border-amber-100"; break;
+                                                                case 'create': Icon = Plus; bgClass = "bg-emerald-50 text-emerald-600 border-emerald-100"; break;
+                                                                case 'comment': Icon = MessageSquare; bgClass = "bg-blue-50 text-blue-600 border-blue-100"; break;
+                                                            }
+
+                                                            return (
+                                                                <div key={item.log.id} className="group relative pl-4 pb-4 last:pb-0">
+                                                                    {/* Timeline connector */}
+                                                                    <div className="absolute left-[27px] top-8 bottom-0 w-px bg-slate-200 group-last:hidden"></div>
+
+                                                                    <div className="flex gap-4">
+                                                                        <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-sm z-10 ${bgClass}`}>
+                                                                            <Icon className="h-4 w-4" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0 bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                                                                            <div className="flex items-start justify-between gap-3 mb-1">
+                                                                                <p className="text-sm font-medium text-slate-900 truncate">
+                                                                                    {item.log.action.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                                                                                </p>
+                                                                                <span className="text-[10px] text-muted-foreground whitespace-nowrap bg-slate-50 px-1.5 py-0.5 rounded border">
+                                                                                    {new Date(item.log.createdAt).toLocaleDateString()}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <p className="text-xs text-slate-600 mb-2 flex items-center gap-1.5">
+                                                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                                                                Performed by <span className="font-semibold text-slate-800">{item.user?.name || item.user?.email || 'System'}</span>
+                                                                            </p>
+
+                                                                            {(Object.keys(details).length > 0) && (
+                                                                                <div className="text-xs text-slate-600 bg-slate-50/80 p-2.5 rounded border border-slate-100/50 space-y-1">
+                                                                                    {details.name && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Name:</span> <span>{details.name}</span></div>}
+                                                                                    {details.changes && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Changes:</span> <span>{Array.isArray(details.changes) ? details.changes.join(', ') : details.changes}</span></div>}
+                                                                                    {details.content && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Content:</span> <span className="truncate">{details.content}</span></div>}
+                                                                                    {details.message && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Message:</span> <span>{details.message}</span></div>}
+                                                                                    {details.notes && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Notes:</span> <span>{details.notes}</span></div>}
+                                                                                    {details.feedback && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Feedback:</span> <span className="text-orange-700 italic">"{details.feedback}"</span></div>}
+                                                                                    {details.version && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Version:</span> <span className="font-mono bg-white px-1 rounded border">{details.version}</span></div>}
+                                                                                    {details.reviewers && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Reviewers:</span> <span>{Array.isArray(details.reviewers) ? `${details.reviewers.length} assigned` : details.reviewers}</span></div>}
+                                                                                    {details.restoredFromVersion && <div className="flex gap-2"><span className="font-medium text-slate-500 w-16 shrink-0">Source:</span> <span>{details.restoredFromVersion}</span></div>}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <div className="text-center py-12 text-muted-foreground border border-dashed rounded-xl bg-slate-50/50">
+                                                            <Activity className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                                            <p className="font-medium">No activity recorded yet</p>
+                                                            <p className="text-xs text-slate-400 mt-1">Actions performed on this policy will appear here</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </TabsContent>
-                                    <TabsContent value="integrations" className="m-0 space-y-6">
+                                    <TabsContent value="links" className="m-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h2 className="text-2xl font-bold tracking-tight text-slate-900">Compliance Dashboard</h2>
+                                                <p className="text-sm text-slate-500">Mapping policy enforcement to risk mitigation and controls.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Executive summary header */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <Card className="bg-gradient-to-br from-orange-50 to-white border-orange-100 shadow-sm overflow-hidden relative group">
+                                                <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 group-hover:scale-125 transition-transform duration-500">
+                                                    <ShieldAlert size={80} className="text-orange-900" />
+                                                </div>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-bold text-orange-900/60 uppercase tracking-wider flex items-center gap-2">
+                                                        <ShieldAlert className="h-4 w-4 text-orange-600" />
+                                                        Risk Exposure
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="text-3xl font-black text-orange-950 flex items-baseline gap-2">
+                                                        {riskMetrics?.totalRisks || 0}
+                                                        <span className="text-sm font-medium text-orange-800/60 font-sans tracking-normal">Mitigated Risks</span>
+                                                    </div>
+                                                    <div className="mt-4 flex items-center gap-2">
+                                                        {riskMetrics && riskMetrics.riskLevelCounts && (riskMetrics.riskLevelCounts.critical > 0 || riskMetrics.riskLevelCounts.high > 0) ? (
+                                                            <>
+                                                                {riskMetrics.riskLevelCounts.critical > 0 && (
+                                                                    <Badge className="bg-red-500 hover:bg-red-600 border-none shadow-sm">{riskMetrics.riskLevelCounts.critical} Critical</Badge>
+                                                                )}
+                                                                {riskMetrics.riskLevelCounts.high > 0 && (
+                                                                    <Badge className="bg-orange-500 hover:bg-orange-600 border-none shadow-sm">{riskMetrics.riskLevelCounts.high} High</Badge>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-xs text-orange-700/50 italic font-medium">No high risks linked</span>
+                                                        )}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100 shadow-sm overflow-hidden relative group">
+                                                <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 group-hover:scale-125 transition-transform duration-500">
+                                                    <Shield size={80} className="text-emerald-900" />
+                                                </div>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-bold text-emerald-900/60 uppercase tracking-wider flex items-center gap-2">
+                                                        <Shield className="h-4 w-4 text-emerald-600" />
+                                                        Control Presence
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="text-3xl font-black text-emerald-950 flex items-baseline gap-2">
+                                                        {controlMetrics?.totalControls || 0}
+                                                        <span className="text-sm font-medium text-emerald-800/60 font-sans tracking-normal">Linked Controls</span>
+                                                    </div>
+                                                    <div className="mt-4 w-full bg-emerald-100 h-2 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-emerald-600 transition-all duration-1000 ease-out"
+                                                            style={{ width: `${controlMetrics?.implementationRate || 0}%` }}
+                                                        />
+                                                    </div>
+                                                    <p className="mt-2 text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                                                        {controlMetrics?.implementationRate || 0}% Implementation Rate
+                                                    </p>
+                                                </CardContent>
+                                            </Card>
+
+                                            <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100 shadow-sm overflow-hidden relative group">
+                                                <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 group-hover:scale-125 transition-transform duration-500">
+                                                    <Target size={80} className="text-blue-900" />
+                                                </div>
+                                                <CardHeader className="pb-2">
+                                                    <CardTitle className="text-sm font-bold text-blue-900/60 uppercase tracking-wider flex items-center gap-2">
+                                                        <Target className="h-4 w-4 text-blue-600" />
+                                                        Policy Maturity
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="text-3xl font-black text-blue-950 flex items-baseline gap-2">
+                                                        {controlMetrics && riskMetrics ? (
+                                                            <>
+                                                                {Math.round((controlMetrics.implementationRate + (riskMetrics.totalRisks > 0 ? 100 : 0)) / 2)}
+                                                                <span className="text-sm font-medium text-blue-800/60 font-sans tracking-normal">Coverage Score</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-sm font-medium">Evaluation Required</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-4">
+                                                        <Badge variant="outline" className="border-blue-200 text-blue-700 font-bold bg-white/50 backdrop-blur-sm shadow-sm ring-1 ring-blue-100/50">
+                                                            {policy?.approvalStatus === 'approved' ? 'Audit-Ready' : 'In-Development'}
+                                                        </Badge>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </div>
                                         {/* ==================== POLICY RISK & CONTROL DASHBOARD ==================== */}
 
                                         {/* Gap Alerts Section */}
@@ -1365,27 +1907,27 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                             const scoreColor = score >= 20 ? 'bg-red-500' : score >= 15 ? 'bg-orange-500' : score >= 9 ? 'bg-yellow-500' : 'bg-green-500';
                                                             const residualScore = item.risk.residualScore || item.risk.inherentScore || 0;
                                                             return (
-                                                                <div key={`linked-risk-${item.risk.id}`} className="group flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-orange-50/50 to-transparent border-orange-100 hover:border-orange-300 transition-colors">
-                                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <div key={`linked-risk-${item.risk.id}`} className="group flex items-center justify-between p-4 border rounded-xl bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300">
+                                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
                                                                         {/* Risk Score Badge */}
-                                                                        <div className={`${scoreColor} text-white font-bold text-xs w-8 h-8 rounded-lg flex items-center justify-center shrink-0`}>
+                                                                        <div className={`${scoreColor} text-white font-bold text-sm w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110 group-hover:rotate-3`}>
                                                                             {score}
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
                                                                             <a
                                                                                 href="#"
                                                                                 onClick={(e) => { e.preventDefault(); setSelectedRisk(item.risk); }}
-                                                                                className="font-medium text-sm text-orange-950 hover:text-orange-700 hover:underline flex items-center gap-1 truncate cursor-pointer"
+                                                                                className="font-semibold text-sm text-slate-900 hover:text-orange-700 hover:underline flex items-center gap-1.5 truncate cursor-pointer transition-colors"
                                                                             >
                                                                                 {item.risk.title}
-                                                                                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                                                <ExternalLink className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
                                                                             </a>
-                                                                            <div className="flex items-center gap-2 text-xs text-orange-700/70 mt-0.5">
-                                                                                <span>Inherent: {item.risk.inherentRisk || score}</span>
+                                                                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                                                                                <span className="flex items-center gap-1">Inherent: <strong className="text-slate-700 font-bold">{item.risk.inherentRisk || score}</strong></span>
                                                                                 {residualScore < score && (
                                                                                     <>
-                                                                                        <span>→</span>
-                                                                                        <span className="text-green-700 flex items-center gap-0.5">
+                                                                                        <span className="text-slate-300">|</span>
+                                                                                        <span className="text-green-600 font-semibold flex items-center gap-1">
                                                                                             <TrendingDown className="h-3 w-3" />
                                                                                             Residual: {residualScore}
                                                                                         </span>
@@ -1397,7 +1939,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
-                                                                        className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors"
+                                                                        className="h-9 w-9 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full shrink-0 transition-all opacity-0 group-hover:opacity-100"
                                                                         title="Unlink Risk"
                                                                         onClick={() => handleUnlinkRisk(item.risk.id)}
                                                                     >
@@ -1407,9 +1949,49 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                             );
                                                         })
                                                     ) : (
-                                                        <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                                                            <ShieldAlert className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                                                            <p className="text-sm">No linked risks</p>
+                                                        <div className="relative overflow-hidden group p-6 rounded-xl border border-dashed border-orange-200 bg-orange-50/20 text-center transition-all hover:bg-orange-50/40">
+                                                            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-orange-100/30 rounded-full blur-2xl group-hover:bg-orange-200/40 transition-colors" />
+                                                            <ShieldAlert className="h-10 w-10 mx-auto mb-4 text-orange-400 opacity-60 group-hover:scale-110 transition-transform" />
+                                                            <h4 className="font-semibold text-orange-950 mb-1">Inherent Risk Coverage Gap</h4>
+                                                            <p className="text-sm text-orange-700/70 max-w-xs mx-auto mb-4">
+                                                                This policy does not yet mitigate any identified risks. Mapping risks allows for residual risk calculations.
+                                                            </p>
+
+                                                            {suggestedRisks.length > 0 && (
+                                                                <div className="mb-6 bg-white/60 rounded-xl p-3 border border-orange-100 text-left max-w-sm mx-auto">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-orange-600 mb-2 flex items-center gap-1">
+                                                                        <Sparkles className="h-3 w-3" /> Suggested Risks
+                                                                    </p>
+                                                                    <div className="space-y-2">
+                                                                        {suggestedRisks.map((risk: any) => (
+                                                                            <div key={`sug-risk-${risk.id}`} className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-orange-50 text-xs shadow-sm">
+                                                                                <span className="truncate font-medium text-orange-950">{risk.title}</span>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    className="h-6 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                                                    onClick={() => {
+                                                                                        setSelectedRiskIds([risk.id]);
+                                                                                        setSuggestedRiskIds([risk.id]);
+                                                                                        setOpenLinkRisk(true);
+                                                                                    }}
+                                                                                >
+                                                                                    Link
+                                                                                </Button>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <Button
+                                                                variant="outline"
+                                                                className="bg-white hover:bg-orange-100/50 border-orange-200 text-orange-700 shadow-sm hover:shadow-md transition-all font-medium"
+                                                                onClick={() => setOpenLinkRisk(true)}
+                                                            >
+                                                                <LinkIcon className="h-4 w-4 mr-2" />
+                                                                Browse & Link Risks
+                                                            </Button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1593,30 +2175,30 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                             };
                                                             const config = statusConfig[status] || statusConfig['not_implemented'];
                                                             return (
-                                                                <div key={`linked-control-${item.clientControl.id}`} className="group flex items-center justify-between p-3 border rounded-lg bg-gradient-to-r from-emerald-50/50 to-transparent border-emerald-100 hover:border-emerald-300 transition-colors">
-                                                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <div key={`linked-control-${item.clientControl.id}`} className="group flex items-center justify-between p-4 border rounded-xl bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-emerald-300 transition-all duration-300">
+                                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
                                                                         {/* Status Badge */}
-                                                                        <div className={`${config.color} text-white w-8 h-8 rounded-lg flex items-center justify-center shrink-0`}>
+                                                                        <div className={`${config.color} text-white w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110 group-hover:-rotate-3`}>
                                                                             {config.icon}
                                                                         </div>
                                                                         <div className="flex-1 min-w-0">
                                                                             <a
                                                                                 href="#"
                                                                                 onClick={(e) => { e.preventDefault(); setSelectedControl(item); }}
-                                                                                className="font-medium text-sm text-emerald-950 hover:text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                                                                                className="font-semibold text-sm text-slate-900 hover:text-emerald-700 hover:underline flex items-center gap-1.5 cursor-pointer transition-colors"
                                                                             >
                                                                                 {item.clientControl.clientControlId && (
                                                                                     <span className="font-mono font-bold text-emerald-700">{item.clientControl.clientControlId}</span>
                                                                                 )}
                                                                                 <span className="truncate">{item.control?.name || 'Unnamed Control'}</span>
-                                                                                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                                                <ExternalLink className="h-3 w-3 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
                                                                             </a>
-                                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                                                            <div className="flex items-center gap-3 mt-1">
+                                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-bold uppercase tracking-wider h-5 bg-emerald-50 text-emerald-700 border-emerald-100">
                                                                                     {config.label}
                                                                                 </Badge>
                                                                                 {item.clientControl.owner && (
-                                                                                    <span className="text-xs text-emerald-700/70">Owner: {item.clientControl.owner}</span>
+                                                                                    <span className="text-xs text-slate-500">Owner: <span className="text-slate-700 font-medium">{item.clientControl.owner}</span></span>
                                                                                 )}
                                                                             </div>
                                                                         </div>
@@ -1624,7 +2206,7 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
-                                                                        className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0 transition-colors"
+                                                                        className="h-9 w-9 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full shrink-0 transition-all opacity-0 group-hover:opacity-100"
                                                                         title="Unlink Control"
                                                                         onClick={() => handleUnlinkControl(item.clientControl.id)}
                                                                     >
@@ -1634,21 +2216,66 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                                             );
                                                         })
                                                     ) : (
-                                                        <div className="text-center py-8 text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                                                            <Shield className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                                                            <p className="text-sm">No linked controls</p>
+                                                        <div className="relative overflow-hidden group p-6 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/20 text-center transition-all hover:bg-emerald-50/40">
+                                                            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-emerald-100/30 rounded-full blur-2xl group-hover:bg-emerald-200/40 transition-colors" />
+                                                            <Shield className="h-10 w-10 mx-auto mb-4 text-emerald-400 opacity-60 group-hover:scale-110 transition-transform" />
+                                                            <h4 className="font-semibold text-emerald-950 mb-1">Execution Gap Detected</h4>
+                                                            <p className="text-sm text-emerald-700/70 max-w-xs mx-auto mb-4">
+                                                                No controls are linked to this policy. Effective policies require active enforcement through linked controls.
+                                                            </p>
+
+                                                            {suggestedControls.length > 0 && (
+                                                                <div className="mb-6 bg-white/60 rounded-xl p-3 border border-emerald-100 text-left max-w-sm mx-auto">
+                                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2 flex items-center gap-1">
+                                                                        <Sparkles className="h-3 w-3" /> Suggested Controls
+                                                                    </p>
+                                                                    <div className="space-y-2">
+                                                                        {suggestedControls.map((item: any) => (
+                                                                            <div key={`sug-ctrl-${item.clientControl.id}`} className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-emerald-50 text-xs shadow-sm">
+                                                                                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                                                                                    <span className="font-mono font-bold text-emerald-700 shrink-0">{item.clientControl.clientControlId}</span>
+                                                                                    <span className="truncate text-emerald-900">{item.control?.name}</span>
+                                                                                </div>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="ghost"
+                                                                                    className="h-6 px-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 shrink-0"
+                                                                                    onClick={() => {
+                                                                                        setSelectedControlIds([item.clientControl.id]);
+                                                                                        setSuggestedControlIds([item.clientControl.id]);
+                                                                                        setOpenLinkControl(true);
+                                                                                    }}
+                                                                                >
+                                                                                    Link
+                                                                                </Button>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <Button
+                                                                variant="outline"
+                                                                className="bg-white hover:bg-emerald-100/50 border-emerald-200 text-emerald-700 shadow-sm hover:shadow-md transition-all font-medium"
+                                                                onClick={() => setOpenLinkControl(true)}
+                                                            >
+                                                                <LinkIcon className="h-4 w-4 mr-2" />
+                                                                Browse & Link Controls
+                                                            </Button>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="mt-8 border-t pt-6">
-                                            <h3 className="text-lg font-medium mb-4">Auditor Comments</h3>
+                                        <div className="mt-8 border-t pt-6" id="collaboration-hub">
+                                            <h3 className="text-lg font-medium mb-4">Collaboration Hub</h3>
                                             <CommentsSection
                                                 clientId={clientId}
                                                 entityType="policy"
                                                 entityId={policyId}
+                                                initialContext={draftComment || undefined}
+                                                onClearContext={() => setDraftComment(null)}
                                             />
                                         </div>
                                     </TabsContent>
@@ -1692,12 +2319,25 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
 
                                 <div>
                                     <Label htmlFor="policy-owner">Owner</Label>
-                                    <Input
-                                        id="policy-owner"
+                                    <Select
                                         value={owner}
-                                        onChange={(e) => setOwner(e.target.value)}
-                                        placeholder="Policy owner or department"
-                                    />
+                                        onValueChange={setOwner}
+                                    >
+                                        <SelectTrigger id="policy-owner">
+                                            <SelectValue placeholder="Select policy owner" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                                            {employeesList?.map((employee: any) => {
+                                                const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.email;
+                                                return (
+                                                    <SelectItem key={employee.id} value={fullName}>
+                                                        {fullName}
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div>
@@ -1731,6 +2371,19 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                             : "Unknown"}
                                     </div>
                                 </div>
+                                <div>
+                                    <Label htmlFor="policy-review-date">Review Date</Label>
+                                    <Input
+                                        id="policy-review-date"
+                                        type="date"
+                                        value={reviewDueDate}
+                                        onChange={(e) => setReviewDueDate(e.target.value)}
+                                        className="mt-1"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Next scheduled review for this policy
+                                    </p>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -1739,16 +2392,105 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                 <CardTitle>Quick Actions</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-2">
+                                <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Request Policy Review</DialogTitle>
+                                            <DialogDescription>
+                                                Assign team members to review this policy before publishing.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="grid gap-2">
+                                                <Label>Reviewers</Label>
+                                                {/* Simple multi-select placeholder */}
+                                                <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
+                                                    {employeesList?.map((emp: any) => {
+                                                        const id = String(emp.id); // Ensure string ID
+                                                        const isSelected = selectedReviewers.includes(id);
+                                                        return (
+                                                            <div key={emp.id} className="flex items-center space-x-2 py-1">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id={`reviewer-${emp.id}`}
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setSelectedReviewers([...selectedReviewers, id]);
+                                                                        } else {
+                                                                            setSelectedReviewers(selectedReviewers.filter(r => r !== id));
+                                                                        }
+                                                                    }}
+                                                                    className="rounded border-gray-300"
+                                                                />
+                                                                <label htmlFor={`reviewer-${emp.id}`} className="text-sm cursor-pointer select-none">
+                                                                    {emp.firstName} {emp.lastName} ({emp.email})
+                                                                </label>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {(!employeesList || employeesList.length === 0) && (
+                                                        <div className="text-sm text-muted-foreground p-2">No employees found.</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="review-due-date">Due Date</Label>
+                                                <Input
+                                                    id="review-due-date"
+                                                    type="date"
+                                                    value={reviewDueDate}
+                                                    onChange={(e) => setReviewDueDate(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="review-message">Message (Optional)</Label>
+                                                <Textarea
+                                                    id="review-message"
+                                                    placeholder="Please review section 4 regarding access control..."
+                                                    value={reviewMessage}
+                                                    onChange={(e) => setReviewMessage(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setShowReviewDialog(false)}>Cancel</Button>
+                                            <Button onClick={handleRequestReview} disabled={requestReviewMutation.isPending}>
+                                                {requestReviewMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                                Send Request
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                                 <Button
-                                    variant="outline"
-                                    className="w-full justify-start"
+                                    className="w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold mb-2"
+                                    onClick={() => setShowReviewDialog(true)}
+                                    disabled={(policy as any).approvalStatus === 'requested' || (policy as any).approvalStatus === 'approved'}
+                                >
+                                    <Users className="mr-2 h-4 w-4" />
+                                    {(policy as any).approvalStatus === 'requested' ? "Review Pending" : "Request Review"}
+                                </Button>
+
+                                <Button
+                                    className="w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold"
                                     onClick={() => setShowDistributionDialog(true)}
                                 >
                                     <Users className="mr-2 h-4 w-4" />
                                     Assign to Employees
                                 </Button>
 
-                                <Button variant="outline" className="w-full justify-start" onClick={handleExportWord}>
+                                <Button
+                                    className="w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold"
+                                    onClick={handleAiFixPlaceholders}
+                                >
+                                    <Sparkles className="mr-2 h-4 w-4" />
+                                    Fix Placeholders
+                                </Button>
+
+                                <Button
+                                    className="w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold"
+                                    onClick={handleExportWord}
+                                >
                                     <FileText className="mr-2 h-4 w-4" />
                                     Export as Word
                                 </Button>
@@ -1760,6 +2502,8 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                         clientId,
                                         policyId,
                                         onRewrite: (html: string) => setContent(html),
+                                        className: "w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold",
+                                        variant: "ghost"
                                     }}
                                 />
                                 {import.meta.env.VITE_ENABLE_PREMIUM !== 'true' && (
@@ -1767,18 +2511,28 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                         Enable Premium (VITE_ENABLE_PREMIUM=true) to use AI rewrite
                                     </div>
                                 )}
+                                <div className="space-y-1">
+                                    <Button
+                                        className="w-full justify-start bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] hover:text-white transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={() => setShowPublishDialog(true)}
+                                        disabled={policy.status !== 'approved' && (policy as any).approvalStatus !== 'approved'}
+                                    >
+                                        <History className="mr-2 h-4 w-4" />
+                                        Publish Version
+                                    </Button>
+                                    {(policy.status !== 'approved' && (policy as any).approvalStatus !== 'approved') && (
+                                        <p className="text-xs text-muted-foreground text-center">
+                                            Policy must be approved before publishing.
+                                        </p>
+                                    )}
+                                </div>
+
                                 <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-start">
-                                            <History className="mr-2 h-4 w-4" />
-                                            Publish Version
-                                        </Button>
-                                    </DialogTrigger>
                                     <DialogContent>
                                         <DialogHeader>
                                             <DialogTitle>Publish New Version</DialogTitle>
                                             <DialogDescription>
-                                                Create a permanent snapshot of the current draft. This version will be listed in the history and can be restored later.
+                                                Create a new version snapshot. This will mark the policy as "Approved" and save the current content to history.
                                             </DialogDescription>
                                         </DialogHeader>
                                         <div className="grid gap-4 py-4">
@@ -1810,10 +2564,6 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                                         </DialogFooter>
                                     </DialogContent>
                                 </Dialog>
-                                <Button variant="outline" className="w-full justify-start">
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Create Version
-                                </Button>
                             </CardContent>
                         </Card>
                     </div>
@@ -1827,16 +2577,18 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                 clientId={clientId}
             />
 
-            {selectedControl && (
-                <ControlDetailsDialog
-                    open={!!selectedControl}
-                    onOpenChange={(open) => !open && setSelectedControl(null)}
-                    clientControl={selectedControl.clientControl}
-                    control={selectedControl.control}
-                    clientId={clientId}
-                    onUpdate={() => refetchLinkedControls()}
-                />
-            )}
+            {
+                selectedControl && (
+                    <ControlDetailsDialog
+                        open={!!selectedControl}
+                        onOpenChange={(open) => !open && setSelectedControl(null)}
+                        clientControl={selectedControl.clientControl}
+                        control={selectedControl.control}
+                        clientId={clientId}
+                        onUpdate={() => refetchLinkedControls()}
+                    />
+                )
+            }
 
             <DistributionDialog
                 policyId={policyId}
@@ -1844,6 +2596,12 @@ export default function PolicyEditor(props: { id?: string; policyId?: string }) 
                 open={showDistributionDialog}
                 onOpenChange={setShowDistributionDialog}
             />
-        </DashboardLayout>
+            <AiRewriteDialog
+                open={showRewriteDialog}
+                onOpenChange={setShowRewriteDialog}
+                onRewrite={executeAiRewrite}
+                isPending={refineMutation.isPending}
+            />
+        </DashboardLayout >
     );
 }

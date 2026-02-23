@@ -47,40 +47,22 @@ export default function NIST80037Implement() {
     const systemId = useNistSystemId();
     const clientId = parseInt(id || "0");
     const [isSaving, setIsSaving] = useState(false);
+    const [, setLocation] = useLocation();
 
-    // Dynamic State
-    const [controls, setControls] = useState([
-        { id: "AC-2", title: "Account Management", status: "Implemented", type: "Technical", description: "Configured AWS IAM with role-based access control and MFA session enforcement." },
-        { id: "AU-6", title: "Audit Record Review", status: "Partially Implemented", type: "Operational", description: "Splunk dashboards configured; weekly review formal procedure still in draft." },
-        { id: "IA-2", title: "Identification and Authentication", status: "Implemented", type: "Technical", description: "Okta integration finalized with SAML 2.0 and mandatory FIDO2 hardware keys." },
-        { id: "CP-2", title: "Contingency Plan", status: "Planned", type: "Operational", description: "BIA completed. Full contingency plan drafting scheduled for Q3." }
-    ]);
+    // Dynamic State - initialize empty, will be populated from checklist data
+    const [controls, setControls] = useState<any[]>([]);
+    const [families, setFamilies] = useState<any[]>([]);
 
-    const [families, setFamilies] = useState([
-        { name: "Access Control", progress: 85, color: "bg-indigo-500" },
-        { name: "Audit & Accountability", progress: 42, color: "bg-emerald-500" },
-        { name: "Configuration Management", progress: 60, color: "bg-amber-500" },
-        { name: "Identification & Auth", progress: 95, color: "bg-rose-500" }
-    ]);
-
-    // Reset local state when systemId changes
+    // Clear state when systemId changes to trigger loading state
     useEffect(() => {
-        setControls([
-            { id: "AC-2", title: "Account Management", status: "Implemented", type: "Technical", description: "Configured AWS IAM with role-based access control and MFA session enforcement." },
-            { id: "AU-6", title: "Audit Record Review", status: "Partially Implemented", type: "Operational", description: "Splunk dashboards configured; weekly review formal procedure still in draft." },
-            { id: "IA-2", title: "Identification and Authentication", status: "Implemented", type: "Technical", description: "Okta integration finalized with SAML 2.0 and mandatory FIDO2 hardware keys." },
-            { id: "CP-2", title: "Contingency Plan", status: "Planned", type: "Operational", description: "BIA completed. Full contingency plan drafting scheduled for Q3." }
-        ]);
-        setFamilies([
-            { name: "Access Control", progress: 85, color: "bg-indigo-500" },
-            { name: "Audit & Accountability", progress: 42, color: "bg-emerald-500" },
-            { name: "Configuration Management", progress: 60, color: "bg-amber-500" },
-            { name: "Identification & Auth", progress: 95, color: "bg-rose-500" }
-        ]);
+        // Clear controls and families to show loading state
+        // The trpc query will fetch the actual data
+        setControls([]);
+        setFamilies([]);
     }, [systemId]);
 
     // TRPC - Using any casting due to persistent stale type inference for these specific routers
-    const { data: checklistData } = (trpc as any).checklist.get.useQuery({
+    const { data: checklistData, isLoading } = (trpc as any).checklist.get.useQuery({
         clientId,
         checklistId: systemId ? `nist-800-37-implement-${systemId}` : 'no-system'
     }, {
@@ -108,7 +90,7 @@ export default function NIST80037Implement() {
             toast.error("No system selected", { description: "Please select a system first." });
             return;
         }
-        
+
         setIsSaving(true);
         try {
             await updateChecklistMutation.mutateAsync({
@@ -158,7 +140,7 @@ export default function NIST80037Implement() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
                         { label: "Dashboard", href: `/dashboard` },
@@ -225,7 +207,7 @@ export default function NIST80037Implement() {
                                     <p className="text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">{implementedCount} of {totalCount} Controls</p>
                                 </div>
                                 <div className="space-y-4 pt-4 border-t">
-                                    {families.map((f, i) => (
+                                    {families.length > 0 ? families.map((f, i) => (
                                         <div key={i} className="space-y-1.5">
                                             <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
                                                 <span className="text-slate-500">{f.name}</span>
@@ -233,7 +215,12 @@ export default function NIST80037Implement() {
                                             </div>
                                             <Progress value={f.progress} className="h-1 bg-slate-100" indicatorClassName={f.color} />
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <div className="text-center py-4 text-slate-400">
+                                            <p className="text-xs font-bold">No control families data</p>
+                                            <p className="text-[10px]">Select a system to view progress</p>
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
@@ -273,7 +260,7 @@ export default function NIST80037Implement() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="implementation" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -289,7 +276,7 @@ export default function NIST80037Implement() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="implementation" className="p-10 space-y-8 m-0">
                                     <div className="flex justify-between items-center">
                                         <div className="space-y-1">
@@ -308,52 +295,65 @@ export default function NIST80037Implement() {
                                     </div>
 
                                     <div className="space-y-6">
-                                        {(controls as any[]).map((control, i) => (
-                                            <div key={i} className="p-8 bg-white border rounded-[3rem] hover:shadow-xl transition-all group relative overflow-hidden">
-                                                <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
-                                                    <div className="flex flex-col items-center gap-2">
-                                                        <div className={cn(
-                                                            "w-20 h-20 rounded-[2rem] flex items-center justify-center border-2 transition-all",
-                                                            control.status === 'Implemented' ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
-                                                                control.status === 'Partially Implemented' ? "bg-amber-50 border-amber-200 text-amber-600" :
-                                                                    "bg-slate-50 border-slate-200 text-slate-400"
-                                                        )}>
-                                                            <span className="font-black text-2xl tracking-tighter">{control.id}</span>
-                                                        </div>
-                                                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest py-1 border-slate-100">{control.type}</Badge>
-                                                    </div>
-                                                    <div className="flex-1 space-y-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <h4 className="text-2xl font-black text-slate-900 tracking-tight">{control.title}</h4>
-                                                            <Badge className={cn(
-                                                                "font-black px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest",
-                                                                control.status === 'Implemented' ? "bg-emerald-500 text-white" :
-                                                                    control.status === 'Partially Implemented' ? "bg-amber-500 text-white" :
-                                                                        "bg-indigo-600 text-white"
-                                                            )}>{control.status}</Badge>
-                                                        </div>
-                                                        <p className="text-slate-500 font-medium leading-relaxed font-serif italic text-lg opacity-80">
-                                                            "{control.description}"
-                                                        </p>
-                                                        <div className="flex gap-3 pt-2">
-                                                            <Button
-                                                                onClick={() => handleUpdateStatus(control.id)}
-                                                                className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-6 font-bold text-xs uppercase tracking-widest gap-2"
-                                                            >
-                                                                Update Status
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                onClick={() => toast.info(`Requirement for ${control.id}`, { description: `Standard requirement for NIST ${control.id} implementation...` })}
-                                                                className="rounded-xl h-10 px-6 font-bold text-xs uppercase tracking-widest gap-2 border-2 border-slate-200 hover:bg-slate-50"
-                                                            >
-                                                                Review Requirement
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                        {isLoading ? (
+                                            <div className="text-center py-12">
+                                                <p className="text-slate-500 font-medium">Loading implementation data...</p>
                                             </div>
-                                        ))}
+                                        ) : controls.length > 0 ? (
+                                            <div>
+                                                {controls.map((control: any, i: number) => (
+                                                    <div key={i} className="p-8 bg-white border rounded-[3rem] hover:shadow-xl transition-all group relative overflow-hidden">
+                                                        <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <div className={cn(
+                                                                    "w-20 h-20 rounded-[2rem] flex items-center justify-center border-2 transition-all",
+                                                                    control.status === 'Implemented' ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
+                                                                        control.status === 'Partially Implemented' ? "bg-amber-50 border-amber-200 text-amber-600" :
+                                                                            "bg-slate-50 border-slate-200 text-slate-400"
+                                                                )}>
+                                                                    <span className="font-black text-2xl tracking-tighter">{control.id}</span>
+                                                                </div>
+                                                                <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest py-1 border-slate-100">{control.type}</Badge>
+                                                            </div>
+                                                            <div className="flex-1 space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <h4 className="text-2xl font-black text-slate-900 tracking-tight">{control.title}</h4>
+                                                                    <Badge className={cn(
+                                                                        "font-black px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest",
+                                                                        control.status === 'Implemented' ? "bg-emerald-500 text-white" :
+                                                                            control.status === 'Partially Implemented' ? "bg-amber-500 text-white" :
+                                                                                "bg-indigo-600 text-white"
+                                                                    )}>{control.status}</Badge>
+                                                                </div>
+                                                                <p className="text-slate-500 font-medium leading-relaxed font-serif italic text-lg opacity-80">
+                                                                    "{control.description}"
+                                                                </p>
+                                                                <div className="flex gap-3 pt-2">
+                                                                    <Button
+                                                                        onClick={() => handleUpdateStatus(control.id)}
+                                                                        className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-10 px-6 font-bold text-xs uppercase tracking-widest gap-2"
+                                                                    >
+                                                                        Update Status
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        onClick={() => toast.info(`Requirement for ${control.id}`, { description: `Standard requirement for NIST ${control.id} implementation...` })}
+                                                                        className="rounded-xl h-10 px-6 font-bold text-xs uppercase tracking-widest gap-2 border-2 border-slate-200 hover:bg-slate-50"
+                                                                    >
+                                                                        Review Requirement
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-12 bg-slate-50 rounded-3xl">
+                                                <p className="text-slate-500 font-medium">No implementation data for this system</p>
+                                                <p className="text-sm text-slate-400">Select a system and save to see controls</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </TabsContent>
 
@@ -453,9 +453,9 @@ export default function NIST80037Implement() {
                                         </Button>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </NIST80037Layout>

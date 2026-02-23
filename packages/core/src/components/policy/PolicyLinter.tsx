@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@comp
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Button } from "@complianceos/ui/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
-import { AlertTriangle, CheckCircle2, Plus, Wand2, Loader2, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Wand2, Loader2, Sparkles, Shield, FileText } from "lucide-react";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
 // Removed premium slot actions for placeholders to avoid duplicate/faulty buttons
@@ -131,14 +131,22 @@ export function PolicyLinter({
   onReplaceContent,
   clientId,
   policyId,
+  onPublish,
+  onExportWord,
   orgName,
+  publishDisabled,
+  publishTooltip,
 }: {
   content: string;
   onInsertSection: (htmlToAppend: string) => void;
   onReplaceContent?: (newHtml: string) => void;
   clientId?: number;
   policyId?: number;
+  onPublish?: () => void;
+  onExportWord?: () => void;
   orgName?: string;
+  publishDisabled?: boolean;
+  publishTooltip?: string;
 }) {
   const contentText = useMemo(() => normalizeText(content || ""), [content]);
 
@@ -255,9 +263,69 @@ export function PolicyLinter({
       </CardHeader>
       <CardContent>
         {issues.length === 0 ? (
-          <div className="flex items-center gap-2 text-green-700">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="text-sm">All required sections detected.</span>
+          <div className="flex flex-col items-center justify-center py-10 text-center bg-gradient-to-b from-green-50/80 to-emerald-50/40 rounded-xl border border-green-200 shadow-sm">
+            {/* Animated success icon */}
+            <div className="relative mb-4">
+              <div className="absolute inset-0 h-16 w-16 bg-green-200 rounded-full animate-ping opacity-20" />
+              <div className="relative h-16 w-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                <CheckCircle2 className="h-8 w-8 text-white" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-semibold text-green-900">Compliance Check Passed</h3>
+            <p className="text-sm text-green-700 mt-1 max-w-md">
+              Your policy meets all recommended compliance standards. All sections are present and no unresolved placeholders were found.
+            </p>
+
+            {/* Stats summary */}
+            <div className="flex items-center gap-6 mt-5 mb-5">
+              <div className="flex flex-col items-center px-4 py-2 bg-white/70 rounded-lg border border-green-100">
+                <span className="text-2xl font-bold text-green-700">{sectionResults.filter(s => s.type === 'ok').length}</span>
+                <span className="text-xs text-green-600 font-medium">Sections Verified</span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-2 bg-white/70 rounded-lg border border-green-100">
+                <span className="text-2xl font-bold text-green-700">0</span>
+                <span className="text-xs text-green-600 font-medium">Placeholders Found</span>
+              </div>
+              <div className="flex flex-col items-center px-4 py-2 bg-white/70 rounded-lg border border-green-100">
+                <span className="text-2xl font-bold text-green-700">0</span>
+                <span className="text-xs text-green-600 font-medium">Issues Remaining</span>
+              </div>
+            </div>
+
+            {/* Next steps */}
+            <p className="text-xs text-muted-foreground mb-3">Your policy is ready — here are your next steps:</p>
+            <div className="flex gap-3">
+              {onPublish && (
+                <div className="flex flex-col items-center">
+                  <Button
+                    size="sm"
+                    onClick={onPublish}
+                    disabled={publishDisabled}
+                    className={cn(
+                      "bg-gradient-to-r shadow-md text-white px-6",
+                      publishDisabled
+                        ? "from-slate-400 to-slate-500 cursor-not-allowed opacity-80"
+                        : "from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:scale-105 transition-all"
+                    )}
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Publish Policy
+                  </Button>
+                  {publishDisabled && publishTooltip && (
+                    <span className="text-[10px] text-slate-500 mt-1.5 font-medium uppercase tracking-tight">
+                      {publishTooltip}
+                    </span>
+                  )}
+                </div>
+              )}
+              {onExportWord && (
+                <Button variant="outline" size="sm" onClick={onExportWord} className="border-green-200 hover:bg-green-50">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Export as Word
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -278,17 +346,17 @@ export function PolicyLinter({
                         <div>{i.title}</div>
                         {i.description && <div className="text-xs text-muted-foreground">{i.description}</div>}
                       </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-amber-700">
-                        <AlertTriangle className="h-4 w-4" />
-                        <span className="text-xs">Missing</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground">No action</span>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-amber-700">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-xs">Missing</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">No action</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 {placeholderWarnings.map((i) => (
                   <TableRow key={i.id}>
                     <TableCell className="font-medium">

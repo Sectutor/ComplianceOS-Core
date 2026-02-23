@@ -106,9 +106,9 @@ export const createEvidenceRouter = (
                 }));
             }),
         list: publicProcedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({ clientId: z.number(), systemId: z.string().optional() }))
             .query(async ({ input }: any) => {
-                const results = await db.getEvidence(input.clientId);
+                const results = await db.getEvidence(input.clientId, input.systemId);
                 // Flatten structure for report consumption
                 return results.map((r: any) => ({
                     id: r.id,

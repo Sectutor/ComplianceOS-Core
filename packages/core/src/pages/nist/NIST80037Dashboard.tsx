@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
@@ -33,8 +33,8 @@ import { useParams, Link, useLocation } from "wouter";
 import NIST80037Layout from "./NIST80037Layout";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { cn } from "@/lib/utils";
-import { RMF_SYSTEMS } from './nistConstants';
 import { useNistSystemId } from "./useNistSystem";
+import { trpc } from "@/lib/trpc";
 
 export default function NIST80037Dashboard() {
     const { id } = useParams<{ id: string }>();
@@ -43,8 +43,36 @@ export default function NIST80037Dashboard() {
 
     const activeSystemId = useNistSystemId();
 
-    const systems = RMF_SYSTEMS;
-    const currentSystem = activeSystemId ? systems.find(s => s.id === activeSystemId) || systems[0] : systems[0];
+    // Fetch real systems from backend
+    const { data: systems, isLoading } = trpc.federal.listFismaSystems.useQuery(
+        { clientId },
+        { enabled: !!clientId }
+    );
+
+    // Use real systems data or fallback to default
+    const currentSystem = useMemo(() => {
+        if (!systems || systems.length === 0) {
+            return {
+                id: "",
+                name: "No Systems Registered",
+                impact: "Moderate",
+                progress: 0,
+                assessed: 0,
+                total: 0,
+                days: 0,
+                ai: []
+            };
+        }
+        const sys = systems.find((s: any) => s.id.toString() === activeSystemId?.toString()) || systems[0];
+        return {
+            ...sys,
+            progress: sys.progress || 0,
+            assessed: sys.assessedControls || 0,
+            total: sys.totalControls || 0,
+            days: sys.daysToAto || 0,
+            ai: sys.aiReadiness || []
+        };
+    }, [systems, activeSystemId]);
 
     const steps = [
         {
@@ -107,11 +135,10 @@ export default function NIST80037Dashboard() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
-                        { label: "Dashboard", href: `/dashboard` },
-                        { label: "NIST Hub", href: `/clients/${clientId}/nist` },
+                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                         { label: "SP 800-37 (RMF)" },
                     ]}
                 />

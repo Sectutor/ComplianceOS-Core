@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { getDb } from "../../db";
 import * as schema from "../../schema";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,49 +10,105 @@ import { llmService } from "../../lib/llm/service";
 
 import { t as tType, clientProcedure as cpType, checkPremiumAccess } from "../trpc";
 
-export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpType) => {
+export const createFederalRouter = (t: any, clientProcedure: any) => {
     // Federal Compliance is a Premium Feature
     const premiumProcedure = clientProcedure.use(checkPremiumAccess);
 
     return t.router({
         // FIPS 199 Categorization
         getFipsCategorization: premiumProcedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({ clientId: z.number(), fismaSystemId: z.number().optional() }))
             .query(async ({ input }: any) => {
                 const dbConn = await getDb();
+                const filters = [eq(schema.fipsCategorizations.clientId, input.clientId)];
+                if (input.fismaSystemId) {
+                    filters.push(eq(schema.fipsCategorizations.fismaSystemId, input.fismaSystemId));
+                }
+
                 const results = await dbConn.select().from(schema.fipsCategorizations)
-                    .where(eq(schema.fipsCategorizations.clientId, input.clientId))
+                    .where(and(...filters))
                     .orderBy(desc(schema.fipsCategorizations.createdAt));
-                return results[0] || null; // Return latest
+
+                return results[0] || null;
             }),
 
-        saveFipsCategorization: clientProcedure
+        listFipsInformationTypes: premiumProcedure
+            .query(async () => {
+                const dbConn = await getDb();
+                return await dbConn.select().from(schema.fips199InformationTypesRef)
+                    .orderBy(schema.fips199InformationTypesRef.category, schema.fips199InformationTypesRef.name);
+            }),
+
+        saveFipsCategorization: premiumProcedure
             .input(z.object({
                 clientId: z.number(),
+                fismaSystemId: z.number().optional(),
                 systemName: z.string().optional(),
                 informationTypes: z.array(z.any()).optional(),
                 confidentialityImpact: z.string().optional(),
                 integrityImpact: z.string().optional(),
                 availabilityImpact: z.string().optional(),
+                confidentialityRationale: z.string().optional(),
+                integrityRationale: z.string().optional(),
+                availabilityRationale: z.string().optional(),
                 highWaterMark: z.string().optional(),
-                status: z.string().optional()
+                status: z.string().optional(),
+                metadata: z.any().optional()
             }))
             .mutation(async ({ input }: any) => {
                 const dbConn = await getDb();
-                const [result] = await dbConn.insert(schema.fipsCategorizations).values({
-                    ...input,
-                    updatedAt: new Date(),
-                }).returning();
-                return result;
+                console.log('[saveFipsCategorization] Input:', JSON.stringify(input));
+
+                try {
+                    // Try to find existing first
+                    const filters = [eq(schema.fipsCategorizations.clientId, input.clientId)];
+                    if (input.fismaSystemId) {
+                        filters.push(eq(schema.fipsCategorizations.fismaSystemId, input.fismaSystemId));
+                    } else {
+                        // If no system ID, look for records where it's null
+                        filters.push(isNull(schema.fipsCategorizations.fismaSystemId));
+                    }
+
+                    const existing = await dbConn.select().from(schema.fipsCategorizations)
+                        .where(and(...filters))
+                        .limit(1);
+
+                    if (existing.length > 0) {
+                        const [updated] = await dbConn.update(schema.fipsCategorizations)
+                            .set({
+                                ...input,
+                                updatedAt: new Date(),
+                            })
+                            .where(eq(schema.fipsCategorizations.id, existing[0].id))
+                            .returning();
+                        return updated;
+                    } else {
+                        const [result] = await dbConn.insert(schema.fipsCategorizations).values({
+                            ...input,
+                            updatedAt: new Date(),
+                        }).returning();
+                        return result;
+                    }
+                } catch (error: any) {
+                    console.error('[saveFipsCategorization] Error:', error);
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Failed to save FIPS categorization: ${error.message || 'Unknown error'}`,
+                        cause: error
+                    });
+                }
             }),
 
         // SSP (System Security Plan)
         listSSPs: clientProcedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({ clientId: z.number(), fismaSystemId: z.number().optional() }))
             .query(async ({ input }: any) => {
                 const dbConn = await getDb();
+                const filters = [eq(schema.federalSSPs.clientId, input.clientId)];
+                if (input.fismaSystemId) filters.push(eq(schema.federalSSPs.fismaSystemId, input.fismaSystemId));
+
                 const results = await dbConn.select().from(schema.federalSSPs)
-                    .where(eq(schema.federalSSPs.clientId, input.clientId))
+                    .where(and(...filters))
                     .orderBy(desc(schema.federalSSPs.updatedAt));
 
                 // Normalize content to ensure it's always valid JSON string
@@ -80,6 +137,7 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
         createSSP: clientProcedure
             .input(z.object({
                 clientId: z.number(),
+                fismaSystemId: z.number().optional(),
                 title: z.string(),
                 framework: z.string(),
                 systemName: z.string().optional(),
@@ -100,12 +158,14 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
                 clientId: z.number(),
                 id: z.number(),
                 content: z.string(),
+                systemName: z.string().optional(),
             }))
             .mutation(async ({ input }: any) => {
                 const dbConn = await getDb();
                 const [ssp] = await dbConn.update(schema.federalSSPs)
                     .set({
                         content: input.content,
+                        systemName: input.systemName,
                         updatedAt: new Date(),
                     })
                     .where(eq(schema.federalSSPs.id, input.id))
@@ -113,19 +173,79 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
                 return ssp;
             }),
 
-        // SAR (Security Assessment Report)
-        listSARs: clientProcedure
-            .input(z.object({ clientId: z.number() }))
+        getSspControls: clientProcedure
+            .input(z.object({ clientId: z.number(), sspId: z.number() }))
             .query(async ({ input }: any) => {
                 const dbConn = await getDb();
+                return await dbConn.select().from(schema.federalSspControls)
+                    .where(eq(schema.federalSspControls.sspId, input.sspId));
+            }),
+
+        saveSspControls: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                sspId: z.number(),
+                controls: z.array(z.object({
+                    controlId: z.string(),
+                    implementationStatus: z.string().optional(),
+                    implementationDescription: z.string().optional(),
+                    responsibleRole: z.string().optional(),
+                }))
+            }))
+            .mutation(async ({ input }: any) => {
+                const dbConn = await getDb();
+
+                const existing = await dbConn.select().from(schema.federalSspControls)
+                    .where(eq(schema.federalSspControls.sspId, input.sspId));
+
+                const existingMap = new Map(existing.map((e: any) => [e.controlId, e]));
+
+                const results = [];
+                for (const c of input.controls) {
+                    if (existingMap.has(c.controlId)) {
+                        const ex = existingMap.get(c.controlId);
+                        const [updated] = await dbConn.update(schema.federalSspControls)
+                            .set({
+                                implementationStatus: c.implementationStatus ?? ex.implementationStatus,
+                                implementationDescription: c.implementationDescription ?? ex.implementationDescription,
+                                responsibleRole: c.responsibleRole ?? ex.responsibleRole,
+                                updatedAt: new Date()
+                            })
+                            .where(eq(schema.federalSspControls.id, ex.id))
+                            .returning();
+                        results.push(updated);
+                    } else {
+                        const [inserted] = await dbConn.insert(schema.federalSspControls).values({
+                            sspId: input.sspId,
+                            controlId: c.controlId,
+                            implementationStatus: c.implementationStatus || 'not_implemented',
+                            implementationDescription: c.implementationDescription || null,
+                            responsibleRole: c.responsibleRole || null,
+                        }).returning();
+                        results.push(inserted);
+                    }
+                }
+
+                return results;
+            }),
+
+        // SAR (Security Assessment Report)
+        listSARs: clientProcedure
+            .input(z.object({ clientId: z.number(), fismaSystemId: z.number().optional() }))
+            .query(async ({ input }: any) => {
+                const dbConn = await getDb();
+                const filters = [eq(schema.federalSARs.clientId, input.clientId)];
+                if (input.fismaSystemId) filters.push(eq(schema.federalSARs.fismaSystemId, input.fismaSystemId));
+
                 return await dbConn.select().from(schema.federalSARs)
-                    .where(eq(schema.federalSARs.clientId, input.clientId))
+                    .where(and(...filters))
                     .orderBy(desc(schema.federalSARs.updatedAt));
             }),
 
         createSAR: clientProcedure
             .input(z.object({
                 clientId: z.number(),
+                fismaSystemId: z.number().optional(),
                 sspId: z.number().optional(),
                 title: z.string(),
                 assessorName: z.string().optional(),
@@ -183,13 +303,25 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
                 return sar;
             }),
 
-        // POA&M
-        listPoams: clientProcedure
-            .input(z.object({ clientId: z.number() }))
+        getSAR: clientProcedure
+            .input(z.object({ clientId: z.number(), id: z.number() }))
             .query(async ({ input }: any) => {
                 const dbConn = await getDb();
+                const [sar] = await dbConn.select().from(schema.federalSARs)
+                    .where(and(eq(schema.federalSARs.clientId, input.clientId), eq(schema.federalSARs.id, input.id)));
+                return sar || null;
+            }),
+
+        // POA&M
+        listPoams: clientProcedure
+            .input(z.object({ clientId: z.number(), fismaSystemId: z.number().optional() }))
+            .query(async ({ input }: any) => {
+                const dbConn = await getDb();
+                const filters = [eq(schema.federalPoams.clientId, input.clientId)];
+                if (input.fismaSystemId) filters.push(eq(schema.federalPoams.fismaSystemId, input.fismaSystemId));
+
                 return await dbConn.select().from(schema.federalPoams)
-                    .where(eq(schema.federalPoams.clientId, input.clientId))
+                    .where(and(...filters))
                     .orderBy(desc(schema.federalPoams.updatedAt));
             }),
 
@@ -959,12 +1091,69 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
 
         // RMF Workflows
         listRmfWorkflows: clientProcedure
-            .input(z.object({ clientId: z.number() }))
+            .input(z.object({
+                clientId: z.number(),
+                fismaSystemId: z.number().optional()
+            }))
             .query(async ({ input }: any) => {
                 const dbConn = await getDb();
+                const filters = [eq(schema.federalRmfWorkflows.clientId, input.clientId)];
+                if (input.fismaSystemId) filters.push(eq(schema.federalRmfWorkflows.fismaSystemId, input.fismaSystemId));
+
                 return await dbConn.select().from(schema.federalRmfWorkflows)
-                    .where(eq(schema.federalRmfWorkflows.clientId, input.clientId))
+                    .where(and(...filters))
                     .orderBy(desc(schema.federalRmfWorkflows.updatedAt));
+            }),
+
+        getRmfWorkflow: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                fismaSystemId: z.number().optional()
+            }))
+            .query(async ({ input }: any) => {
+                const dbConn = await getDb();
+                const filters = [eq(schema.federalRmfWorkflows.clientId, input.clientId)];
+                if (input.fismaSystemId) filters.push(eq(schema.federalRmfWorkflows.fismaSystemId, input.fismaSystemId));
+
+                const results = await dbConn.select().from(schema.federalRmfWorkflows)
+                    .where(and(...filters))
+                    .orderBy(desc(schema.federalRmfWorkflows.updatedAt))
+                    .limit(1);
+                return results[0] || null;
+            }),
+
+        ensureRmfWorkflow: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                fismaSystemId: z.number(),
+                systemName: z.string(),
+            }))
+            .mutation(async ({ input }: any) => {
+                const dbConn = await getDb();
+
+                const existing = await dbConn.select().from(schema.federalRmfWorkflows)
+                    .where(and(
+                        eq(schema.federalRmfWorkflows.clientId, input.clientId),
+                        eq(schema.federalRmfWorkflows.fismaSystemId, input.fismaSystemId)
+                    ))
+                    .limit(1);
+
+                if (existing.length > 0) return existing[0];
+
+                const [workflow] = await dbConn.insert(schema.federalRmfWorkflows).values({
+                    ...input,
+                    currentStep: 1,
+                    stepStatus: {
+                        1: 'in_progress',
+                        2: 'not_started',
+                        3: 'not_started',
+                        4: 'not_started',
+                        5: 'not_started',
+                        6: 'not_started',
+                        7: 'not_started'
+                    },
+                }).returning();
+                return workflow;
             }),
 
         createRmfWorkflow: clientProcedure
@@ -1116,14 +1305,23 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
             .input(z.object({
                 clientId: z.number(),
                 name: z.string(),
+                acronym: z.string().optional(),
+                owner: z.string().optional(),
                 fips199Overall: z.string().optional(),
                 description: z.string().optional(),
             }))
             .mutation(async ({ input }: any) => {
                 const dbConn = await getDb();
                 const [system] = await dbConn.insert(schema.federalFismaSystems).values({
-                    ...input,
+                    clientId: input.clientId,
+                    name: input.name,
+                    acronym: input.acronym || null,
+                    owner: input.owner || null,
+                    fips199Overall: input.fips199Overall || 'Low',
+                    description: input.description || null,
                     status: 'Active',
+                    controlsCount: 0,
+                    assetsCount: 0,
                 }).returning();
                 return system;
             }),
@@ -1671,3 +1869,4 @@ export const createFederalRouter = (t: typeof tType, clientProcedure: typeof cpT
                 };
             }),
     });
+}

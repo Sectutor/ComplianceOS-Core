@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useParams, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -9,6 +9,14 @@ import { Breadcrumb } from "@/components/Breadcrumb";
 import { Input } from "@complianceos/ui/ui/input";
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@complianceos/ui/ui/dialog";
 import {
     ScrollText,
     Save,
@@ -27,7 +35,8 @@ import {
     Trash2,
     ExternalLink,
     Wand2,
-    Zap
+    Zap,
+    HelpCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,17 +88,26 @@ export default function SSPEditor() {
         enabled: !!currentSSP?.id
     });
 
-    // Mutations for controls management
     const saveSspControlMutation = trpc.federal.saveSspControl.useMutation();
     const deleteSspControlMutation = trpc.federal.deleteSspControl.useMutation();
     const createControlMutation = trpc.federal.createControl.useMutation();
     const createSSPMutation = trpc.federal.createSSP.useMutation();
-    const saveFipsMutation = trpc.federal.saveFipsCategorization.useMutation();
+    const saveFipsMutation = trpc.federal.saveSspFipsCategorization.useMutation({
+        onSuccess: () => {
+            utils.federal.getSspFipsCategorization.invalidate({ clientId, sspId: currentSSP?.id || 0 });
+        }
+    });
+    const updateSSPMutation = trpc.federal.updateSSP.useMutation({
+        onSuccess: () => {
+            // Invalidate the SSP list cache so data persists when navigating away/back
+            utils.federal.listSSPs.invalidate({ clientId });
+        }
+    });
     const syncPoamMutation = trpc.federal.syncSspToPoam.useMutation();
     const utils = trpc.useUtils();
 
-    // Fetch FIPS Categorization
-    const { data: fipsCategorization } = trpc.federal.getFipsCategorization.useQuery({
+    // Fetch FIPS Categorization (SSP-specific)
+    const { data: fipsCategorization } = trpc.federal.getSspFipsCategorization.useQuery({
         clientId,
         sspId: currentSSP?.id || 0
     }, {
@@ -97,6 +115,14 @@ export default function SSPEditor() {
     });
 
     const { data: fipsModules } = trpc.federal.listFips140Modules.useQuery({ clientId });
+
+    // Fetch Global FIPS Categorization to allow syncing
+    const { data: globalFips } = trpc.federal.getFipsCategorization.useQuery({
+        clientId,
+        fismaSystemId: currentSSP?.fismaSystemId || undefined
+    }, {
+        enabled: !!clientId
+    });
 
     const [activeTab, setActiveTab] = useState("overview");
     const [sectionData, setSectionData] = useState<Record<string, SectionContent>>({});
@@ -111,19 +137,37 @@ export default function SSPEditor() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedStatus, setSelectedStatus] = useState('');
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isGuideOpen, setIsGuideOpen] = useState(false);
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const sectionDataRef = useRef<Record<string, SectionContent>>({});
+    const hasInitializedRef = useRef<number | null>(null);
 
-    // Initialize section data from current SSP
+    // Keep ref in sync for auto-save
     useEffect(() => {
-        if (currentSSP) {
+        sectionDataRef.current = sectionData;
+    }, [sectionData]);
+
+    // Initialize section data from current SSP (only once per SSP ID)
+    useEffect(() => {
+        if (currentSSP && hasInitializedRef.current !== currentSSP.id) {
             try {
                 // Ensure content is a non-empty string before parsing
                 const content = (currentSSP.content && currentSSP.content.trim() !== '')
                     ? JSON.parse(currentSSP.content)
                     : {};
+
+                // Sync systemName from base record if missing in content JSON
+                if (!content.overview) content.overview = {};
+                if (!content.overview.systemName && currentSSP.systemName) {
+                    content.overview.systemName = currentSSP.systemName;
+                }
+
                 setSectionData(content);
+                hasInitializedRef.current = currentSSP.id;
             } catch (error) {
                 console.error("Error parsing SSP content:", error);
-                setSectionData({}); // Default to empty if parsing fails
+                setSectionData({});
             }
         }
     }, [currentSSP]);
@@ -155,6 +199,8 @@ export default function SSPEditor() {
                 lastUpdated: new Date().toISOString()
             }
         }));
+        setHasUnsavedChanges(true);
+        scheduleAutoSave(section);
     };
 
     const updateCheckbox = (section: string, field: string, value: boolean) => {
@@ -166,7 +212,57 @@ export default function SSPEditor() {
                 lastUpdated: new Date().toISOString()
             }
         }));
+        setHasUnsavedChanges(true);
+        scheduleAutoSave(section);
     };
+
+    // Auto-save: debounce 2s after last change
+    const lastEditedSectionRef = useRef<string>('overview');
+    const scheduleAutoSave = useCallback((section: string) => {
+        lastEditedSectionRef.current = section;
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+        }
+        autoSaveTimerRef.current = setTimeout(() => {
+            if (currentSSP) {
+                const latestSection = lastEditedSectionRef.current;
+                // Read from ref to avoid stale closure of sectionData
+                const dataToSave = sectionDataRef.current;
+                handleAutoSave(latestSection, dataToSave);
+            }
+        }, 2000);
+    }, [currentSSP]); // No longer depends on sectionData
+
+    const handleSyncFips = () => {
+        if (!globalFips) {
+            toast.error("No global FIPS categorization found to sync from.");
+            return;
+        }
+
+        setSectionData(prev => ({
+            ...prev,
+            overview: {
+                ...prev.overview,
+                securityObjectiveConfidentiality: (globalFips.confidentialityImpact || 'low').toLowerCase(),
+                securityObjectiveIntegrity: (globalFips.integrityImpact || 'low').toLowerCase(),
+                securityObjectiveAvailability: (globalFips.availabilityImpact || 'low').toLowerCase(),
+                rationaleConfidentiality: globalFips.confidentialityRationale || '',
+                rationaleIntegrity: globalFips.integrityRationale || '',
+                rationaleAvailability: globalFips.availabilityRationale || '',
+            }
+        }));
+        setHasUnsavedChanges(true);
+        toast.success("Synchronized from global FIPS categorization");
+    };
+
+    // Cleanup auto-save on unmount — save immediately if there are pending changes
+    useEffect(() => {
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current);
+            }
+        };
+    }, []);
 
     // Control management handlers
     const handleControlToggle = async (controlId: string, checked: boolean) => {
@@ -384,7 +480,7 @@ export default function SSPEditor() {
 
         // Calculate filled required fields
         const filledRequiredCount = requiredFields.filter(field => data[field] && data[field].trim().length > 0).length;
-        
+
         // Calculate total filled fields (including optional ones)
         const totalFilledCount = Object.entries(data)
             .filter(([key, value]) => key !== 'lastUpdated' && typeof value === 'string' && value.trim().length > 0)
@@ -397,13 +493,13 @@ export default function SSPEditor() {
 
     const handleSyncPoam = async () => {
         if (!currentSSP?.id) return;
-        
+
         try {
             const result = await syncPoamMutation.mutateAsync({
                 clientId,
                 sspId: currentSSP.id
             });
-            
+
             if (result.addedCount > 0) {
                 toast.success(`Generated ${result.addedCount} POA&M items from gaps`);
             } else {
@@ -415,6 +511,33 @@ export default function SSPEditor() {
         }
     };
 
+    // Silent auto-save (uses provided data to avoid stale closures)
+    const handleAutoSave = async (section: string, dataToSave: Record<string, SectionContent>) => {
+        if (!currentSSP || !hasUnsavedChanges) return;
+
+        try {
+            const content = {
+                ...dataToSave,
+                [section]: {
+                    ...dataToSave[section],
+                    lastUpdated: new Date().toISOString()
+                }
+            };
+
+            await updateSSPMutation.mutateAsync({
+                clientId,
+                id: currentSSP.id,
+                content: JSON.stringify(content),
+                systemName: content.overview?.systemName
+            });
+
+            setHasUnsavedChanges(false);
+            console.log(`[SSP] Auto-saved section: ${section}`);
+        } catch (error) {
+            console.error("Auto-save failed:", error);
+        }
+    };
+
     const handleSaveSection = async (section: string) => {
         if (!currentSSP) {
             toast.error("No SSP found to update");
@@ -422,6 +545,11 @@ export default function SSPEditor() {
         }
 
         setIsSaving(true);
+        // Cancel any pending auto-save
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+            autoSaveTimerRef.current = null;
+        }
         try {
             const content = {
                 ...sectionData,
@@ -431,10 +559,12 @@ export default function SSPEditor() {
                 }
             };
 
-            await trpc.federal.updateSSP.mutate({
+            // Use the mutation hook instead of raw .mutate() so the cache is properly invalidated
+            await updateSSPMutation.mutateAsync({
                 clientId,
                 id: currentSSP.id,
-                content: JSON.stringify(content)
+                content: JSON.stringify(content),
+                systemName: content.overview?.systemName
             });
 
             // Save FIPS data if in overview section
@@ -452,9 +582,51 @@ export default function SSPEditor() {
             }
 
             toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section saved successfully`);
+            setHasUnsavedChanges(false);
         } catch (error) {
             console.error("Error saving section:", error);
             toast.error("Failed to save section");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSaveAll = async () => {
+        if (!currentSSP) {
+            toast.error("No SSP found to update");
+            return;
+        }
+
+        setIsSaving(true);
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current);
+            autoSaveTimerRef.current = null;
+        }
+
+        try {
+            await updateSSPMutation.mutateAsync({
+                clientId,
+                id: currentSSP.id,
+                content: JSON.stringify(sectionData),
+                systemName: sectionData['overview']?.systemName
+            });
+
+            await saveFipsMutation.mutateAsync({
+                clientId,
+                sspId: currentSSP.id,
+                securityObjectiveConfidentiality: sectionData['overview']?.securityObjectiveConfidentiality,
+                securityObjectiveIntegrity: sectionData['overview']?.securityObjectiveIntegrity,
+                securityObjectiveAvailability: sectionData['overview']?.securityObjectiveAvailability,
+                rationaleConfidentiality: sectionData['overview']?.rationaleConfidentiality,
+                rationaleIntegrity: sectionData['overview']?.rationaleIntegrity,
+                rationaleAvailability: sectionData['overview']?.rationaleAvailability,
+            });
+
+            toast.success("All System Security Plan data saved successfully");
+            setHasUnsavedChanges(false);
+        } catch (error) {
+            console.error("Error saving all data:", error);
+            toast.error("Failed to save all data");
         } finally {
             setIsSaving(false);
         }
@@ -525,27 +697,33 @@ export default function SSPEditor() {
 
     return (
         <DashboardLayout>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <Breadcrumb
-                    items={[
-                        { label: "Clients", href: "/clients" },
-                        { label: `Client ${clientId}`, href: `/clients/${clientId}` },
-                        { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
-                        { label: frameworkLabel, href: `/clients/${clientId}/federal/${frameworkSlug}` }
-                    ]}
-                />
+            <div className="pb-20">
+                <div className="px-6 pt-6 pb-2">
+                    <Breadcrumb
+                        items={[
+                            { label: "Clients", href: "/clients" },
+                            { label: `Client ${clientId}`, href: `/clients/${clientId}` },
+                            { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
+                            { label: frameworkLabel, href: `/clients/${clientId}/federal/${frameworkSlug}` }
+                        ]}
+                    />
+                </div>
 
-                <div className="mt-8">
-                    <div className="flex items-center justify-between mb-8">
+                <div className="sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl py-4 px-6 border-b border-slate-200 shadow-sm mb-6">
+                    <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-4xl font-black text-slate-900 tracking-tight">
                                 System Security Plan Editor
                             </h1>
                             <p className="text-slate-600 mt-2">
-                                {frameworkLabel} - {currentSSP.systemName || "Unnamed System"}
+                                {frameworkLabel} - {sectionData['overview']?.systemName || currentSSP.systemName || "Unnamed System"}
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
+                            <Button variant="outline" onClick={() => setIsGuideOpen(true)} className="border-slate-300">
+                                <HelpCircle className="h-4 w-4 mr-2" />
+                                Guide
+                            </Button>
                             <Button variant="outline" className="border-slate-300">
                                 <Printer className="h-4 w-4 mr-2" />
                                 Print
@@ -554,17 +732,75 @@ export default function SSPEditor() {
                                 <Share2 className="h-4 w-4 mr-2" />
                                 Share
                             </Button>
-                            <Button className="bg-blue-600 hover:bg-blue-700">
-                                <Save className="h-4 w-4 mr-2" />
+                            <Button
+                                onClick={handleSaveAll}
+                                disabled={isSaving}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                {isSaving ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4 mr-2" />
+                                )}
                                 Save All
                             </Button>
                         </div>
                     </div>
+                </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* SSP Guide Dialog */}
+                <Dialog open={isGuideOpen} onOpenChange={setIsGuideOpen}>
+                    <DialogContent className="max-w-4xl">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <HelpCircle className="h-5 w-5 text-blue-600" />
+                                System Security Plan (SSP) Editor Guide
+                            </DialogTitle>
+                            <DialogDescription>
+                                Documenting Step 2 (Select) and Step 3 (Implement) of the NIST Risk Management Framework.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                            <div className="space-y-4">
+                                <section className="space-y-2">
+                                    <h4 className="font-bold text-slate-900 border-b pb-1">1. System Overview & Identification</h4>
+                                    <p className="text-sm text-slate-600">
+                                        Define the <strong>System Under Consideration</strong>. Use the <strong>Sync from Categorization</strong> button to pull High-Water Mark levels and rationales directly from your FIPS 199 analysis.
+                                    </p>
+                                </section>
+                                <section className="space-y-2">
+                                    <h4 className="font-bold text-slate-900 border-b pb-1">2. System Boundary & Environment</h4>
+                                    <p className="text-sm text-slate-600">
+                                        Describe hardware, software, and data flows. Provide a URL to architecture diagrams for visual reference. Document physical/cloud locations and personnel access.
+                                    </p>
+                                </section>
+                            </div>
+                            <div className="space-y-4">
+                                <section className="space-y-2">
+                                    <h4 className="font-bold text-slate-900 border-b pb-1">3. Security Requirements</h4>
+                                    <p className="text-sm text-slate-600">
+                                        Document <strong>how</strong> every security control is met. Use the "Wand" icon on cryptographic controls to pull FIPS 140 module inventories. Link evidence artifacts directly to each control.
+                                    </p>
+                                </section>
+                                <section className="space-y-2">
+                                    <h4 className="font-bold text-slate-900 border-b pb-1">4. POA&M Integration</h4>
+                                    <p className="text-sm text-slate-600">
+                                        Controls marked as "Planned" or "Partial" represent security gaps. Use the <strong>Generate POA&M</strong> button to turn these gaps into an actionable Plan of Action and Milestones task list.
+                                    </p>
+                                </section>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={() => setIsGuideOpen(false)}>Got it</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <div className="px-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 2xl:grid-cols-5 gap-8 items-start">
                         {/* Left sidebar - Navigation */}
-                        <div className="lg:col-span-1">
-                            <Card className="border-slate-200 shadow-sm sticky top-8">
+                        <div className="lg:col-span-1 sticky top-28 z-30">
+                            <Card className="border-slate-200 shadow-xl shadow-slate-200/40 bg-white/80 backdrop-blur-xl">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-lg font-bold text-slate-900">Sections</CardTitle>
                                     <CardDescription>Complete all sections for a comprehensive SSP</CardDescription>
@@ -645,7 +881,7 @@ export default function SSPEditor() {
                         </div>
 
                         {/* Main content area */}
-                        <div className="lg:col-span-3">
+                        <div className="lg:col-span-3 2xl:col-span-4">
                             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                                 <TabsList className="grid grid-cols-6 mb-8">
                                     <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -671,7 +907,7 @@ export default function SSPEditor() {
                                             </CardHeader>
                                             <CardContent className="space-y-4">
                                                 <div className="space-y-2">
-                                                    <label className="text-sm font-bold text-slate-900">System Name</label>
+                                                    <label className="text-sm font-bold text-slate-900">System Name (System Under Consideration)</label>
                                                     <Input
                                                         placeholder="Enter system name (e.g., 'Enterprise Resource Planning System')"
                                                         value={sectionData['overview']?.systemName || ''}
@@ -733,8 +969,21 @@ export default function SSPEditor() {
 
                                         <Card className="border-slate-200 shadow-sm">
                                             <CardHeader className="pb-3">
-                                                <CardTitle className="text-lg font-bold text-slate-900">Security Objectives</CardTitle>
-                                                <CardDescription>Select the potential impact level for each security objective.</CardDescription>
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <CardTitle className="text-lg font-bold text-slate-900">Security Objectives</CardTitle>
+                                                        <CardDescription>Select the potential impact level for each security objective.</CardDescription>
+                                                    </div>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleSyncFips}
+                                                        className="border-slate-300 h-8"
+                                                    >
+                                                        <Zap className="h-3 w-3 mr-2 text-amber-500" />
+                                                        Sync from Categorization
+                                                    </Button>
+                                                </div>
                                             </CardHeader>
                                             <CardContent className="space-y-6">
                                                 {/* Confidentiality */}
@@ -1013,8 +1262,16 @@ export default function SSPEditor() {
                                                             <Plus className="h-4 w-4 mr-2" />
                                                             {showCustomControlForm ? 'Cancel' : 'Add Custom Control'}
                                                         </Button>
-                                                        <Button className="bg-blue-600 hover:bg-blue-700">
-                                                            <Save className="h-4 w-4 mr-2" />
+                                                        <Button
+                                                            onClick={handleSaveAll}
+                                                            disabled={isSaving}
+                                                            className="bg-blue-600 hover:bg-blue-700"
+                                                        >
+                                                            {isSaving ? (
+                                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                            ) : (
+                                                                <Save className="h-4 w-4 mr-2" />
+                                                            )}
                                                             Save Controls
                                                         </Button>
                                                     </div>

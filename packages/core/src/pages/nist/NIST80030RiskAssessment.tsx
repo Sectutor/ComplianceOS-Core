@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Button } from "@complianceos/ui/ui/button";
 import { Input } from "@complianceos/ui/ui/input";
@@ -70,6 +70,7 @@ export default function NIST80030RiskAssessment() {
     // Queries
     const { data: risks, isLoading: loadingRisks } = trpc.risks.list.useQuery({
         clientId,
+        fismaSystemId: systemId ? parseInt(systemId) : undefined,
         search: searchQuery,
         limit: 100
     });
@@ -77,7 +78,7 @@ export default function NIST80030RiskAssessment() {
     const upsertMutation = trpc.risks.upsert.useMutation({
         onSuccess: () => {
             toast.success(selectedRisk ? "Risk updated" : "Risk created");
-            utils.risks.list.invalidate({ clientId });
+            utils.risks.list.invalidate({ clientId, fismaSystemId: systemId });
             setIsAddOpen(false);
             resetForm();
         },
@@ -97,6 +98,11 @@ export default function NIST80030RiskAssessment() {
         setRiskOwner("");
         setRecommendedActions("");
     };
+
+    // Reset local state when systemId changes
+    useEffect(() => {
+        resetForm();
+    }, [systemId]);
 
     const handleOpenEdit = (risk: any) => {
         setSelectedRisk(risk);
@@ -120,6 +126,7 @@ export default function NIST80030RiskAssessment() {
         upsertMutation.mutate({
             id: selectedRisk?.id,
             clientId,
+            fismaSystemId: systemId,
             title,
             threatDescription,
             vulnerabilityDescription,
@@ -191,7 +198,7 @@ export default function NIST80030RiskAssessment() {
                                         Very High
                                     </span>
                                     <span className="text-sm font-black text-slate-900">
-                                        {risks?.items.filter(r => r.inherentScore >= 15).length || 0}
+                                        {risks?.items.filter((r: any) => r.inherentScore >= 15).length || 0}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -200,7 +207,7 @@ export default function NIST80030RiskAssessment() {
                                         High
                                     </span>
                                     <span className="text-sm font-black text-slate-900">
-                                        {risks?.items.filter(r => r.inherentScore >= 10 && r.inherentScore < 15).length || 0}
+                                        {risks?.items.filter((r: any) => r.inherentScore >= 10 && r.inherentScore < 15).length || 0}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -209,7 +216,7 @@ export default function NIST80030RiskAssessment() {
                                         Medium
                                     </span>
                                     <span className="text-sm font-black text-slate-900">
-                                        {risks?.items.filter(r => r.inherentScore >= 5 && r.inherentScore < 10).length || 0}
+                                        {risks?.items.filter((r: any) => r.inherentScore >= 5 && r.inherentScore < 10).length || 0}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -218,7 +225,7 @@ export default function NIST80030RiskAssessment() {
                                         Low
                                     </span>
                                     <span className="text-sm font-black text-slate-900">
-                                        {risks?.items.filter(r => r.inherentScore < 5).length || 0}
+                                        {risks?.items.filter((r: any) => r.inherentScore < 5).length || 0}
                                     </span>
                                 </div>
                             </div>

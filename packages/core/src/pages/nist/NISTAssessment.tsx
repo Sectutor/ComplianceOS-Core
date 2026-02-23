@@ -54,7 +54,20 @@ export default function NISTAssessment() {
 
     // Read initial state from URL query parameters
     const queryParams = new URLSearchParams(window.location.search);
-    const initialFunction = queryParams.get("function") || "all";
+    const rawFunction = queryParams.get("function")?.toLowerCase();
+
+    // Map URL function names to their IDs (e.g. 'recover' -> 'RC', 'govern' -> 'GV')
+    let initialFunction = "all";
+    if (rawFunction && rawFunction !== "all") {
+        const foundFunc = NIST_FUNCTIONS.find(f =>
+            f.id.toLowerCase() === rawFunction ||
+            f.name.toLowerCase() === rawFunction
+        );
+        if (foundFunc) {
+            initialFunction = foundFunc.id;
+        }
+    }
+
     const initialStatus = queryParams.get("status") || "all";
     const initialSearch = queryParams.get("search") || "";
 

@@ -461,6 +461,7 @@ ${reportData.conclusion}
                 sortOrder: z.enum(["asc", "desc"]).default("desc"),
                 projectId: z.coerce.number().optional(),
                 category: z.string().optional(),
+                fismaSystemId: z.coerce.number().optional(),
             }))
             .query(async ({ input, ctx }: any) => {
                 const db = await getDb();
@@ -474,7 +475,8 @@ ${reportData.conclusion}
                         ilike(riskAssessments.assessmentId, `%${input.search}%`)
                     ) : undefined,
                     input.projectId ? eq(riskAssessments.projectId, input.projectId) : undefined,
-                    input.category ? eq(riskAssessments.category, input.category) : undefined
+                    input.category ? eq(riskAssessments.category, input.category) : undefined,
+                    input.fismaSystemId ? eq(riskAssessments.fismaSystemId, input.fismaSystemId) : undefined
                 ].filter(Boolean);
 
                 const [total] = await db.select({ count: sql<number>`count(*)` })
@@ -573,6 +575,7 @@ ${reportData.conclusion}
                 nextReviewDate: z.string().optional(),
                 controlIds: z.array(z.number()).optional(),
                 aiRmfCategory: z.string().optional(),
+                fismaSystemId: z.coerce.number().optional(),
             }))
             .mutation(async ({ input, ctx }: any) => {
                 // MICRO-RBAC: Only Owners/Editors can edit
@@ -598,6 +601,7 @@ ${reportData.conclusion}
                         status: input.status,
                         contextSnapshot: input.contextSnapshot,
                         riskOwner: input.riskOwner,
+                        fismaSystemId: input.fismaSystemId,
                         treatmentOption: input.treatmentOption,
                         priority: input.priority,
                         residualScore: input.residualScore,
@@ -1067,8 +1071,14 @@ ${reportData.conclusion}
                 title: z.string(),
                 threatId: z.coerce.number().optional(),
                 vulnerabilityId: z.coerce.number().optional(),
-                likelihood: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
-                impact: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v),
+                likelihood: z.union([z.number(), z.string()]).transform(v => {
+                    const num = typeof v === 'string' ? parseInt(v) || 3 : v;
+                    return Math.max(1, Math.min(5, num)); // Clamp to 1-5
+                }),
+                impact: z.union([z.number(), z.string()]).transform(v => {
+                    const num = typeof v === 'string' ? parseInt(v) || 3 : v;
+                    return Math.max(1, Math.min(5, num)); // Clamp to 1-5
+                }),
                 status: z.enum(["draft", "approved", "reviewed"]).default("draft"),
                 contextSnapshot: z.any().optional(),
             }))
@@ -1078,17 +1088,26 @@ ${reportData.conclusion}
                 }
                 const db = await getDb();
 
-                const inherentScore = input.likelihood * input.impact;
+                // Validate likelihood and impact are in range
+                const likelihood = Math.max(1, Math.min(5, input.likelihood));
+                const impact = Math.max(1, Math.min(5, input.impact));
+
+                const inherentScore = likelihood * impact;
                 const inherentRisk = getMatrixScoreLevel(inherentScore);
 
                 const [assessment] = await db.insert(riskAssessments)
                     .values({
-                        ...input,
+                        clientId: input.clientId,
+                        title: input.title,
+                        threatId: input.threatId,
+                        vulnerabilityId: input.vulnerabilityId,
                         assessmentId: `RA-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
-                        likelihood: String(input.likelihood),
-                        impact: String(input.impact),
+                        likelihood: String(likelihood),
+                        impact: String(impact),
                         inherentScore,
                         inherentRisk,
+                        status: input.status,
+                        contextSnapshot: input.contextSnapshot,
                     })
                     .returning();
 
@@ -1103,8 +1122,14 @@ ${reportData.conclusion}
                 title: z.string().optional(),
                 threatId: z.coerce.number().optional(),
                 vulnerabilityId: z.coerce.number().optional(),
-                likelihood: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v).optional(),
-                impact: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseInt(v) || 3 : v).optional(),
+                likelihood: z.union([z.number(), z.string()]).transform(v => {
+                    const num = typeof v === 'string' ? parseInt(v) || 3 : v;
+                    return Math.max(1, Math.min(5, num)); // Clamp to 1-5
+                }).optional(),
+                impact: z.union([z.number(), z.string()]).transform(v => {
+                    const num = typeof v === 'string' ? parseInt(v) || 3 : v;
+                    return Math.max(1, Math.min(5, num)); // Clamp to 1-5
+                }).optional(),
                 status: z.enum(["draft", "approved", "reviewed"]).optional(),
                 contextSnapshot: z.any().optional(),
             }))
@@ -1119,8 +1144,12 @@ ${reportData.conclusion}
                 const updateData: any = { ...data, updatedAt: new Date() };
                 if (data.likelihood !== undefined || data.impact !== undefined) {
                     const [current] = await db.select().from(riskAssessments).where(eq(riskAssessments.id, id));
-                    const likelihood = data.likelihood !== undefined ? data.likelihood : Number(current.likelihood);
-                    const impact = data.impact !== undefined ? data.impact : Number(current.impact);
+                    if (!current) {
+                        throw new TRPCError({ code: 'NOT_FOUND', message: 'Risk assessment not found' });
+                    }
+                    // Clamp values to 1-5 range
+                    const likelihood = data.likelihood !== undefined ? Math.max(1, Math.min(5, data.likelihood)) : (parseInt(String(current.likelihood)) || 3);
+                    const impact = data.impact !== undefined ? Math.max(1, Math.min(5, data.impact)) : (parseInt(String(current.impact)) || 3);
                     updateData.likelihood = String(likelihood);
                     updateData.impact = String(impact);
                     updateData.inherentScore = likelihood * impact;
@@ -1131,6 +1160,10 @@ ${reportData.conclusion}
                     .set(updateData)
                     .where(and(eq(riskAssessments.id, id), eq(riskAssessments.clientId, clientId)))
                     .returning();
+
+                if (!assessment) {
+                    throw new TRPCError({ code: 'NOT_FOUND', message: 'Risk assessment not found or does not belong to this client' });
+                }
 
                 await logActivity({ userId: ctx.user.id, clientId, action: "update", entityType: "risk", entityId: id, details: { changes: data } });
 
@@ -1197,18 +1230,42 @@ ${reportData.conclusion}
             .mutation(async ({ input, ctx }: any) => {
                 if (ctx.clientRole === 'viewer') throw new TRPCError({ code: 'FORBIDDEN', message: 'Viewers cannot create treatments' });
                 const db = await getDb();
+
+                // Validate riskAssessmentId exists if provided
+                if (input.riskAssessmentId) {
+                    const [assessment] = await db.select().from(riskAssessments).where(eq(riskAssessments.id, input.riskAssessmentId));
+                    if (!assessment) {
+                        throw new TRPCError({ code: 'NOT_FOUND', message: 'Risk assessment not found' });
+                    }
+                    if (assessment.clientId !== input.clientId) {
+                        throw new TRPCError({ code: 'FORBIDDEN', message: 'Risk assessment does not belong to this client' });
+                    }
+                }
+
                 const [treatment] = await db.insert(riskTreatments).values({
-                    ...input,
+                    clientId: input.clientId,
+                    riskAssessmentId: input.riskAssessmentId,
+                    riskScenarioId: input.riskScenarioId,
+                    treatmentType: input.treatmentType,
+                    strategy: input.strategy,
+                    justification: input.justification,
+                    owner: input.owner,
                     dueDate: input.dueDate ? new Date(input.dueDate) : null,
+                    priority: input.priority,
+                    estimatedCost: input.estimatedCost,
                     status: 'planned'
                 } as any).returning();
-                await logActivity({ userId: ctx.user.id, clientId: input.clientId, action: "create", entityType: "treatment", entityId: treatment.id, details: { strategy: treatment.strategy } });
+
+                if (input.riskAssessmentId) {
+                    await logActivity({ userId: ctx.user.id, clientId: input.clientId, action: "create", entityType: "treatment", entityId: treatment.id, details: { strategy: treatment.strategy } });
+                }
                 return treatment;
             }),
 
         updateRiskTreatment: procedure
             .input(z.object({
                 id: z.number(),
+                clientId: z.number(),
                 treatmentType: z.enum(['mitigate', 'transfer', 'accept', 'avoid']).optional(),
                 strategy: z.string().optional(),
                 justification: z.string().optional(),
@@ -1221,7 +1278,17 @@ ${reportData.conclusion}
             .mutation(async ({ input, ctx }: any) => {
                 if (ctx.clientRole === 'viewer') throw new TRPCError({ code: 'FORBIDDEN', message: 'Viewers cannot update treatments' });
                 const db = await getDb();
-                const { id, ...data } = input;
+                const { id, clientId, ...data } = input;
+
+                // Verify treatment belongs to client's risk assessment
+                const [treatment] = await db.select().from(riskTreatments).where(eq(riskTreatments.id, id));
+                if (!treatment) {
+                    throw new TRPCError({ code: 'NOT_FOUND', message: 'Treatment not found' });
+                }
+                if (treatment.clientId !== clientId) {
+                    throw new TRPCError({ code: 'FORBIDDEN', message: 'Treatment does not belong to this client' });
+                }
+
                 const updateData: any = { ...data, updatedAt: new Date() };
                 if (input.dueDate) updateData.dueDate = new Date(input.dueDate);
 
@@ -1235,16 +1302,26 @@ ${reportData.conclusion}
         deleteRiskTreatment: procedure
             .input(z.object({
                 id: z.number(),
+                clientId: z.number(),
             }))
             .mutation(async ({ input, ctx }: any) => {
                 if (ctx.clientRole === 'viewer') throw new TRPCError({ code: 'FORBIDDEN', message: 'Viewers cannot delete treatments' });
                 const db = await getDb();
 
+                // Verify treatment belongs to client
+                const [treatment] = await db.select().from(riskTreatments).where(eq(riskTreatments.id, input.id));
+                if (!treatment) {
+                    throw new TRPCError({ code: 'NOT_FOUND', message: 'Treatment not found' });
+                }
+                if (treatment.clientId !== input.clientId) {
+                    throw new TRPCError({ code: 'FORBIDDEN', message: 'Treatment does not belong to this client' });
+                }
+
                 // Delete the treatment
                 await db.delete(riskTreatments)
                     .where(eq(riskTreatments.id, input.id));
 
-                await logActivity({ userId: ctx.user.id, clientId: ctx.clientId, action: "delete", entityType: "treatment", entityId: input.id });
+                await logActivity({ userId: ctx.user.id, clientId: input.clientId, action: "delete", entityType: "treatment", entityId: input.id });
                 return { success: true };
             }),
 

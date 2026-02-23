@@ -1,4 +1,34 @@
-// Server Entry Point - Touched for restart at 2026-02-17 07:15
+// CRITICAL: Polyfill MUST run before any other code is evaluated
+(function polyfill() {
+    const g: any = typeof globalThis !== 'undefined' ? globalThis : typeof global !== 'undefined' ? global : {};
+
+    // Core Graphics
+    if (typeof g.DOMMatrix === 'undefined') {
+        g.DOMMatrix = class DOMMatrix {
+            constructor() { }
+            static fromFloat32Array() { return new DOMMatrix(); }
+            static fromFloat64Array() { return new DOMMatrix(); }
+            static fromMatrix() { return new DOMMatrix(); }
+        };
+        if (typeof global !== 'undefined') (global as any).DOMMatrix = g.DOMMatrix;
+    }
+
+    // Minimal Location for libraries that expect it
+    if (typeof (g as any).location === 'undefined') {
+        (g as any).location = {
+            href: 'https://app.grcompliance.com/',
+            origin: 'https://app.grcompliance.com',
+            protocol: 'https:',
+            host: 'app.grcompliance.com',
+            hostname: 'app.grcompliance.com',
+            pathname: '/',
+            search: '',
+            hash: '',
+            toString: () => 'https://app.grcompliance.com/',
+        };
+    }
+})();
+
 import './env-loader';
 import express from 'express';
 import cors from 'cors';
@@ -15,6 +45,7 @@ import { aiRouter } from './packages/core/src/server/routers/ai';
 import { gumroadWebhookRouter } from './packages/core/src/server/webhooks/gumroad';
 import * as threatScheduler from './packages/core/src/server/services/threatScheduler';
 import * as licenseRenewalScheduler from './packages/core/src/server/services/licenseRenewalScheduler';
+import * as policyReviewScheduler from './packages/core/src/server/services/policyReviewScheduler';
 import redis from './packages/core/src/lib/redis';
 import { rateLimit } from 'express-rate-limit';
 import { validateSecrets } from './packages/core/src/lib/secrets';
@@ -24,6 +55,18 @@ validateSecrets();
 import helmet from 'helmet';
 
 export const app = express();
+
+// Health Check - Moving to top to bypass potential middleware issues
+app.get(['/health', '/api/health'], async (req, res) => {
+    try {
+        const dbConn = await getDb();
+        await dbConn.execute(sql`SELECT 1`);
+        res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+    } catch (e: any) {
+        console.error('[Health] Database connection check failed:', e);
+        res.status(503).json({ status: 'error', database: 'disconnected', details: e.message });
+    }
+});
 const port = process.env.PORT || 3002;
 // Force restart
 console.log(`[Server] Initializing... Last update: ${new Date().toISOString()}`);
@@ -81,7 +124,9 @@ app.use(cors({
             origin === 'https://grcompliance.com' ||
             origin === 'https://www.grcompliance.com';
 
-        if (isAllowedProd || (isLocal && process.env.NODE_ENV !== 'production')) {
+        // Always allow localhost/127.0.0.1 for local development ease, regardless of NODE_ENV
+        // This unblocks local testing where ports might vary (e.g., landing on 5174, app on 5173)
+        if (isAllowedProd || isLocal) {
             callback(null, true);
         } else {
             console.error(`[CORS] Rejected origin: ${origin}`);
@@ -121,21 +166,27 @@ app.use('/uploads', (req: any, res, next) => {
     next();
 }, express.static(path.join(process.cwd(), 'uploads')));
 
-// Health Check
-app.get('/health', async (req, res) => {
-    try {
-        const dbConn = await getDb();
-        await dbConn.execute(sql`SELECT 1`);
-        res.status(200).json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
-    } catch (e: any) {
-        console.error('[Health] Database connection check failed:', e);
-        res.status(503).json({ status: 'error', database: 'disconnected', details: e.message });
-    }
-});
 
 
 // Production Diagnostics Endpoint - Restricted to Admins
-app.get('/api/debug/connection', async (req: any, res) => {
+// Diagnostic endpoint to check polyfills
+app.get(['/debug/globals', '/api/debug/globals'], (req: express.Request, res: express.Response) => {
+    const g = global as any;
+    res.json({
+        DOMMatrix: typeof g.DOMMatrix,
+        window: typeof g.window,
+        document: typeof g.document,
+        location: typeof g.location,
+        location_type: Object.prototype.toString.call(g.location),
+        location_href: g.location?.href,
+        navigator: typeof g.navigator,
+        userAgent: g.navigator?.userAgent,
+        process_env_NETLIFY: !!process.env.NETLIFY,
+        process_env_NODE_ENV: process.env.NODE_ENV,
+    });
+});
+
+app.get(['/debug/connection', '/api/debug/connection'], async (req: any, res) => {
     if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
         return res.status(403).json({ error: 'Unauthorized diagnostic access' });
     }
@@ -237,6 +288,12 @@ if (process.env.ENABLE_LICENSE_RENEWAL_SCHEDULER === 'true') {
     console.log('[Server] License renewal scheduler started');
 }
 
+// Policy review scheduler
+if (process.env.ENABLE_POLICY_REVIEW_SCHEDULER !== 'false') {
+    policyReviewScheduler.start();
+    console.log('[Server] Policy review scheduler started');
+}
+
 // Global error handler to ensure all errors return JSON - MUST BE LAST
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('[Server Error]', {
@@ -266,3 +323,5 @@ if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
         console.log(`-> TRPC endpoint: http://${listenAddr}:${port}/api/trpc\n`);
     });
 }
+
+

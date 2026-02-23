@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { comments, users } from "../../schema";
 import { eq, and, desc } from "drizzle-orm";
 import * as db from "../../db";
+import { logActivity } from "../../lib/audit";
 
 export const createCommentsRouter = (t: any, clientProcedure: any) => {
     return t.router({
@@ -43,7 +44,9 @@ export const createCommentsRouter = (t: any, clientProcedure: any) => {
                 clientId: z.number(),
                 entityType: z.enum(['control', 'policy', 'evidence']),
                 entityId: z.number(),
-                content: z.string()
+                content: z.string(),
+                parentId: z.number().optional(),
+                context: z.any().optional()
             }))
             .mutation(async ({ input, ctx }: any) => {
                 const dbConn = await db.getDb();
@@ -52,9 +55,43 @@ export const createCommentsRouter = (t: any, clientProcedure: any) => {
                     entityType: input.entityType,
                     entityId: input.entityId,
                     userId: ctx.user.id,
-                    content: input.content
+                    content: input.content,
+                    parentId: input.parentId,
+                    context: input.context
                 }).returning();
+
+                await logActivity({
+                    userId: ctx.user.id,
+                    clientId: input.clientId,
+                    action: 'comment',
+                    entityType: input.entityType,
+                    entityId: input.entityId,
+                    details: { content: input.content, commentId: comment.id }
+                });
+
                 return comment;
+            }),
+
+        resolve: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                id: z.number(),
+                resolved: z.boolean()
+            }))
+            .mutation(async ({ input, ctx }: any) => {
+                const dbConn = await db.getDb();
+                await dbConn.update(comments)
+                    .set({
+                        isResolved: input.resolved,
+                        resolvedBy: input.resolved ? ctx.user.id : null,
+                        resolvedAt: input.resolved ? new Date() : null,
+                        updatedAt: new Date()
+                    })
+                    .where(and(
+                        eq(comments.id, input.id),
+                        eq(comments.clientId, input.clientId)
+                    ));
+                return { success: true };
             }),
 
         delete: clientProcedure

@@ -1,0 +1,9 @@
+{
+    "name": "@complianceos/landing",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Static marketing landing page for ComplianceOS",
+    "scripts": {
+        "build": "echo 'Static site - no build step required'"
+    }
+}

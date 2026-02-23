@@ -4,6 +4,7 @@ import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { marked } from "marked";
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
 
 function decodeEntities(str: string) {
   const txt = document.createElement("textarea");
@@ -35,15 +36,18 @@ export default function PolicyRewriteButton({
   clientId,
   policyId,
   mode,
+  className,
   onRewrite,
+  ...props
 }: {
   content: string;
   name?: string;
   clientId?: number;
   policyId?: number;
   mode?: 'rewrite' | 'improve_placeholders';
+  className?: string;
   onRewrite: (html: string) => void;
-}) {
+} & React.ComponentProps<typeof Button>) {
   const refine = trpc.clientPolicies.refine.useMutation();
 
   const handleRewrite = async () => {
@@ -85,7 +89,14 @@ export default function PolicyRewriteButton({
   };
 
   return (
-    <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleRewrite} disabled={refine.isPending}>
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn("w-full justify-start", className)}
+      onClick={handleRewrite}
+      disabled={refine.isPending}
+      {...props}
+    >
       <Wand2 className="mr-2 h-4 w-4" />
       {refine.isPending ? "Processing..." : (mode === 'improve_placeholders' ? "Fix Placeholders" : "Rewrite with AI")}
     </Button>

@@ -18,6 +18,7 @@ interface GenerationOptions {
     modelOverride?: string;
     providerOverride?: string;
     language?: string; // Language code (e.g., 'en', 'de', 'fr')
+    answers?: Record<string, any>;
 }
 
 export class PolicyGenerator {
@@ -55,6 +56,28 @@ export class PolicyGenerator {
         console.log("DEBUG: PolicyGenerator template:", template.templateId, "language:", language);
 
         let content = "";
+        const answers = options.answers || {};
+
+        // Helper to check conditions
+        const checkCondition = (condition?: string) => {
+            if (!condition) return true;
+            try {
+                // Simple evaluator for "key == value" or "key"
+                const parts = condition.split(' ');
+                if (parts.length === 1) return !!answers[parts[0]];
+                if (parts.length === 3) {
+                    const [key, op, val] = parts;
+                    const answer = answers[key];
+                    const target = val === 'true' ? true : val === 'false' ? false : val.replace(/['"]/g, '');
+                    if (op === '==' || op === '===') return answer == target;
+                    if (op === '!=' || op === '!==') return answer != target;
+                }
+                return true;
+            } catch (e) {
+                console.error("Condition evaluation failed:", condition, e);
+                return true;
+            }
+        };
 
         // Check for monolithic content first
         if (template.content && template.content.trim().length > 0) {
@@ -64,7 +87,12 @@ export class PolicyGenerator {
         else if (template.sections && Array.isArray(template.sections) && template.sections.length > 0) {
             const sections = template.sections as any[];
             content = sections
-                .filter(s => s && (s.defaultEnabled !== false))
+                .filter(s => {
+                    if (!s) return false;
+                    const isEnabled = s.defaultEnabled !== false;
+                    const meetsCondition = checkCondition(s.condition);
+                    return isEnabled && meetsCondition;
+                })
                 .map(s => {
                     if (typeof s === 'string') return s;
                     const title = s.title || "Untitled Section";
@@ -75,18 +103,19 @@ export class PolicyGenerator {
         }
 
         // 3. Smart Variable Substitution
-        content = this.substituteVariables(content, client);
+        content = this.substituteVariables(content, client, answers);
 
         // 4. Industry Tailoring (LLM) with language support
-        if ((options.tailorToIndustry || options.customInstruction) && template.sections) {
-            // AI Tailoring removed for Core split
-            // content = await this.tailorContentWithLLM(content, client, template.name, options.customInstruction, language);
+        // 4. Industry Tailoring (LLM) with language support
+        // 4. Industry Tailoring (LLM) with language support
+        if ((options.tailorToIndustry || options.customInstruction)) {
+            content = await this.tailorContentWithLLM(content, client, template.name, options.customInstruction, language, answers);
         }
 
         return content;
     }
 
-    private substituteVariables(content: string, client: Client): string {
+    private substituteVariables(content: string, client: Client, answers: Record<string, any> = {}): string {
         let replaced = content;
 
         // Calculate dates
@@ -159,6 +188,12 @@ export class PolicyGenerator {
             '\\[Version\\]': '1.0',
         };
 
+        // Add tailoring answers to replacements
+        for (const [key, value] of Object.entries(answers)) {
+            replacements[`{{${key}}}`] = String(value);
+            replacements[`\\[${key}\\]`] = String(value);
+        }
+
         for (const [key, value] of Object.entries(replacements)) {
             // Global replace
             const regex = new RegExp(key, 'gi');
@@ -179,42 +214,84 @@ export class PolicyGenerator {
 
         // Get language from options or client settings
         const language = options.language || client.policyLanguage || 'en';
-        const languageName = LANGUAGE_NAMES[language] || 'English';
 
         // Create skeleton
         let content = sections.map(s => `## ${s}\n\n[Content to be generated]`).join("\n\n");
         content = `# ${policyName}\n\n${content}`;
 
-        // Use LLM to fill it with language support
-        // Use LLM to fill it with language support - Removed for Core split
-        return content;
+        // Smart Variable Substitution
+        content = this.substituteVariables(content, client, options.answers || {});
 
-        /*
-        const prompt = `...`;
-
-        try {
-            const response = await this.llmService.generate({ ... });
-            return response.text;
-        } catch (e) {
-            console.error("LLM Generation failed", e);
-            return content; // Return skeleton if failed
+        // AI Generation from Skeleton
+        if (options.tailorToIndustry || options.customInstruction) {
+            content = await this.tailorContentWithLLM(content, client, policyName, "Generate detailed content for each section based on the header.", language, options.answers || {});
         }
-        */
+
+        return content;
     }
 
     async suggestSections(policyName: string, industry?: string): Promise<string[]> {
-        return ["Introduction", "Scope", "Policy Statement", "Roles and Responsibilities", "Compliance"];
-        /*
         const prompt = `Suggest 5-8 common policy section titles for a "${policyName}" policy in the ${industry || 'General'} industry. Return only a JSON array of strings.`;
         try {
-            const response = await this.llmService.generate({ ... });
-            const sections = JSON.parse(response.text);
-            return Array.isArray(sections) ? sections : [];
+            const response = await this.llmService.generate({
+                systemPrompt: "You are a helpful compliance assistant. Return only a JSON array of strings.",
+                userPrompt: prompt,
+                feature: 'policy_generation',
+                maxTokens: 1000,
+                temperature: 0.3
+            }, { endpoint: 'suggest_sections' });
+            const text = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const sections = JSON.parse(text);
+            return Array.isArray(sections) ? sections : ["Introduction", "Scope", "Policy Statement", "Roles and Responsibilities", "Compliance"];
         } catch (e) {
             console.error("Suggest sections failed:", e);
             return ["Introduction", "Scope", "Policy Statement", "Roles and Responsibilities", "Compliance"];
         }
-        */
+    }
+
+    async suggestTailoringQuestions(policyName: string, industry: string = 'General', existingQuestions: string[] = []): Promise<Array<{ question: string; type: string; options?: string[] }>> {
+        const systemPrompt = `You are an expert compliance officer. Generate 3 distinct tailoring questions for a "${policyName}" policy in the ${industry} industry. Output a JSON array of objects with keys: "question" (string), "type" (one of: boolean, select, text), "options" (array of strings, only if type is select).`;
+
+        const userPrompt = `
+        Existing Questions (do not repeat these):
+        ${existingQuestions.map(q => `- ${q}`).join('\n')}
+
+        Task: Generate 3 critical questions that would help tailor this policy to a specific client context (e.g., asking about specific technologies, data types, or regulatory requirements).
+        Focus on questions that change the content of the policy (e.g., "Do you use cloud storage?", "Do you process credit card data?").
+        
+        Example Output:
+        [
+            { "question": "Do you develop software in-house?", "type": "boolean" },
+            { "question": "What is your primary cloud provider?", "type": "select", "options": ["AWS", "Azure", "GCP", "None"] }
+        ]
+
+        JSON Output ONLY.
+        `;
+
+        try {
+            const response = await this.llmService.generate({
+                systemPrompt,
+                userPrompt,
+                feature: 'policy_question_generation',
+                maxTokens: 2000
+            }, { endpoint: 'suggest_questions' });
+
+            let text = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+            // detailed parsing to handle potential markdown artifacts
+            const start = text.indexOf('[');
+            const end = text.lastIndexOf(']');
+            if (start !== -1 && end !== -1) {
+                text = text.substring(start, end + 1);
+            }
+            if (!text) {
+                console.warn("Suggest questions returned empty response");
+                return [];
+            }
+            return JSON.parse(text);
+        } catch (e) {
+            console.error("Suggest questions failed:", e);
+            return [];
+        }
     }
 
     /**
@@ -275,13 +352,24 @@ Directives:
 3. Do not remove core requirements, only enhance them.
 4. Write EVERYTHING in ${languageName} language.
 ${options.customInstruction ? '5. PRIORITIZE the USER INSTRUCTION provided above.' : ''}
-6. Return ONLY the updated policy text in Markdown format.
+6. Return ONLY the updated policy text in Markdown format. CRITICAL: Insert double newlines (\n\n) before every header and paragraph. Do not use code blocks.
+
+            EXAMPLE OUTPUT (STRICTLY FOLLOW THIS SPACING):
+            # Policy Title
+
+            ## 1.0 Purpose
+
+            This is the purpose statement.
+
+            ## 2.0 Scope
+
+            This is the scope statement.
 
 Original Policy:
 ${content}
         `;
 
-        const systemPrompt = `You are a specialized compliance policy writer. You MUST write all content in ${languageName}.`;
+        const systemPrompt = `You are a specialized compliance policy writer. You MUST write all content in ${languageName}. Always use strict Markdown with double newlines between sections.`;
 
         return { userPrompt, systemPrompt };
     }
@@ -328,7 +416,8 @@ Directives:
             const response = await this.llmService.generate({
                 systemPrompt,
                 userPrompt,
-                feature: 'policy_generation'
+                feature: 'policy_generation',
+                maxTokens: 6000
             }, { clientId, endpoint: 'incorporate_linter_sections' });
 
             return response.text;
@@ -343,42 +432,94 @@ Directives:
         }
     }
 
-    private async tailorContentWithLLM(content: string, client: Client, policyName: string, customInstruction?: string, language: string = 'en'): Promise<string> {
+    private async tailorContentWithLLM(content: string, client: Client, policyName: string, customInstruction?: string, language: string = 'en', answers: Record<string, any> = {}): Promise<string> {
         const languageName = LANGUAGE_NAMES[language] || 'English';
 
+        // Format answers for prompt
+        const answerContext = Object.entries(answers)
+            .map(([key, val]) => `- ${key}: ${val}`)
+            .join('\n');
+
         try {
-            const systemPrompt = `You are a specialized compliance policy writer. You MUST write all content in ${languageName}.`;
+            const systemPrompt = `You are an expert Chief Information Security Officer (CISO) and Compliance Architect with 20+ years of experience.
+You are writing a comprehensive, legally robust, and practical ${policyName} for a client.
+Your output must be in ${languageName}.
+Your output must be in Markdown format.
+Do not strip out important sections.
+EXPAND on the content to make it thorough.
+
+CRITICAL FORMATTING RULE: Every sub-section must follow this exact structure:
+1. A brief 1-3 sentence policy statement paragraph that declares the policy position.
+2. Followed by bullet points (using "- " markdown syntax) listing the specific requirements, procedures, responsibilities, and implementation details.
+Never write long dense paragraphs. Always break details into bullet points after the statement.`;
+
             const userPrompt = `
-You are an expert CISO and Compliance Officer specializing in the ${client.industry || 'general'} industry.
-Please review and refine the following policy text for "${policyName}".
-The goal is to make it specifically relevant to a ${client.size || 'mid-sized'} ${client.industry} company.
+CLIENT PROFILE:
+Name: ${client.name}
+Industry: ${client.industry || 'Technology/General'}
+Size: ${client.size || 'Mid-sized'}
+Region: ${client.region || 'US/Global'}
 
-IMPORTANT: Write the ENTIRE refined policy in ${languageName}. All text must be in ${languageName}.
+TAILORING CONTEXT (User Responses):
+${answerContext || 'No specific tailoring context provided.'}
 
-${customInstruction ? `USER INSTRUCTION: ${customInstruction}` : ''}
+TASK:
+Generate a comprehensive, detailed, and industry-tailored "${policyName}".
+Use the provided "Reference Content" as a starting point, but do not be limited by it.
+You must EXPAND, DETAIL, and PROFESSIONALIZE the content.
+The final policy should be ready for audit review (SOC2, ISO 27001, HIPAA compatible where relevant).
 
-Directives:
-1. Maintain the professional tone and structure.
-2. Inject specific security concerns or regulatory references relevant to ${client.industry} (e.g., HIPAA for Health, PCI for Retail, SOC2/ISO for Tech).
-3. Do not remove core requirements, only enhance them.
-4. Return ONLY the updated policy text in Markdown format.
+USER INSTRUCTION:
+${customInstruction ? `> ${customInstruction}` : 'No specific custom instructions provided. Focus on industry best practices.'}
 
-Original Policy:
+REQUIREMENTS:
+1. **Structured Format**: Each sub-section MUST follow this pattern: Start with a brief, authoritative 1-3 sentence policy statement paragraph that declares the policy position. Then follow with bullet points (using "- " markdown syntax) that provide the specific requirements, procedures, responsibilities, and implementation details. This pattern must be consistent across ALL sections. Never write long dense paragraphs without bullet points.
+2. **Detailed and Comprehensive**: Each bullet point should be specific and actionable. Include measurable criteria, responsible parties, timelines, and specific technical or procedural requirements where applicable.
+3. **Industry Specific**: Since the client is in ${client.industry || 'General'}, include specific terminology, threats, regulatory requirements, and concerns relevant to this sector.
+4. **Context Aware**: Use the "TAILORING CONTEXT" above to specifically include or exclude relevant clauses (e.g. if PII is processed, strictly enforce privacy controls).
+5. **Structure**: Use clear Markdown headers (#, ##, ###). Insert double newlines before every header and paragraph. Do not produce a single block of text. Do not use code blocks.
+6. **No Placeholders**: Do NOT leave any placeholders like [Date], [Company Name], etc. Use the Client Profile data to fill them in logically.
+7. **Language**: Write strictly in ${languageName}.
+
+EXAMPLE OUTPUT (STRICTLY FOLLOW THIS FORMAT):
+# Policy Title
+
+## 1.0 Purpose
+
+This policy establishes the mandatory framework for managing and controlling access to information assets and operational environments.
+
+- The primary objective is to protect the confidentiality, integrity, and availability (CIA triad) of all information assets.
+- Access shall be granted strictly based on verified business need, the principle of least privilege, and robust accountability mechanisms.
+- This policy applies to all employees, contractors, and third-party users who access company systems.
+
+## 2.0 Scope
+
+This policy applies to all information systems, applications, and data repositories owned or managed by the organization.
+
+- All employees, contractors, temporary staff, and third-party service providers with access to company systems are subject to this policy.
+- This includes on-premises systems, cloud-hosted environments, remote access solutions, and mobile devices.
+- Exceptions to this policy must be formally documented and approved by the CISO.
+
+REFERENCE CONTENT (Use as a base, but significantly improve, expand, and reformat using the statement + bullet points pattern shown above):
 ${content}
 `;
 
             const response = await this.llmService.generate({
                 systemPrompt,
                 userPrompt,
-                feature: 'policy_generation'
-            }, { clientId: client.id, endpoint: 'tailor_policy' });
+                feature: 'policy_generation_comprehensive',
+                temperature: 0.4,
+                maxTokens: 8000
+            }, { clientId: client.id, endpoint: 'tailor_policy_comprehensive' });
 
             return response.text;
         } catch (error) {
-            console.error("LLM Tailoring failed:", error);
-            return content; // Fallback to untailored content
+            console.error("LLM Comprehensive Generation failed:", error);
+            // Fallback to original content if AI fails
+            return content;
         }
     }
 }
 
 export const policyGenerator = new PolicyGenerator();
+

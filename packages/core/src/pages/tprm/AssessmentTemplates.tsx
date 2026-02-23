@@ -18,7 +18,7 @@ export default function AssessmentTemplates() {
     const { selectedClientId: clientId } = useClientContext();
     const [, setLocation] = useLocation();
 
-    const { data: templates, isLoading } = trpc.vendorAssessments.listTemplates.useQuery(
+    const { data: templates, isLoading } = trpc.vendors.listTemplates.useQuery(
         { clientId: clientId! },
         { enabled: !!clientId }
     );

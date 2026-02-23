@@ -107,14 +107,16 @@ export default function DfarsPage() {
 
     return (
         <DashboardLayout>
-            <div className="p-8 space-y-8 max-w-7xl mx-auto">
-                <Breadcrumb items={[
-                    { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
-                    { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
-                    { label: "DFARS / SPRS" }
-                ]} />
+            <div className="pb-20">
+                <div className="px-6 pt-6 pb-2">
+                    <Breadcrumb items={[
+                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
+                        { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
+                        { label: "DFARS / SPRS" }
+                    ]} />
+                </div>
 
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl py-4 px-6 border-b border-slate-200 shadow-sm mb-6">
                     <div className="space-y-1">
                         <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
                             <Target className="h-10 w-10 text-blue-600" />
@@ -179,152 +181,154 @@ export default function DfarsPage() {
                     </Dialog>
                 </div>
 
-                {isLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="h-64 bg-slate-100 rounded-3xl" />
-                        ))}
-                    </div>
-                ) : assessments?.length === 0 ? (
-                    <Card className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-20 text-center">
-                        <div className="flex flex-col items-center max-w-md mx-auto space-y-4">
-                            <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-200">
-                                <Shield className="h-12 w-12 text-slate-300" />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-900">No Assessments Found</h3>
-                            <p className="text-slate-500">
-                                You haven't performed any NIST 800-171 self-assessments yet.
-                                Create one to calculate your SPRS score.
-                            </p>
-                            <Button
-                                onClick={() => setIsCreateOpen(true)}
-                                variant="outline"
-                                className="mt-4 border-slate-300 rounded-xl font-bold h-11 px-8"
-                            >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Start First Assessment
-                            </Button>
+                <div className="px-6 space-y-8">
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-64 bg-slate-100 rounded-3xl" />
+                            ))}
                         </div>
-                    </Card>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {assessments?.map((assessment: any) => (
-                            <Card
-                                key={assessment.id}
-                                className="group rounded-3xl border-none shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-500 overflow-hidden flex flex-col"
-                            >
-                                <div className="cursor-pointer" onClick={() => setLocation(`/clients/${clientId}/federal/assessment-171?sprsAssessmentId=${assessment.id}`)}>
-                                    <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-600" />
-                                    <CardHeader className="pb-4">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
-                                                <Shield className="h-6 w-6 text-slate-400 group-hover:text-blue-600" />
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="bg-white">{assessment.status}</Badge>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setAssessmentToDelete(assessment);
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        <CardTitle className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors">
-                                            {assessment.title}
-                                        </CardTitle>
-                                        <CardDescription className="text-sm font-medium text-slate-500 mt-2 line-clamp-2">
-                                            {assessment.scopeDescription || "No scope defined."}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="flex-1 space-y-6 pt-0">
-                                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                                            <span className="text-sm font-bold text-slate-500">SPRS Score</span>
-                                            <Badge className={`text-lg px-3 py-1 ${getScoreColor(assessment.score)}`}>
-                                                {assessment.score} / 110
-                                            </Badge>
-                                        </div>
-                                    </CardContent>
+                    ) : assessments?.length === 0 ? (
+                        <Card className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-20 text-center">
+                            <div className="flex flex-col items-center max-w-md mx-auto space-y-4">
+                                <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-200">
+                                    <Shield className="h-12 w-12 text-slate-300" />
                                 </div>
-                                <CardFooter className="bg-slate-50/50 p-6 pt-0 flex flex-col gap-3 group-hover:bg-blue-50/50 transition-colors">
-                                    <div className="w-full flex justify-between items-center mb-2 px-1">
-                                        <div className="flex items-center text-xs font-bold text-slate-400">
-                                            <Calendar className="h-3 w-3 mr-1.5" />
-                                            {new Date(assessment.createdAt).toLocaleDateString()}
+                                <h3 className="text-xl font-bold text-slate-900">No Assessments Found</h3>
+                                <p className="text-slate-500">
+                                    You haven't performed any NIST 800-171 self-assessments yet.
+                                    Create one to calculate your SPRS score.
+                                </p>
+                                <Button
+                                    onClick={() => setIsCreateOpen(true)}
+                                    variant="outline"
+                                    className="mt-4 border-slate-300 rounded-xl font-bold h-11 px-8"
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Start First Assessment
+                                </Button>
+                            </div>
+                        </Card>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+                            {assessments?.map((assessment: any) => (
+                                <Card
+                                    key={assessment.id}
+                                    className="group rounded-3xl border-none shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-500 overflow-hidden flex flex-col"
+                                >
+                                    <div className="cursor-pointer" onClick={() => setLocation(`/clients/${clientId}/federal/assessment-171?sprsAssessmentId=${assessment.id}`)}>
+                                        <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-600" />
+                                        <CardHeader className="pb-4">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="p-3 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
+                                                    <Shield className="h-6 w-6 text-slate-400 group-hover:text-blue-600" />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline" className="bg-white">{assessment.status}</Badge>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAssessmentToDelete(assessment);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            <CardTitle className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors">
+                                                {assessment.title}
+                                            </CardTitle>
+                                            <CardDescription className="text-sm font-medium text-slate-500 mt-2 line-clamp-2">
+                                                {assessment.scopeDescription || "No scope defined."}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="flex-1 space-y-6 pt-0">
+                                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                                                <span className="text-sm font-bold text-slate-500">SPRS Score</span>
+                                                <Badge className={`text-lg px-3 py-1 ${getScoreColor(assessment.score)}`}>
+                                                    {assessment.score} / 110
+                                                </Badge>
+                                            </div>
+                                        </CardContent>
+                                    </div>
+                                    <CardFooter className="bg-slate-50/50 p-6 pt-0 flex flex-col gap-3 group-hover:bg-blue-50/50 transition-colors">
+                                        <div className="w-full flex justify-between items-center mb-2 px-1">
+                                            <div className="flex items-center text-xs font-bold text-slate-400">
+                                                <Calendar className="h-3 w-3 mr-1.5" />
+                                                {new Date(assessment.createdAt).toLocaleDateString()}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2 w-full">
-                                        <Button
-                                            className="w-full rounded-xl h-11 bg-slate-900 hover:bg-black text-white font-bold text-xs gap-2"
-                                            onClick={() => setLocation(`/clients/${clientId}/federal/assessment-171?sprsAssessmentId=${assessment.id}`)}
-                                        >
-                                            Continue Assessment
-                                            <ArrowRight className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </CardFooter>
-                            </Card>
-                        ))}
+                                        <div className="flex gap-2 w-full">
+                                            <Button
+                                                className="w-full rounded-xl h-11 bg-slate-900 hover:bg-black text-white font-bold text-xs gap-2"
+                                                onClick={() => setLocation(`/clients/${clientId}/federal/assessment-171?sprsAssessmentId=${assessment.id}`)}
+                                            >
+                                                Continue Assessment
+                                                <ArrowRight className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    </CardFooter>
+                                </Card>
+                            ))}
 
-                        {/* Quick Add Placeholder */}
-                        <div
-                            onClick={() => setIsCreateOpen(true)}
-                            className="h-full min-h-[300px] border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center space-y-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer group"
-                        >
-                            <div className="p-4 bg-slate-50 rounded-2xl group-hover:bg-white transition-colors">
-                                <Plus className="h-8 w-8 text-slate-300 group-hover:text-blue-500" />
-                            </div>
-                            <span className="font-bold text-slate-400 group-hover:text-blue-600">New Assessment</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* SPRS Resources Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 mt-12 border-t border-slate-100">
-                    <Card className="rounded-3xl border-none shadow-xl shadow-slate-200/50 bg-gradient-to-br from-slate-900 to-blue-950 text-white overflow-hidden p-8">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="space-y-2">
-                                <h3 className="text-2xl font-black">SPRS Submission</h3>
-                                <p className="text-slate-400 text-sm font-medium">Generate scores and artifacts for SPRS upload.</p>
-                            </div>
-                            <div className="p-3 bg-white/10 rounded-2xl">
-                                <FileText className="h-8 w-8 text-blue-400" />
-                            </div>
-                        </div>
-                        <div className="flex flex-wrap gap-4">
-                            <Button
-                                variant="outline"
-                                className="border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl h-11 px-6 active:scale-95 transition-all"
-                                onClick={() => toast.info("Report generation is currently under development.")}
+                            {/* Quick Add Placeholder */}
+                            <div
+                                onClick={() => setIsCreateOpen(true)}
+                                className="h-full min-h-[300px] border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center space-y-4 hover:border-blue-300 hover:bg-blue-50/30 transition-all cursor-pointer group"
                             >
-                                <Download className="h-4 w-4 mr-2" />
-                                Export SPRS Report
-                            </Button>
+                                <div className="p-4 bg-slate-50 rounded-2xl group-hover:bg-white transition-colors">
+                                    <Plus className="h-8 w-8 text-slate-300 group-hover:text-blue-500" />
+                                </div>
+                                <span className="font-bold text-slate-400 group-hover:text-blue-600">New Assessment</span>
+                            </div>
                         </div>
-                    </Card>
+                    )}
 
-                    <Card className="rounded-3xl border-none shadow-xl shadow-slate-200/50 bg-white p-8 border border-slate-100">
-                        <div className="flex justify-between items-start mb-6">
-                            <div className="space-y-2">
-                                <h3 className="text-2xl font-black text-slate-900">PO&AM Tracking</h3>
-                                <p className="text-slate-500 text-sm font-medium">Track remediation of non-compliant controls.</p>
+                    {/* SPRS Resources Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-8 mt-12 border-t border-slate-100">
+                        <Card className="rounded-3xl border-none shadow-xl shadow-slate-200/50 bg-gradient-to-br from-slate-900 to-blue-950 text-white overflow-hidden p-8">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black">SPRS Submission</h3>
+                                    <p className="text-slate-400 text-sm font-medium">Generate scores and artifacts for SPRS upload.</p>
+                                </div>
+                                <div className="p-3 bg-white/10 rounded-2xl">
+                                    <FileText className="h-8 w-8 text-blue-400" />
+                                </div>
                             </div>
-                            <div className="p-3 bg-blue-50 rounded-2xl">
-                                <BarChart3 className="h-8 w-8 text-blue-600" />
+                            <div className="flex flex-wrap gap-4">
+                                <Button
+                                    variant="outline"
+                                    className="border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl h-11 px-6 active:scale-95 transition-all"
+                                    onClick={() => toast.info("Report generation is currently under development.")}
+                                >
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export SPRS Report
+                                </Button>
                             </div>
-                        </div>
-                        <Button
-                            className="w-full bg-slate-900 text-white hover:bg-black font-bold rounded-xl h-11 active:scale-95 transition-all"
-                            onClick={() => toast.info("PO&AM dashboard is coming soon.")}
-                        >
-                            View Remediation Plan
-                        </Button>
-                    </Card>
+                        </Card>
+
+                        <Card className="rounded-3xl border-none shadow-xl shadow-slate-200/50 bg-white p-8 border border-slate-100">
+                            <div className="flex justify-between items-start mb-6">
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black text-slate-900">PO&AM Tracking</h3>
+                                    <p className="text-slate-500 text-sm font-medium">Track remediation of non-compliant controls.</p>
+                                </div>
+                                <div className="p-3 bg-blue-50 rounded-2xl">
+                                    <BarChart3 className="h-8 w-8 text-blue-600" />
+                                </div>
+                            </div>
+                            <Button
+                                className="w-full bg-slate-900 text-white hover:bg-black font-bold rounded-xl h-11 active:scale-95 transition-all"
+                                onClick={() => toast.info("PO&AM dashboard is coming soon.")}
+                            >
+                                View Remediation Plan
+                            </Button>
+                        </Card>
+                    </div>
                 </div>
             </div>
 

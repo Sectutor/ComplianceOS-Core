@@ -81,7 +81,7 @@ export default function NIST80037Monitor() {
             toast.error("No system selected", { description: "Please select a system first." });
             return;
         }
-        
+
         setIsSaving(true);
         updateChecklistMutation.mutate({
             clientId,
@@ -118,7 +118,7 @@ export default function NIST80037Monitor() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
                         { label: "Dashboard", href: `/dashboard` },
@@ -258,7 +258,7 @@ export default function NIST80037Monitor() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="overview" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -274,7 +274,7 @@ export default function NIST80037Monitor() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="overview" className="p-10 space-y-10 m-0">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-6">
@@ -284,24 +284,11 @@ export default function NIST80037Monitor() {
                                             </div>
 
                                             <div className="space-y-4">
-                                                {[
-                                                    { event: "Terraform Apply: Production", type: "Config Change", date: "2 mins ago", severity: "Low" },
-                                                    { event: "New IAM Role Created: 'ReadOnly'", type: "Access Update", date: "45 mins ago", severity: "Neutral" },
-                                                    { event: "S3 Bucket Encrypted", type: "Security Fix", date: "1 hour ago", severity: "Success" }
-                                                ].map((e, i) => (
-                                                    <div key={i} className="p-5 bg-white border border-slate-100 rounded-3xl flex items-center justify-between hover:shadow-lg transition-all group">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                                                                <RefreshCw className="w-5 h-5" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-black text-slate-900">{e.event}</p>
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{e.type} • {e.date}</p>
-                                                            </div>
-                                                        </div>
-                                                        <Badge variant="outline" className="text-[10px] font-black uppercase border-slate-100">{e.severity}</Badge>
-                                                    </div>
-                                                ))}
+                                                {/* No events to display - real data would come from monitoring feeds */}
+                                                <div className="text-center py-8 text-slate-400">
+                                                    <p className="font-medium">No recent activity for this system</p>
+                                                    <p className="text-sm">System changes and events will appear here</p>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -452,9 +439,9 @@ export default function NIST80037Monitor() {
                                         ))}
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </NIST80037Layout>

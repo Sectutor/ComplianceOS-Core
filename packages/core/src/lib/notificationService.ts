@@ -47,3 +47,30 @@ export async function createInAppNotification(clientId: number, payload: InAppNo
 
     return { success: true, count: inserts.length };
 }
+
+/**
+ * Creates in-app notifications for specific users.
+ */
+export async function notifyUsers(userIds: number[], payload: InAppNotificationPayload) {
+    if (userIds.length === 0) return { success: true, count: 0 };
+
+    const dbConn = await db.getDb();
+
+    const inserts = userIds.map((userId) => ({
+        userId,
+        type: payload.type,
+        channel: "system",
+        title: payload.title,
+        message: payload.message,
+        link: payload.link,
+        relatedEntityType: payload.relatedEntityType,
+        relatedEntityId: payload.relatedEntityId,
+        metadata: payload.metadata,
+        status: "sent",
+        sentAt: new Date(),
+    }));
+
+    await dbConn.insert(schema.notificationLog).values(inserts);
+
+    return { success: true, count: inserts.length };
+}

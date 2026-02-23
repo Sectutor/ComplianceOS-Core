@@ -10,7 +10,8 @@
   },
   "peerDependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.51.0"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",

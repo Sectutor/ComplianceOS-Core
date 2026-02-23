@@ -41,12 +41,12 @@ export default function SecurityReviews() {
     const clientId = parseInt(id || "0");
     const [searchTerm, setSearchTerm] = useState("");
 
-    const { data: assessments, isLoading, refetch } = trpc.vendorAssessments.listAll.useQuery(
+    const { data: assessments, isLoading, refetch } = trpc.vendors.listAll.useQuery(
         { clientId },
         { enabled: !!clientId }
     );
 
-    const updateStatusMutation = trpc.vendorAssessments.update.useMutation({
+    const updateStatusMutation = trpc.vendors.update.useMutation({
         onSuccess: () => {
             toast.success("Status updated");
             refetch();
@@ -147,7 +147,7 @@ export default function SecurityReviews() {
 
     const { data: vendors } = trpc.vendors.list.useQuery({ clientId });
 
-    const createMutation = trpc.vendorAssessments.create.useMutation({
+    const createMutation = trpc.vendors.create.useMutation({
         onSuccess: () => {
             toast.success("Assessment scheduled");
             setIsNewOpen(false);

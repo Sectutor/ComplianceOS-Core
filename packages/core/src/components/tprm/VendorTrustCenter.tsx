@@ -308,7 +308,7 @@ export const VendorTrustCenter: React.FC<VendorTrustCenterProps> = ({ vendor, on
                 // Optimistic update
                 utils.vendors.get.setData({ id: vendor.id }, (old) => old ? { ...old, trustCenterData: { ...currentData, manual: newManual } } : old);
 
-                trpc.vendors.update.mutate({
+                trpc.vendors.updateVendor.mutate({
                   id: vendor.id,
                   trustCenterData: { ...currentData, manual: newManual }
                 }).then(() => {

@@ -1,18 +1,25 @@
 [build]
-  command = "npm install --legacy-peer-deps --include=dev && npm run build --workspace @complianceos/core"
+  base = "."
+  command = "npm ci --legacy-peer-deps && npm run build -w @complianceos/core"
   publish = "packages/core/dist"
 
 [build.environment]
-  NPM_FLAGS = "--legacy-peer-deps --include=dev"
-  NODE_OPTIONS = "--max_old_space_size=4096"
-  NODE_VERSION = "22.21.1"
-  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
+  NPM_FLAGS = "--include=dev"
+  NODE_OPTIONS = "--max-old-space-size=4096"
+  PYTHON_VERSION = "3.12"
   SECRETS_SCAN_ENABLED = "false"
+  SECRETS_SCAN_OMIT_PATHS = ".netlify,node_modules,packages/core/dist,packages/core/tmp_build"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
 
 [functions]
 
 [functions.node_bundle]
   external_node_modules = ["postgres", "pdf-parse", "puppeteer", "docx", "archiver", "xlsx", "turndown", "openai"]
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api/health"
+  status = 200
 
 [[redirects]]
   from = "/api/*"

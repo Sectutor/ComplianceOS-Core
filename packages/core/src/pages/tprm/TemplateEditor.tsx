@@ -39,7 +39,7 @@ export default function TemplateEditor() {
     });
 
     // Fetch existing template if editing
-    const { data: existingTemplate, isLoading: isFetching } = trpc.vendorAssessments.getTemplate.useQuery(
+    const { data: existingTemplate, isLoading: isFetching } = trpc.vendors.getTemplate.useQuery(
         { id: numericTemplateId! },
         { enabled: !!numericTemplateId }
     );
@@ -56,7 +56,7 @@ export default function TemplateEditor() {
         }
     }, [existingTemplate]);
 
-    const createMutation = trpc.vendorAssessments.createTemplate.useMutation({
+    const createMutation = trpc.vendors.createTemplate.useMutation({
         onSuccess: () => {
             toast.success("Template created successfully");
             setLocation(`/clients/${clientId}/vendors/templates`);
@@ -64,7 +64,7 @@ export default function TemplateEditor() {
         onError: (err) => toast.error(`Failed to create: ${err.message}`)
     });
 
-    const updateMutation = trpc.vendorAssessments.updateTemplate.useMutation({
+    const updateMutation = trpc.vendors.updateTemplate.useMutation({
         onSuccess: () => {
             toast.success("Template updated successfully");
             setLocation(`/clients/${clientId}/vendors/templates`);

@@ -14,7 +14,7 @@ export default function OverdueAssessmentsPage() {
     const clientId = parseInt(id || "0");
     const [searchTerm, setSearchTerm] = useState("");
 
-    const { data: assessments, isLoading } = trpc.vendorAssessments.listAll.useQuery(
+    const { data: assessments, isLoading } = trpc.vendors.listAll.useQuery(
         { clientId },
         { enabled: !!clientId }
     );

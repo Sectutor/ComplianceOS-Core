@@ -80,6 +80,7 @@ import { createGovernanceRouter } from "./server/routers/governance";
 import { createAutopilotRouter } from "./server/routers/autopilot";
 import { createGapAnalysisRouter } from "./server/routers/gapAnalysis";
 import { createFederalRouter } from "./server/routers/federal";
+import { createNist80030Router } from "./server/routers/nist80030";
 import { createActionsRouter } from "./server/routers/actions";
 import { createCalendarRouter } from "./server/routers/calendar";
 import { createClientsRouter } from "./server/routers/clients";
@@ -122,6 +123,7 @@ import { createEssentialEightRouter } from "./server/routers/essentialEight";
 import { createStudioRouter } from "./server/routers/studio";
 import { createMaturityRouter } from "./server/routers/maturity";
 import { createGumroadRouter } from "./server/routers/gumroad";
+import { feedbackRouter } from "./server/routers/feedback";
 
 
 // Procedures and Middleware are now imported from ./server/trpc
@@ -193,6 +195,7 @@ export const appRouter = router({
   checklist: createChecklistRouter(t, clientProcedure),
   gapAnalysis: createGapAnalysisRouter(t, clientProcedure),
   federal: createFederalRouter(t, clientProcedure),
+  nist80030: createNist80030Router(t, clientProcedure),
   readiness: createReadinessRouter(t, clientProcedure),
   samm: createSammRouter(t, clientProcedure),
   sammV2: createSammV2Router(t, clientProcedure),
@@ -258,6 +261,7 @@ export const appRouter = router({
     systems: createAiSystemsRouter(t, clientProcedure),
     // advisor: createAdvisorRouter(t, clientProcedure)
   }),
+  feedback: feedbackRouter,
   studio: createStudioRouter(t, protectedProcedure),
   advisor: createAdvisorRouter(t, clientProcedure.use(t.middleware(({ ctx, next, path, input }) => {
     const sig = ctx.req.headers["x-signature"] as string | undefined;

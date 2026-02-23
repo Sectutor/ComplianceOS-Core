@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useParams } from "wouter";
-import { 
-    CheckCircle, AlertCircle, Shield, FileText, 
+import {
+    CheckCircle, AlertCircle, Shield, FileText,
     Upload, Download, ExternalLink, Lock, Clock, Check
 } from "lucide-react";
 import { Button } from "@complianceos/ui/ui/button";
@@ -16,15 +16,15 @@ export default function ConsolidatedRequestPortal() {
     const { token } = useParams<{ token: string }>();
     const utils = trpc.useContext();
 
-    const { data, isLoading, error } = trpc.vendorAssessments.getConsolidatedRequest.useQuery(
+    const { data, isLoading, error } = trpc.vendors.getConsolidatedRequest.useQuery(
         { token: token || "" },
         { enabled: !!token, retry: false }
     );
 
-    const uploadMutation = trpc.vendorAssessments.submitConsolidatedDocument.useMutation({
+    const uploadMutation = trpc.vendors.submitConsolidatedDocument.useMutation({
         onSuccess: () => {
             toast.success("Document uploaded successfully");
-            utils.vendorAssessments.getConsolidatedRequest.invalidate({ token });
+            utils.vendors.getConsolidatedRequest.invalidate({ token });
         },
         onError: (err) => toast.error("Upload failed: " + err.message)
     });
@@ -102,7 +102,7 @@ export default function ConsolidatedRequestPortal() {
                                 <h1 className="text-2xl font-bold text-slate-900">Data Request</h1>
                                 <p className="text-slate-500 mt-1">From the compliance team at Your Organization</p>
                             </div>
-                            
+
                             <div className="pt-4 border-t border-slate-100 space-y-4">
                                 <div className="flex items-center gap-3 text-sm text-slate-600">
                                     <Clock className="w-4 h-4 text-indigo-500" />
@@ -143,7 +143,7 @@ export default function ConsolidatedRequestPortal() {
                         </h2>
 
                         {request.items.map((item: any, idx: number) => (
-                            <div 
+                            <div
                                 key={idx}
                                 className={cn(
                                     "group relative bg-white p-6 rounded-2xl border transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50",
@@ -168,8 +168,8 @@ export default function ConsolidatedRequestPortal() {
                                                 {item.status === 'completed' && <Badge className="bg-emerald-500 text-white border-none text-[10px]">Submitted</Badge>}
                                             </div>
                                             <p className="text-sm text-slate-500">
-                                                {item.type === 'questionnaire' 
-                                                    ? "Complete the online security assessment form." 
+                                                {item.type === 'questionnaire'
+                                                    ? "Complete the online security assessment form."
                                                     : "Upload a PDF or document version of this evidence."}
                                             </p>
                                         </div>
@@ -181,14 +181,14 @@ export default function ConsolidatedRequestPortal() {
                                         </div>
                                     ) : (
                                         item.type === 'questionnaire' ? (
-                                            <Button 
+                                            <Button
                                                 onClick={() => window.open(`/portal/assessment/${item.token || ''}`, '_blank')}
                                                 className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-100"
                                             >
                                                 Start <ExternalLink className="w-4 h-4 ml-2" />
                                             </Button>
                                         ) : (
-                                            <Button 
+                                            <Button
                                                 variant="outline"
                                                 onClick={() => handleFileUpload(item.name)}
                                                 className="rounded-xl border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-600"
@@ -226,7 +226,7 @@ export default function ConsolidatedRequestPortal() {
             </main>
 
             <footer className="mt-20 border-t border-slate-200 pt-8 pb-12 text-center text-slate-400 text-xs">
-                &copy; {new Date().getFullYear()} ComplianceOS Security. All rights reserved. <br/>
+                &copy; {new Date().getFullYear()} ComplianceOS Security. All rights reserved. <br />
                 Secure end-to-end encryption active.
             </footer>
         </div>

@@ -25,12 +25,12 @@ export default function VendorAssessmentPortal() {
     const [responses, setResponses] = useState<Record<string, any>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);
 
-    const { data, isLoading, error } = trpc.vendorAssessments.getPublicAssessment.useQuery(
+    const { data, isLoading, error } = trpc.vendors.getPublicAssessment.useQuery(
         { token: token! },
         { enabled: !!token, retry: false }
     );
 
-    const submitMutation = trpc.vendorAssessments.submitAssessment.useMutation({
+    const submitMutation = trpc.vendors.submitAssessment.useMutation({
         onSuccess: () => {
             setIsSubmitted(true);
             toast.success("Assessment submitted successfully!");

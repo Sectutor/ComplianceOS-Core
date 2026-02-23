@@ -27,13 +27,28 @@ const REQUIRED_SECRETS_PROD: SecretKey[] = [
 export function validateSecrets() {
     if (process.env.NODE_ENV !== 'production') return;
 
-    const missing = REQUIRED_SECRETS_PROD.filter(key => !process.env[key]);
+    const results = REQUIRED_SECRETS_PROD.map(key => {
+        const standard = process.env[key];
+        const vite = process.env[`VITE_${key}`];
+        return {
+            key,
+            found: !!(standard || vite),
+            asVite: !!vite && !standard
+        };
+    });
+
+    const missing = results.filter(r => !r.found).map(r => r.key);
 
     if (missing.length > 0) {
-        const errorMsg = `CRITICAL: Missing required production secrets: ${missing.join(', ')}`;
+        // Log all available keys (privacy safe) to help diagnose naming issues
+        const allKeys = Object.keys(process.env).filter(k =>
+            k.includes('URL') || k.includes('KEY') || k.includes('SECRET')
+        );
+
+        const errorMsg = `CRITICAL: Missing required production secrets: ${missing.join(', ')}. ` +
+            `Available related keys: ${allKeys.join(', ')}`;
+
         logger.error(errorMsg);
-        // In a true AL 3 environment, we would crash here normally,
-        // but since we are in dev/test, we logger.error it and throw for visibility.
         throw new Error(errorMsg);
     }
 }
@@ -42,10 +57,10 @@ export function validateSecrets() {
  * Gets a secret with a fallback and optional validation.
  */
 export function getSecret(key: SecretKey, fallback?: string): string {
-    const value = process.env[key] || fallback;
+    const value = process.env[key] || process.env[`VITE_${key}`] || fallback;
 
     if (!value && REQUIRED_SECRETS_PROD.includes(key) && process.env.NODE_ENV === 'production') {
-        throw new Error(`CRITICAL: Secret ${key} is required in production but not found.`);
+        throw new Error(`CRITICAL: Secret ${key} (or VITE_${key}) is required in production but not found.`);
     }
 
     return value || '';

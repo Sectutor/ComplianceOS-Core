@@ -116,7 +116,7 @@ const FrameworkImplementationView: React.FC = () => {
 
     return (
         <DashboardLayout>
-            <div className="p-8 space-y-8 max-w-7xl mx-auto">
+            <div className="p-8 space-y-8">
                 <Breadcrumb
                     items={[
                         { label: "Assurance", href: `/clients/${clientId}/assurance` },

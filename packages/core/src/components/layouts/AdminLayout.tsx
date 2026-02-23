@@ -44,6 +44,7 @@ const adminMenuItems = [
     { icon: CreditCard, label: "Billing", path: "/clients/730/settings?tab=billing" },
     { icon: Users, label: "Waitlist", path: "/sales/waitlist" },
     { icon: Contact2, label: "Global CRM", path: "/admin/crm" },
+    { icon: Bug, label: "System Feedback", path: "/admin/system-feedback" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "admin-sidebar-width";

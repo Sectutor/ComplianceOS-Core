@@ -75,7 +75,7 @@ export default function NIST80053Assessment() {
     const systemId = useNistSystemId();
     const clientId = parseInt(id || "0");
     const sspId = packageId ? parseInt(packageId) : undefined;
-    const fismaSystemId = systemId && !isNaN(parseInt(systemId)) ? parseInt(systemId) : undefined;
+    const fismaSystemId = systemId;
     const utils = trpc.useUtils();
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -219,8 +219,7 @@ export default function NIST80053Assessment() {
             <div className="space-y-6">
                 <Breadcrumb
                     items={[
-                        { label: "Dashboard", href: `/dashboard` },
-                        { label: "NIST Hub", href: `/clients/${clientId}/nist` },
+                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                         { label: "SP 800-53 Control Catalog" },
                     ]}
                 />

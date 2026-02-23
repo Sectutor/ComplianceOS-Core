@@ -370,6 +370,7 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                     score: vendorAssessments.score,
                     completedDate: vendorAssessments.completedDate,
                     vendorName: vendors.name,
+                    vendorCriticality: vendors.criticality,
                     inherentRiskLevel: vendorAssessments.inherentRiskLevel,
                     residualRiskLevel: vendorAssessments.residualRiskLevel,
                     reviewStatus: vendorAssessments.reviewStatus
@@ -377,6 +378,45 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                     .from(vendorAssessments)
                     .innerJoin(vendors, eq(vendorAssessments.vendorId, vendors.id))
                     .where(eq(vendorAssessments.clientId, input.clientId));
+            }),
+
+        // Alias for create (used by frontend)
+        create: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                vendorId: z.number(),
+                type: z.string(),
+                status: z.string().optional(),
+                dueDate: z.string().optional(),
+            }))
+            .mutation(async ({ input }: { input: any }) => {
+                const db = await getDb();
+                const { dueDate, ...rest } = input;
+                const [assessment] = await db.insert(vendorAssessments).values({
+                    ...rest,
+                    dueDate: dueDate ? new Date(dueDate) : undefined
+                }).returning();
+                return assessment;
+            }),
+
+        // Alias for update (used by frontend)
+        update: clientProcedure
+            .input(z.object({
+                id: z.number(),
+                status: z.string().optional(),
+                score: z.number().optional(),
+                findings: z.string().optional(),
+                documentUrl: z.string().optional(),
+                completedDate: z.string().optional(),
+            }))
+            .mutation(async ({ input }: { input: any }) => {
+                const db = await getDb();
+                const { id, completedDate, ...data } = input;
+                const [assessment] = await db.update(vendorAssessments).set({
+                    ...data,
+                    completedDate: completedDate ? new Date(completedDate) : undefined
+                }).where(eq(vendorAssessments.id, id)).returning();
+                return assessment;
             }),
 
         listAssessments: publicProcedure
@@ -677,7 +717,8 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                 return db.select().from(vendors).where(eq(vendors.clientId, clientId));
             }),
 
-        create: premiumClientProcedure
+        // Vendor Management - renamed to avoid conflict with assessment procedures
+        createVendor: premiumClientProcedure
             .input(z.object({
                 clientId: z.number(),
                 name: z.string(),
@@ -719,7 +760,8 @@ export const createVendorAssessmentsRouter = (t: any, clientProcedure: any, publ
                 return newVendor;
             }),
 
-        update: adminProcedure
+        // Vendor Management - renamed to avoid conflict with assessment procedures
+        updateVendor: adminProcedure
             .input(z.object({
                 id: z.number(),
                 name: z.string().optional(),

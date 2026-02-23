@@ -48,7 +48,7 @@ import { ListTodo, ShoppingBag } from "lucide-react";
 export default function ClientSettings() {
     const params = useParams();
     const clientId = Number(params.id);
-    const [, setLocation] = useLocation();
+    const [location, setLocation] = useLocation();
     const { user } = useAuth();
 
     // Lazy loaded to avoid potential circular dep issues or just keep clean
@@ -96,7 +96,6 @@ export default function ClientSettings() {
         );
     }
 
-    const [location] = useLocation();
     const queryParams = new URLSearchParams(window.location.search);
     const initialTab = queryParams.get("tab") || "general";
 

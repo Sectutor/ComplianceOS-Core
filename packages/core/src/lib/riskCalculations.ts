@@ -4,7 +4,10 @@
  */
 
 export type RiskLevel = 'Low' | 'Medium' | 'High' | 'Very High' | 'Critical';
-export type ControlEffectiveness = 'Effective' | 'Partially Effective' | 'Ineffective' | '';
+
+// Support both database format (effective, partially_effective, ineffective) 
+// and UI format (Effective, Partially Effective, Ineffective)
+export type ControlEffectiveness = 'effective' | 'partially_effective' | 'ineffective' | 'Effective' | 'Partially Effective' | 'Ineffective' | '';
 
 /**
  * Map risk levels to numeric scores for calculation (1-5 scale)
@@ -18,14 +21,48 @@ const RISK_SCORES: Record<RiskLevel, number> = {
 };
 
 /**
- * Map control effectiveness to reduction values
+ * Map control effectiveness to reduction values (percentage-based for 1-25 scale)
+ * Effective: 40% reduction, Partially Effective: 20% reduction, Ineffective: 0%
  */
-const CONTROL_REDUCTION: Record<ControlEffectiveness, number> = {
-    'Effective': 2,
-    'Partially Effective': 1,
+const CONTROL_REDUCTION: Record<string, number> = {
+    'effective': 0.40,
+    'partially_effective': 0.20,
+    'ineffective': 0,
+    'Effective': 0.40,
+    'Partially Effective': 0.20,
     'Ineffective': 0,
     '': 0,
 };
+
+/**
+ * Normalize control effectiveness to handle both DB and UI formats
+ */
+export function normalizeControlEffectiveness(value: string | null | undefined): string {
+    if (!value) return '';
+    
+    const normalized = value.toLowerCase().replace(' ', '_');
+    if (normalized === 'effective' || normalized === 'partially_effective' || normalized === 'ineffective') {
+        return normalized;
+    }
+    // Fallback: try original value
+    if (value in CONTROL_REDUCTION) {
+        return value;
+    }
+    return '';
+}
+
+/**
+ * Safely convert likelihood/impact to number (handles string values from VARCHAR fields)
+ */
+export function parseLikelihoodImpact(value: string | number | null | undefined): number {
+    if (value === null || value === undefined || value === '') return 0;
+    
+    const num = typeof value === 'number' ? value : parseInt(String(value), 10);
+    if (isNaN(num)) return 0;
+    
+    // Clamp to valid range (1-5)
+    return Math.max(1, Math.min(5, num));
+}
 
 /**
  * Convert numeric score back to risk level
@@ -59,23 +96,33 @@ export function calculateResidualRisk(
     if (!inherentRisk) return '';
 
     const inherentScore = RISK_SCORES[inherentRisk];
-    const reduction = CONTROL_REDUCTION[controlEffectiveness];
+    
+    // Normalize control effectiveness and get reduction
+    const normalizedEffectiveness = normalizeControlEffectiveness(controlEffectiveness);
+    const reduction = CONTROL_REDUCTION[normalizedEffectiveness] || 0;
 
-    // Calculate residual score (minimum of 1)
-    const residualScore = Math.max(1, inherentScore - reduction);
+    // Calculate residual score using percentage-based reduction (minimum of 1)
+    const residualScore = Math.max(1, Math.round(inherentScore * (1 - reduction)));
 
     return scoreToRiskLevel(residualScore);
 }
 
 /**
  * Calculate residual score (numeric) based on inherent score and control effectiveness
+ * Uses percentage-based reduction for 1-25 scale
  */
 export function calculateResidualScore(
     inherentScore: number,
     controlEffectiveness: ControlEffectiveness
 ): number {
-    const reduction = CONTROL_REDUCTION[controlEffectiveness] || 0;
-    return Math.max(1, inherentScore - reduction);
+    // Normalize the control effectiveness value
+    const normalizedEffectiveness = normalizeControlEffectiveness(controlEffectiveness);
+    const reduction = CONTROL_REDUCTION[normalizedEffectiveness] || 0;
+    
+    // Calculate residual score using percentage-based reduction (minimum of 1)
+    const result = Math.max(1, Math.round(inherentScore * (1 - reduction)));
+    
+    return result;
 }
 
 /**

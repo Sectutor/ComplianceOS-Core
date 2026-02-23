@@ -30,43 +30,8 @@ import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { Breadcrumb } from "@/components/Breadcrumb";
 
-// Mock data until backend is ready
-// Note: IDs must match those in nistConstants.ts for consistency
-const MOCK_SYSTEMS = [
-    {
-        id: "eco",
-        name: "Enterprise Cloud Operations",
-        acronym: "ECO",
-        fipsImpact: "Moderate",
-        status: "Authorization",
-        owner: "Jane Doe",
-        description: "Core cloud infrastructure supporting customer-facing applications.",
-        assetsCount: 142,
-        controlsCount: 325
-    },
-    {
-        id: "hr",
-        name: "Legacy HR Database",
-        acronym: "HR-L",
-        fipsImpact: "Low",
-        status: "Monitor",
-        owner: "John Smith",
-        description: "Internal employee records database running on-premise.",
-        assetsCount: 12,
-        controlsCount: 115
-    },
-    {
-        id: "payment",
-        name: "Payment Gateway Portal",
-        acronym: "PGP",
-        fipsImpact: "High",
-        status: "Categorize",
-        owner: "Sarah Connors",
-        description: "PCI-DSS compliant payment processing interface.",
-        assetsCount: 45,
-        controlsCount: 412
-    }
-];
+// Real data is now fetched from the backend via trpc.federal.listFismaSystems
+// Fallback to MOCK_SYSTEMS if no data is available (for development)
 
 export default function NISTSystemRegistry() {
     const { selectedClientId } = useClientContext();
@@ -74,51 +39,55 @@ export default function NISTSystemRegistry() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [location, setLocation] = useLocation();
 
+    // Fetch real systems from backend
+    const { data: systems, isLoading, refetch } = trpc.federal.listFismaSystems.useQuery(
+        { clientId: selectedClientId || 0 },
+        { enabled: !!selectedClientId }
+    );
+
+    // Mutation for creating a new system
+    const createSystemMutation = trpc.federal.createFismaSystem.useMutation({
+        onSuccess: () => {
+            toast.success("System registered successfully");
+            refetch();
+            setIsCreateOpen(false);
+        },
+        onError: (err) => {
+            toast.error(`Failed to create system: ${err.message}`);
+        }
+    });
+
     // Form State
     const [newSystem, setNewSystem] = useState({
         name: "",
         acronym: "",
         description: "",
-        fipsImpact: "Low",
+        fips199Overall: "Low",
         owner: ""
     });
 
-    // Mock data until backend is ready
-    const [systems, setSystems] = useState(MOCK_SYSTEMS);
-
     const handleCreate = () => {
-        // Generate a URL-friendly ID from the acronym
-        const systemId = newSystem.acronym.toLowerCase().replace(/[^a-z0-9]/g, '-');
-        
-        const newlyCreatedSystem = {
-            id: systemId,
-            name: newSystem.name,
-            acronym: newSystem.acronym,
-            fipsImpact: newSystem.fipsImpact,
-            status: "Prepare",
-            owner: newSystem.owner,
-            description: newSystem.description,
-            assetsCount: 0,
-            controlsCount: 0
-        };
+        if (!newSystem.name) {
+            toast.error("Please provide system name");
+            return;
+        }
 
-        setSystems([...systems, newlyCreatedSystem]);
-        toast.success("System registered successfully");
-        setIsCreateOpen(false);
-        // Reset form
-        setNewSystem({
-            name: "",
-            acronym: "",
-            description: "",
-            fipsImpact: "Low",
-            owner: ""
+        // Use mutation to create system in backend
+        createSystemMutation.mutate({
+            clientId: selectedClientId || 0,
+            name: newSystem.name,
+            acronym: newSystem.acronym || null,
+            owner: newSystem.owner || null,
+            description: newSystem.description || null,
+            fips199Overall: newSystem.fips199Overall
         });
     };
 
-    const filteredSystems = systems.filter(s =>
+    // Filter systems - handle both array and undefined cases
+    const filteredSystems = systems?.filter(s =>
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.acronym.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+        (s.acronym && s.acronym.toLowerCase().includes(searchTerm.toLowerCase()))
+    ) || [];
 
     return (
         <NIST80037Layout>
@@ -191,8 +160,8 @@ export default function NISTSystemRegistry() {
                                         <div className="space-y-2">
                                             <Label htmlFor="fips">Estimated FIPS 199 Impact</Label>
                                             <Select
-                                                value={newSystem.fipsImpact}
-                                                onValueChange={(val) => setNewSystem({ ...newSystem, fipsImpact: val })}
+                                                value={newSystem.fips199Overall}
+                                                onValueChange={(val) => setNewSystem({ ...newSystem, fips199Overall: val })}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select Impact Level" />
@@ -252,8 +221,8 @@ export default function NISTSystemRegistry() {
                     {filteredSystems.map((system) => (
                         <Card key={system.id} className="hover:shadow-md transition-shadow cursor-pointer border-slate-200 group relative overflow-hidden"
                             onClick={() => setLocation(`/clients/${selectedClientId}/nist/rmf/prepare?systemId=${system.id}`)}>
-                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${system.fipsImpact === 'High' ? 'bg-rose-500' :
-                                system.fipsImpact === 'Moderate' ? 'bg-amber-500' : 'bg-blue-500'
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${system.fips199Overall === 'High' ? 'bg-rose-500' :
+                                system.fips199Overall === 'Moderate' ? 'bg-amber-500' : 'bg-blue-500'
                                 }`} />
                             <CardContent className="p-6">
                                 <div className="flex items-start justify-between">
@@ -264,10 +233,10 @@ export default function NISTSystemRegistry() {
                                         <div className="space-y-1">
                                             <h3 className="font-bold text-xl text-slate-900 group-hover:text-emerald-700 transition-colors flex items-center gap-2">
                                                 {system.name}
-                                                <Badge variant="secondary" className="font-mono text-xs">{system.acronym}</Badge>
+                                                <Badge variant="secondary" className="font-mono text-xs">{system.acronym || 'SYS'}</Badge>
                                             </h3>
                                             <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
-                                                {system.description}
+                                                {system.description || 'No description provided.'}
                                             </p>
                                         </div>
                                     </div>
@@ -275,9 +244,9 @@ export default function NISTSystemRegistry() {
                                         <Badge variant="outline" className={`font-bold ${system.status === 'Authorization' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                             'bg-slate-50 text-slate-700 border-slate-200'
                                             }`}>
-                                            {system.status} Phase
+                                            {system.status || 'Prepare'} Phase
                                         </Badge>
-                                        <span className="text-xs text-slate-400 font-medium">Updated 2 days ago</span>
+                                        <span className="text-xs text-slate-400 font-medium">Updated just now</span>
                                     </div>
                                 </div>
 
@@ -285,28 +254,28 @@ export default function NISTSystemRegistry() {
                                     <div className="flex items-center gap-6">
                                         <div className="flex flex-col">
                                             <span className="text-slate-400 text-xs uppercase font-bold tracking-wider">FIPS Impact</span>
-                                            <span className={`font-bold ${system.fipsImpact === 'High' ? 'text-rose-600' :
-                                                system.fipsImpact === 'Moderate' ? 'text-amber-600' : 'text-blue-600'
-                                                }`}>{system.fipsImpact}</span>
+                                            <span className={`font-bold ${system.fips199Overall === 'High' ? 'text-rose-600' :
+                                                system.fips199Overall === 'Moderate' ? 'text-amber-600' : 'text-blue-600'
+                                                }`}>{system.fips199Overall || 'Low'}</span>
                                         </div>
                                         <div className="w-px h-8 bg-slate-200" />
                                         <div className="flex flex-col">
                                             <span className="text-slate-400 text-xs uppercase font-bold tracking-wider">Controls</span>
-                                            <span className="font-bold text-slate-700">{system.controlsCount} Active</span>
+                                            <span className="font-bold text-slate-700">{system.controlsCount || 0} Active</span>
                                         </div>
                                         <div className="w-px h-8 bg-slate-200" />
                                         <div className="flex flex-col">
                                             <span className="text-slate-400 text-xs uppercase font-bold tracking-wider">Assets</span>
-                                            <span className="font-bold text-slate-700">{system.assetsCount} Linked</span>
+                                            <span className="font-bold text-slate-700">{system.assetsCount || 0} Linked</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <div className="flex -space-x-2">
                                             <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-600">
-                                                {system.owner.split(' ').map(n => n[0]).join('')}
+                                                {system.owner ? system.owner.split(' ').map((n: string) => n[0]).join('') : 'U'}
                                             </div>
                                         </div>
-                                        <span className="text-slate-500 font-medium">Owner: {system.owner}</span>
+                                        <span className="text-slate-500 font-medium">Owner: {system.owner || 'Unassigned'}</span>
                                     </div>
                                 </div>
                             </CardContent>

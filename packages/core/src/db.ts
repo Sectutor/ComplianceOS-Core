@@ -2262,8 +2262,13 @@ export async function createEvidence(data: InsertEvidence) {
 
 
 
-export async function getEvidence(clientId: number) {
+export async function getEvidence(clientId: number, systemId?: string) {
   const db = await getDb();
+
+  let conditions = [eq(evidence.clientId, clientId)];
+  if (systemId) {
+    conditions.push(eq(evidence.systemId, systemId));
+  }
 
   return db.select({
     id: evidence.id,
@@ -2280,7 +2285,7 @@ export async function getEvidence(clientId: number) {
     .from(evidence)
     .leftJoin(clientControls, eq(evidence.clientControlId, clientControls.id))
     .leftJoin(controls, eq(clientControls.controlId, controls.id))
-    .where(eq(evidence.clientId, clientId))
+    .where(and(...conditions))
     .orderBy(evidence.evidenceId);
 }
 

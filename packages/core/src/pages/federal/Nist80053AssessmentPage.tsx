@@ -260,19 +260,21 @@ export default function Nist80053AssessmentPage() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6 pb-20 px-6">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
-                        { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
-                        ...(packageId ? [{ label: "FedRAMP Packages", href: `/clients/${clientId}/federal/fedramp` }] : []),
-                        ...(fismaSystemId ? [{ label: "FISMA Inventory", href: `/clients/${clientId}/federal/fisma` }] : []),
-                        ...(rmfWorkflowId ? [{ label: "RMF Workflows", href: `/clients/${clientId}/federal/rmf` }] : []),
-                        { label: impactLevel ? `${packageId ? 'FedRAMP' : 'FISMA'} ${impactLevel} Baseline` : "NIST 800-53 Rev 5 Assessment" },
-                    ]}
-                />
+            <div className="pb-20">
+                <div className="px-6 pt-6 pb-2">
+                    <Breadcrumb
+                        items={[
+                            { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
+                            { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
+                            ...(packageId ? [{ label: "FedRAMP Packages", href: `/clients/${clientId}/federal/fedramp` }] : []),
+                            ...(fismaSystemId ? [{ label: "FISMA Inventory", href: `/clients/${clientId}/federal/fisma` }] : []),
+                            ...(rmfWorkflowId ? [{ label: "RMF Workflows", href: `/clients/${clientId}/federal/rmf` }] : []),
+                            { label: impactLevel ? `${packageId ? 'FedRAMP' : 'FISMA'} ${impactLevel} Baseline` : "NIST 800-53 Rev 5 Assessment" },
+                        ]}
+                    />
+                </div>
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-start lg:items-center justify-between gap-4 sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl py-4 px-6 border-b border-slate-200 shadow-sm mb-6">
                     <div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
                             <Shield className="w-8 h-8 text-blue-600" />
@@ -322,10 +324,10 @@ export default function Nist80053AssessmentPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="px-6 grid grid-cols-1 lg:grid-cols-4 2xl:grid-cols-5 gap-6 xl:gap-8 items-start">
                     {/* Sidebar Filters */}
-                    <div className="md:col-span-1 space-y-6">
-                        <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/50 backdrop-blur-sm sticky top-6">
+                    <div className="lg:col-span-1 space-y-6 sticky top-28 z-30">
+                        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white/80 backdrop-blur-xl">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-400">Control Families</CardTitle>
                             </CardHeader>
@@ -365,7 +367,7 @@ export default function Nist80053AssessmentPage() {
                     </div>
 
                     {/* Main Content */}
-                    <div className="md:col-span-3 space-y-6">
+                    <div className="lg:col-span-3 2xl:col-span-4 space-y-6">
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-4">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex-1">
@@ -427,8 +429,9 @@ export default function Nist80053AssessmentPage() {
 
                         {loadingControls ? (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-                                <p className="font-medium animate-pulse">Loading NIST 800-53 Catalog...</p>
+                                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4 mx-auto" />
+                                <p className="font-bold text-lg text-slate-900 animate-pulse">Synchronizing Assessment Data...</p>
+                                <p className="text-sm text-slate-500 mt-2">Loading the NIST 800-53 catalog and your responses.</p>
                             </div>
                         ) : filteredControls.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
@@ -437,7 +440,7 @@ export default function Nist80053AssessmentPage() {
                                 <p className="text-slate-500">Try adjusting your search or family filter.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                                 {filteredControls.map((control: any) => (
                                     <div
                                         key={control.id}

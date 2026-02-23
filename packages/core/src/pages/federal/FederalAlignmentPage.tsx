@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@complianceos/ui/ui/card';
 import { Badge } from '@complianceos/ui/ui/badge';
-import { 
-    CheckCircle2, Shield, Lock, FileKey, Server, Users, BookOpen, Scale, 
+import {
+    CheckCircle2, Shield, Lock, FileKey, Server, Users, BookOpen, Scale,
     Globe, Network, Database, Activity, LayoutDashboard, FileText, Cpu
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@complianceos/ui/ui/tabs';
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 export default function FederalAlignmentPage() {
     // No state needed for tabs as we use Radix Tabs
-    
+
     const cmmcAreas = [
         {
             id: 'ac',
@@ -312,7 +312,7 @@ export default function FederalAlignmentPage() {
     return (
         <DashboardLayout>
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 p-6 lg:p-10">
-                <div className="max-w-7xl mx-auto space-y-8">
+                <div className="w-full space-y-8 px-4 sm:px-6 lg:px-8 py-8">
                     {/* Header */}
                     <div className="text-center space-y-6">
                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 text-white mb-4">
@@ -331,8 +331,8 @@ export default function FederalAlignmentPage() {
                         <div className="flex justify-center">
                             <TabsList className="h-auto p-1 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-xl shadow-sm flex-wrap justify-center">
                                 {frameworks.map(fw => (
-                                    <TabsTrigger 
-                                        key={fw.id} 
+                                    <TabsTrigger
+                                        key={fw.id}
                                         value={fw.id}
                                         className="gap-2 px-6 py-3 text-sm font-medium data-[state=active]:bg-slate-800 data-[state=active]:text-white rounded-lg transition-all"
                                     >

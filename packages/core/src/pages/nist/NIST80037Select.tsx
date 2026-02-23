@@ -70,16 +70,25 @@ export default function NIST80037Select() {
         setHighWaterMark("MODERATE");
     }, [systemId]);
 
-    const checklistQuery = trpc.checklist.get.useQuery({ 
-        clientId, 
-        checklistId: systemId ? `nist-800-37-select-${systemId}` : 'no-system' 
+    const sspQuery = trpc.federal.listSSPs.useQuery({
+        clientId,
+        fismaSystemId: systemId ? systemId : undefined
     }, {
         enabled: !!systemId
     });
-    
-    const categorizationQuery = trpc.checklist.get.useQuery({ 
-        clientId, 
-        checklistId: systemId ? `nist-800-37-categorize-${systemId}` : 'no-system' 
+
+    const sspId = sspQuery.data?.[0]?.id;
+
+    const sspControlsQuery = trpc.federal.getSspControls.useQuery({
+        clientId,
+        sspId: sspId!
+    }, {
+        enabled: !!sspId
+    });
+
+    const categorizationQuery = trpc.federal.getFipsCategorization.useQuery({
+        clientId,
+        fismaSystemId: systemId ? systemId : undefined
     }, {
         enabled: !!systemId
     });
@@ -87,22 +96,15 @@ export default function NIST80037Select() {
     const [highWaterMark, setHighWaterMark] = useState("MODERATE");
 
     useEffect(() => {
-        if (categorizationQuery.data?.items) {
-            const items = categorizationQuery.data.items as any;
-            if (items.c2_objectives) {
-                const levels = Object.values(items.c2_objectives).map((o: any) => o.level);
-                let calculatedHwm = "LOW";
-                if (levels.includes("High")) calculatedHwm = "HIGH";
-                else if (levels.includes("Moderate")) calculatedHwm = "MODERATE";
-
-                setHighWaterMark(calculatedHwm);
-                // If we don't have a saved baseline yet, default it to the HWM
-                if (!checklistQuery.data?.items) {
-                    setBaselineLevel(calculatedHwm.charAt(0) + calculatedHwm.slice(1).toLowerCase());
-                }
+        if (categorizationQuery.data?.highWaterMark) {
+            const calculatedHwm = categorizationQuery.data.highWaterMark.toUpperCase();
+            setHighWaterMark(calculatedHwm);
+            // If we don't have a saved baseline yet, default it to the HWM
+            if (!sspQuery.data?.[0]) {
+                setBaselineLevel(calculatedHwm.charAt(0) + calculatedHwm.slice(1).toLowerCase());
             }
         }
-    }, [categorizationQuery.data, systemId, checklistQuery.data]);
+    }, [categorizationQuery.data, systemId, sspQuery.data]);
 
     const isAligned = highWaterMark === baselineLevel.toUpperCase();
     const confidenceScore = isAligned ? 94 : 65;
@@ -121,42 +123,93 @@ export default function NIST80037Select() {
     };
     const currentBaselineTotal = baselineTotals[baselineLevel] || 325;
 
-    const updateChecklistMutation = trpc.checklist.update.useMutation({
-        onSuccess: () => {
-            toast.success("Control Selection Saved", { description: "Initial baseline and tailoring actions updated." });
-            setIsSaving(false);
-            checklistQuery.refetch();
-        },
-        onError: () => {
-            setIsSaving(false);
-            toast.error("Failed to save selection");
-        }
-    });
+    const createSspMutation = trpc.federal.createSSP.useMutation();
+    const updateSspMutation = trpc.federal.updateSSP.useMutation();
+    const saveSspControlsMutation = trpc.federal.saveSspControls.useMutation();
 
     useEffect(() => {
-        if (checklistQuery.data?.items) {
-            const items = checklistQuery.data.items as any;
-            if (items.baseline) setBaselineLevel(items.baseline);
-            if (items.controls) setControls(items.controls);
-            if (items.monitoring) setMonitoringPlan(items.monitoring);
-            if (items.diagnosticsEnabled !== undefined) setDiagnosticsEnabled(items.diagnosticsEnabled);
-            if (items.assessmentFrequency) setAssessmentFrequency(items.assessmentFrequency);
+        if (sspQuery.data?.[0]) {
+            const ssp = sspQuery.data[0];
+            try {
+                const content = JSON.parse(ssp.content || '{}');
+                if (content.baseline) setBaselineLevel(content.baseline);
+                if (content.monitoring) setMonitoringPlan(content.monitoring);
+                if (content.diagnosticsEnabled !== undefined) setDiagnosticsEnabled(content.diagnosticsEnabled);
+                if (content.assessmentFrequency) setAssessmentFrequency(content.assessmentFrequency);
+            } catch (e) { }
         }
-    }, [checklistQuery.data, systemId]);
 
-    const handleSave = () => {
+        if (sspControlsQuery.data && sspControlsQuery.data.length > 0) {
+            const mappedControls = sspControlsQuery.data.map((c: any) => {
+                const parts = c.implementationDescription ? c.implementationDescription.split('|') : [];
+                return {
+                    id: c.controlId,
+                    title: parts[0] || "Unknown",
+                    family: parts[1] || "Unknown",
+                    type: parts[2] || "Technical",
+                    tailoring: c.implementationStatus === 'not_applicable' ? 'Not Applicable' :
+                        c.implementationStatus === 'implemented' ? 'Selected' :
+                            c.implementationStatus === 'partial' ? 'Tailored (Modified)' : 'Inherited (Common)'
+                };
+            });
+            setControls(mappedControls);
+        }
+    }, [sspQuery.data, sspControlsQuery.data, systemId]);
+
+    const handleSave = async () => {
         setIsSaving(true);
-        updateChecklistMutation.mutate({
-            clientId,
-            checklistId: `nist-800-37-select-${systemId}`,
-            items: {
-                baseline: baselineLevel,
-                controls,
-                monitoring: monitoringPlan,
-                diagnosticsEnabled,
-                assessmentFrequency
+        try {
+            let currentSspId = sspId;
+
+            if (!currentSspId) {
+                const newSsp = await createSspMutation.mutateAsync({
+                    clientId,
+                    fismaSystemId: systemId,
+                    title: `SSP for System ${systemId}`,
+                    framework: "NIST 800-37"
+                });
+                currentSspId = newSsp.id;
             }
-        });
+
+            await updateSspMutation.mutateAsync({
+                clientId,
+                id: currentSspId,
+                content: JSON.stringify({
+                    baseline: baselineLevel,
+                    monitoring: monitoringPlan,
+                    diagnosticsEnabled,
+                    assessmentFrequency
+                })
+            });
+
+            const controlPayload = controls.map(c => {
+                let status = 'planned';
+                if (c.tailoring === 'Inherited (Common)') status = 'planned';
+                if (c.tailoring === 'Tailored (Modified)') status = 'partial';
+                if (c.tailoring === 'Not Applicable') status = 'not_applicable';
+                if (c.tailoring === 'Selected') status = 'implemented';
+
+                return {
+                    controlId: c.id,
+                    implementationStatus: status,
+                    implementationDescription: `${c.title}|${c.family}|${c.type}`
+                };
+            });
+
+            await saveSspControlsMutation.mutateAsync({
+                clientId,
+                sspId: currentSspId,
+                controls: controlPayload
+            });
+
+            toast.success("Control Selection Saved", { description: "Initial baseline and tailoring actions updated." });
+            sspQuery.refetch();
+            sspControlsQuery.refetch();
+        } catch (error) {
+            toast.error("Failed to save selection");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleExportSSP = () => {
@@ -198,7 +251,7 @@ export default function NIST80037Select() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
                         { label: "Dashboard", href: `/dashboard` },
@@ -289,7 +342,7 @@ export default function NIST80037Select() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="baseline" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
@@ -305,7 +358,7 @@ export default function NIST80037Select() {
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="baseline" className="p-10 space-y-10 m-0">
                                     <div className="space-y-6">
                                         <div className="space-y-1">
@@ -534,9 +587,9 @@ export default function NIST80037Select() {
                                         </div>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
         </NIST80037Layout>

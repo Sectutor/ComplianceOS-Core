@@ -203,19 +203,6 @@ export default function RiskRegisterPage({ hideLayout = false, hideBreadcrumb = 
                     <p className="text-slate-900 mt-1 font-medium">Manage and track all identified risks for this client.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                        variant="default"
-                        onClick={handleGenerateReport}
-                        disabled={analyzing || !riskAssessments || riskAssessments.length === 0}
-                        className="gap-2 shadow-lg shadow-blue-500/20 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 transition-all active:scale-[0.98] text-white"
-                    >
-                        {analyzing ? (
-                            <RefreshCcw className="w-4 h-4 animate-spin text-white" />
-                        ) : (
-                            <Wand2 className="w-4 h-4 text-white" />
-                        )}
-                        {analyzing ? "AI Analyzing Risks..." : "AI Management Report"}
-                    </Button>
                     <Button onClick={() => {
                         const searchParams = new URLSearchParams(window.location.search);
                         const assetId = searchParams.get('assetId');
@@ -236,7 +223,6 @@ export default function RiskRegisterPage({ hideLayout = false, hideBreadcrumb = 
                         ]}
                         integrations={[
                             { name: "Controls", description: "Mitigating controls are linked directly from the Control Library." },
-                            { name: "AI Analysis", description: "Use the 'AI Management Report' to generate executive summaries." },
                             { name: "Audits", description: "This register serves as primary evidence for risk management standards (e.g., ISO 27001 Clause 6)." }
                         ]}
                     />

@@ -58,22 +58,52 @@ export default function NIST80037Categorize() {
     const [isSaving, setIsSaving] = useState(false);
 
     const trpcContext = trpc.useContext();
-    const { data: checklistState, isLoading } = trpc.checklist.get.useQuery({
+    const { data: categorizationData, isLoading } = trpc.federal.getFipsCategorization.useQuery({
         clientId: clientId,
-        checklistId: systemId ? `nist-800-37-categorize-${systemId}` : 'no-system'
+        fismaSystemId: systemId ? systemId : undefined
     }, {
-        enabled: !!systemId // Only fetch if we have a systemId
+        enabled: !!systemId
     });
 
-    const updateChecklistMutation = trpc.checklist.update.useMutation({
+    const { data: rmfWorkflow } = trpc.federal.getRmfWorkflow.useQuery({
+        clientId: clientId,
+        fismaSystemId: systemId ? systemId : undefined
+    }, {
+        enabled: !!systemId
+    });
+
+    const updateCategorizationMutation = trpc.federal.saveFipsCategorization.useMutation({
         onSuccess: () => {
-            trpcContext.checklist.get.invalidate();
+            trpcContext.federal.getFipsCategorization.invalidate();
             toast.success("Categorization Data Saved", { description: "Security categorization and high-water mark updated." });
             setIsSaving(false);
         },
         onError: () => {
             setIsSaving(false);
             toast.error("Error saving data");
+        }
+    });
+
+    const updateRmfStepMutation = trpc.federal.updateRmfStep.useMutation({
+        onSuccess: () => {
+            trpcContext.federal.getRmfWorkflow.invalidate();
+        }
+    });
+
+    const ensureRmfWorkflowMutation = trpc.federal.ensureRmfWorkflow.useMutation({
+        onSuccess: (workflow) => {
+            updateRmfStepMutation.mutate({
+                clientId,
+                id: workflow.id,
+                step: 2,
+                status: 'completed'
+            });
+            updateRmfStepMutation.mutate({
+                clientId,
+                id: workflow.id,
+                step: 3,
+                status: 'in_progress'
+            });
         }
     });
 
@@ -112,13 +142,29 @@ export default function NIST80037Categorize() {
     }, [systemId]);
 
     useEffect(() => {
-        if (checklistState?.items) {
-            const items = checklistState.items as any;
-            if (items.c2_objectives) setObjectives(items.c2_objectives);
-            if (items.c1_info_types) setInfoTypes(items.c1_info_types);
-            if (items.c3_method) setCategorizationMethod(items.c3_method);
+        if (categorizationData) {
+            setObjectives({
+                confidentiality: {
+                    level: categorizationData.confidentialityImpact ? categorizationData.confidentialityImpact.charAt(0).toUpperCase() + categorizationData.confidentialityImpact.slice(1).toLowerCase() : 'Low',
+                    rationale: categorizationData.confidentialityRationale || ''
+                },
+                integrity: {
+                    level: categorizationData.integrityImpact ? categorizationData.integrityImpact.charAt(0).toUpperCase() + categorizationData.integrityImpact.slice(1).toLowerCase() : 'Low',
+                    rationale: categorizationData.integrityRationale || ''
+                },
+                availability: {
+                    level: categorizationData.availabilityImpact ? categorizationData.availabilityImpact.charAt(0).toUpperCase() + categorizationData.availabilityImpact.slice(1).toLowerCase() : 'Low',
+                    rationale: categorizationData.availabilityRationale || ''
+                }
+            });
+            if (categorizationData.informationTypes) {
+                setInfoTypes(categorizationData.informationTypes as any);
+            }
+            if (categorizationData.metadata) {
+                setCategorizationMethod((categorizationData.metadata as any).method || "");
+            }
         }
-    }, [checklistState]);
+    }, [categorizationData]);
 
     const calculateHighWaterMark = () => {
         const levels = ['Low', 'Moderate', 'High'];
@@ -138,19 +184,44 @@ export default function NIST80037Categorize() {
             toast.error("No system selected", { description: "Please select a system first." });
             return;
         }
-        
+
         setIsSaving(true);
-        updateChecklistMutation.mutate({
+        updateCategorizationMutation.mutate({
             clientId,
-            checklistId: `nist-800-37-categorize-${systemId}`,
-            items: {
-                ...(checklistState?.items || {}),
-                c2_objectives: objectives,
-                c1_info_types: infoTypes,
-                c3_method: categorizationMethod,
-                meta_high_water_mark: calculateHighWaterMark()
+            fismaSystemId: systemId,
+            informationTypes: infoTypes,
+            confidentialityImpact: objectives.confidentiality.level.toLowerCase(),
+            integrityImpact: objectives.integrity.level.toLowerCase(),
+            availabilityImpact: objectives.availability.level.toLowerCase(),
+            confidentialityRationale: objectives.confidentiality.rationale,
+            integrityRationale: objectives.integrity.rationale,
+            availabilityRationale: objectives.availability.rationale,
+            highWaterMark: calculateHighWaterMark().toLowerCase(),
+            metadata: {
+                method: categorizationMethod
             }
         });
+
+        if (rmfWorkflow) {
+            updateRmfStepMutation.mutate({
+                clientId,
+                id: rmfWorkflow.id,
+                step: 2,
+                status: 'completed'
+            });
+            updateRmfStepMutation.mutate({
+                clientId,
+                id: rmfWorkflow.id,
+                step: 3,
+                status: 'in_progress'
+            });
+        } else {
+            ensureRmfWorkflowMutation.mutate({
+                clientId,
+                fismaSystemId: systemId,
+                systemName: "NIST System " + systemId
+            });
+        }
     };
 
 
@@ -192,13 +263,12 @@ export default function NIST80037Categorize() {
 
     return (
         <NIST80037Layout>
-            <div className="space-y-8 max-w-5xl pb-20">
+            <div className="space-y-8 w-full pb-20">
                 <Breadcrumb
                     items={[
-                        { label: "Dashboard", href: `/dashboard` },
-                        { label: "NIST Hub", href: `/clients/${clientId}/nist` },
+                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
                         { label: "SP 800-37 (RMF)", href: `/clients/${clientId}/nist/rmf` },
-                        { label: "Step 1: Categorize" },
+                        { label: "Step 1: Categorize" }
                     ]}
                 />
 
@@ -279,23 +349,23 @@ export default function NIST80037Categorize() {
                         </Card>
                     </div>
 
-                    <Card className="lg:col-span-3 border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white rounded-[2.5rem] overflow-hidden">
+                    <div className="lg:col-span-3">
                         <Tabs defaultValue="inventory" className="w-full">
                             <div className="border-b px-8 bg-slate-50/50">
                                 <TabsList className="h-16 bg-transparent gap-8">
-                                    <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-none rounded-none font-black text-xs uppercase tracking-widest">
+                                    <TabsTrigger value="inventory" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-100 rounded-t-lg font-bold text-xs uppercase tracking-widest px-6 py-3 transition-all -mb-[2px]">
                                         Information Inventory
                                     </TabsTrigger>
-                                    <TabsTrigger value="analysis" className="data-[state=active]:bg-transparent data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-none rounded-none font-black text-xs uppercase tracking-widest">
+                                    <TabsTrigger value="analysis" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-100 rounded-t-lg font-bold text-xs uppercase tracking-widest px-6 py-3 transition-all -mb-[2px]">
                                         Impact Analysis
                                     </TabsTrigger>
-                                    <TabsTrigger value="fips" className="data-[state=active]:bg-transparent data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-none rounded-none font-black text-xs uppercase tracking-widest">
+                                    <TabsTrigger value="fips" className="data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-100 rounded-t-lg font-bold text-xs uppercase tracking-widest px-6 py-3 transition-all -mb-[2px]">
                                         FIPS-199 Determination
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
 
-                            <ScrollArea className="h-[900px]">
+                            <div className="pb-8">
                                 <TabsContent value="inventory" className="p-10 space-y-8 m-0">
                                     <div className="flex justify-between items-center">
                                         <div className="space-y-1">
@@ -512,9 +582,9 @@ export default function NIST80037Categorize() {
                                         </div>
                                     </div>
                                 </TabsContent>
-                            </ScrollArea>
+                            </div>
                         </Tabs>
-                    </Card>
+                    </div>
                 </div>
             </div>
             <EnhancedDialog

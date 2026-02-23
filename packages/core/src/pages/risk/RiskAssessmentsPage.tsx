@@ -18,6 +18,32 @@ export default function RiskAssessmentsPage() {
     const { user, client: authClient } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [heatmapFilter, setHeatmapFilter] = useState<{ impact?: string, likelihood?: string } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const SortableHeader = ({ label, sortKey }: { label: string, sortKey: string }) => {
+        return (
+            <th
+                className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider cursor-pointer hover:bg-white/10 select-none"
+                onClick={() => handleSort(sortKey)}
+            >
+                <div className="flex items-center justify-between gap-1">
+                    <span>{label}</span>
+                    <div className="flex flex-col text-[8px] opacity-70 leading-none">
+                        <span className={sortConfig?.key === sortKey && sortConfig.direction === 'asc' ? 'text-blue-300 opacity-100' : ''}>▲</span>
+                        <span className={sortConfig?.key === sortKey && sortConfig.direction === 'desc' ? 'text-blue-300 opacity-100' : ''}>▼</span>
+                    </div>
+                </div>
+            </th>
+        );
+    };
 
     // Determine effective client ID
     const effectiveClientId = routeClientId || authClient?.id;
@@ -102,6 +128,37 @@ export default function RiskAssessmentsPage() {
         }
         return true;
     });
+
+    const sortedAssessments = React.useMemo(() => {
+        if (!filteredAssessments) return [];
+        let sortableItems = [...filteredAssessments];
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                let aVal: any = a[sortConfig.key as keyof typeof a] ?? '';
+                let bVal: any = b[sortConfig.key as keyof typeof b] ?? '';
+
+                if (sortConfig.key === 'treatments') {
+                    aVal = (a as any).treatmentCount || 0;
+                    bVal = (b as any).treatmentCount || 0;
+                } else if (sortConfig.key === 'inherentRisk' || sortConfig.key === 'residualRisk') {
+                    const riskOrder: Record<string, number> = { 'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4 };
+                    aVal = riskOrder[aVal] || 0;
+                    bVal = riskOrder[bVal] || 0;
+                } else if (sortConfig.key === 'likelihood' || sortConfig.key === 'impact') {
+                    aVal = normalizeScale(aVal);
+                    bVal = normalizeScale(bVal);
+                } else if (typeof aVal === 'string' && typeof bVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [filteredAssessments, sortConfig]);
 
     const handleCreateNew = () => {
         setLocation(`/clients/${clientId}/risks/assessments/new`);
@@ -326,28 +383,24 @@ export default function RiskAssessmentsPage() {
                         <table className="min-w-full">
                             <thead>
                                 <tr className="bg-[#1C4D8D]">
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">ID</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Title</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Threat Description</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Likelihood</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Impact</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Inherent Risk</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Residual Risk</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Affected Assets</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Processes</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Treatments</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Risk Owner</th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Next Review</th>
+                                    <SortableHeader label="ID" sortKey="assessmentId" />
+                                    <SortableHeader label="Title" sortKey="title" />
+                                    <SortableHeader label="Threat Description" sortKey="threatDescription" />
+                                    <SortableHeader label="Likelihood" sortKey="likelihood" />
+                                    <SortableHeader label="Impact" sortKey="impact" />
+                                    <SortableHeader label="Inherent Risk" sortKey="inherentRisk" />
+                                    <SortableHeader label="Residual Risk" sortKey="residualRisk" />
+                                    <SortableHeader label="Treatments" sortKey="treatments" />
+                                    <SortableHeader label="Status" sortKey="status" />
+                                    <SortableHeader label="Risk Owner" sortKey="riskOwner" />
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {loadingAssessments ? (
-                                    <tr><td colSpan={14} className="p-8 text-center text-gray-500 bg-white">Loading assessments...</td></tr>
-                                ) : filteredAssessments?.length === 0 ? (
+                                    <tr><td colSpan={10} className="p-8 text-center text-gray-500 bg-white">Loading assessments...</td></tr>
+                                ) : sortedAssessments?.length === 0 ? (
                                     <tr>
-                                        <td colSpan={14} className="p-12 text-center bg-white">
+                                        <td colSpan={10} className="p-12 text-center bg-white">
                                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                                 <Shield className="w-8 h-8 text-gray-400" />
                                             </div>
@@ -356,7 +409,7 @@ export default function RiskAssessmentsPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredAssessments?.map((assessment) => (
+                                    sortedAssessments?.map((assessment) => (
                                         <tr
                                             key={assessment.id}
                                             className="bg-white border-b border-slate-200 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm cursor-pointer group"
@@ -365,9 +418,6 @@ export default function RiskAssessmentsPage() {
                                         >
                                             <td className="px-6 py-4 text-sm font-mono text-gray-500">{assessment.assessmentId}</td>
                                             <td className="px-6 py-4 text-sm font-medium text-black">{assessment.title || '-'}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {assessment.assessmentDate ? new Date(assessment.assessmentDate).toLocaleDateString() : '-'}
-                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="text-sm max-w-[250px] truncate text-gray-600" title={assessment.threatDescription || ''}>{assessment.threatDescription}</div>
                                                 <div className="text-xs text-gray-400 max-w-[250px] truncate" title={assessment.vulnerabilityDescription || ''}>{assessment.vulnerabilityDescription}</div>
@@ -389,12 +439,6 @@ export default function RiskAssessmentsPage() {
                                                     }`}>
                                                     {assessment.residualRisk || '-'}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={typeof assessment.affectedAssets === 'string' ? JSON.parse(assessment.affectedAssets).join(', ') : (assessment.affectedAssets as string[])?.join(', ')}>
-                                                {typeof assessment.affectedAssets === 'string' ? JSON.parse(assessment.affectedAssets).join(', ') : (assessment.affectedAssets as string[])?.join(', ') || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate" title={getProcessNames((assessment as any).affectedProcessIds)}>
-                                                {getProcessNames((assessment as any).affectedProcessIds)}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {(assessment as any).treatmentCount > 0 ? (
@@ -424,9 +468,6 @@ export default function RiskAssessmentsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-600 text-center">{assessment.riskOwner || '-'}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-600">
-                                                {assessment.nextReviewDate ? new Date(assessment.nextReviewDate).toLocaleDateString() : '-'}
-                                            </td>
                                         </tr>
                                     ))
                                 )}

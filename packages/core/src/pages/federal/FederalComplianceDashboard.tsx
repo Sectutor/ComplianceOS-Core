@@ -199,7 +199,7 @@ export default function FederalComplianceDashboard() {
                         </p>
                     </div>
                     <div className="flex gap-4">
-                        <Link href={`/clients/${clientId}/workflows/nist-rmf`}>
+                        <Link href={`/clients/${clientId}/federal/rmf`}>
                             <Button className="bg-slate-900 hover:bg-black font-bold h-10 px-6 gap-2 shadow-xl shadow-slate-200">
                                 <Zap className="h-4 w-4 text-blue-400 fill-current" />
                                 Start Guided RMF Journey

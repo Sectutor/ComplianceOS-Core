@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import * as schema from "../../schema";
-import { getMatrixScoreLevel } from "../../lib/riskCalculations";
+import { getMatrixScoreLevel, parseLikelihoodImpact, normalizeControlEffectiveness } from "../../lib/riskCalculations";
 
 export const recalculateRiskScore = async (db: any, riskAssessmentId: number) => {
     try {
@@ -22,9 +22,18 @@ export const recalculateRiskScore = async (db: any, riskAssessmentId: number) =>
                 .where(eq(schema.treatmentControls.treatmentId, treatment.id));
 
             for (const control of controls) {
-                // Heuristic: Effective controls reduce risk by 20%, Partial by 10%
-                if (control.effectiveness === 'effective') totalReduction += 0.20;
-                else if (control.effectiveness === 'partially_effective') totalReduction += 0.10;
+                // Use normalized effectiveness to handle both DB and UI formats
+                const normalizedEffectiveness = normalizeControlEffectiveness(control.effectiveness);
+
+                // Match the reduction values from riskCalculations.ts
+                // Effective: 40% reduction, Partially Effective: 20% reduction
+                if (normalizedEffectiveness === 'effective') {
+                    totalReduction += 0.40;
+                }
+                else if (normalizedEffectiveness === 'partially_effective') {
+                    totalReduction += 0.20;
+                }
+                // Ineffective: 0% reduction
             }
         }
 
@@ -32,8 +41,11 @@ export const recalculateRiskScore = async (db: any, riskAssessmentId: number) =>
         totalReduction = Math.min(totalReduction, 0.90);
 
         // 3. Calculate Residual Score
-        // Default to inherent if no controls
-        const inherentScore = Number(risk.inherentScore) || (Number(risk.likelihood) * Number(risk.impact));
+        // Use parseLikelihoodImpact to safely handle string values from VARCHAR fields
+        const likelihood = parseLikelihoodImpact(risk.likelihood);
+        const impact = parseLikelihoodImpact(risk.impact);
+        const inherentScore = Number(risk.inherentScore) || (likelihood * impact);
+
         const residualScore = Math.max(1, Math.round(inherentScore * (1 - totalReduction)));
         const residualRisk = getMatrixScoreLevel(residualScore);
 

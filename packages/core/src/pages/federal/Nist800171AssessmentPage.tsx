@@ -112,7 +112,7 @@ export default function Nist800171AssessmentPage() {
             // Invalidate metrics/score
             utils.federal.listSprsAssessments.invalidate({ clientId });
             setIsDetailOpen(false);
-            
+
             // Recalculate Score locally or trigger server update?
             // For now, let's trigger a score update if we have the ID
             if (sprsAssessmentId) {
@@ -128,7 +128,7 @@ export default function Nist800171AssessmentPage() {
 
     const updateScoreMutation = trpc.federal.updateSprsScore.useMutation({
         onSuccess: () => {
-             utils.federal.listSprsAssessments.invalidate({ clientId });
+            utils.federal.listSprsAssessments.invalidate({ clientId });
         }
     });
 
@@ -167,19 +167,19 @@ export default function Nist800171AssessmentPage() {
         if (!controls) return 110;
         let score = 110;
         let implementedCount = 0;
-        
+
         // This is a rough approximation. Real SPRS uses specific weights (1, 3, 5) per requirement.
         // Since we don't have weights in the DB yet, we'll assume -1 for each non-compliant control for now
         // to show *some* movement.
         controls.forEach((c: any) => {
-             const assessment = assessmentMap.get(c.controlId);
-             if (assessment?.complianceStatus === 'Compliant') {
-                 implementedCount++;
-             } else {
-                 score -= 1; // Placeholder deduction
-             }
+            const assessment = assessmentMap.get(c.controlId);
+            if (assessment?.complianceStatus === 'Compliant') {
+                implementedCount++;
+            } else {
+                score -= 1; // Placeholder deduction
+            }
         });
-        
+
         // If the mutation is available and score changed, we could update it.
         // But doing it in render is bad. We'll do it on Save.
         return Math.max(score, -203); // SPRS can go negative
@@ -232,9 +232,9 @@ export default function Nist800171AssessmentPage() {
 
         // Optimistically calculate new score to update backend
         // This is simplified.
-        let newScore = currentScore; 
+        let newScore = currentScore;
         if (complianceStatus === 'Compliant') newScore += 1; // naive adjustment
-        
+
         saveMutation.mutate({
             clientId,
             sprsAssessmentId: sprsAssessmentId ? parseInt(sprsAssessmentId) : undefined,
@@ -244,13 +244,13 @@ export default function Nist800171AssessmentPage() {
             testResults,
             complianceStatus
         });
-        
+
         if (sprsAssessmentId) {
-             updateScoreMutation.mutate({
-                 clientId,
-                 assessmentId: parseInt(sprsAssessmentId),
-                 score: currentScore // This will use the calculated score from next render effectively
-             });
+            updateScoreMutation.mutate({
+                clientId,
+                assessmentId: parseInt(sprsAssessmentId),
+                score: currentScore // This will use the calculated score from next render effectively
+            });
         }
     };
 
@@ -283,17 +283,19 @@ export default function Nist800171AssessmentPage() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6 pb-20 px-6">
-                <Breadcrumb
-                    items={[
-                        { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
-                        { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
-                        { label: "DFARS / SPRS", href: `/clients/${clientId}/federal/dfars` },
-                        { label: "NIST 800-171 Assessment" },
-                    ]}
-                />
+            <div className="pb-20">
+                <div className="px-6 pt-6 pb-2">
+                    <Breadcrumb
+                        items={[
+                            { label: "Dashboard", href: `/clients/${clientId}/dashboard` },
+                            { label: "Federal Compliance", href: `/clients/${clientId}/federal` },
+                            { label: "DFARS / SPRS", href: `/clients/${clientId}/federal/dfars` },
+                            { label: "NIST 800-171 Assessment" },
+                        ]}
+                    />
+                </div>
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-start lg:items-center justify-between gap-4 sticky top-0 z-40 bg-slate-50/90 backdrop-blur-xl py-4 px-6 border-b border-slate-200 shadow-sm mb-6">
                     <div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
                             <Target className="w-8 h-8 text-blue-600" />
@@ -310,10 +312,10 @@ export default function Nist800171AssessmentPage() {
                                 Back to Assessments
                             </Button>
                         </Link>
-                        
+
                         <div className="h-10 px-4 bg-slate-100 rounded-xl flex items-center gap-2 font-bold text-slate-700 mr-2">
-                             <Calculator className="w-4 h-4" />
-                             SPRS Score: <span className={currentScore < 50 ? "text-rose-600" : "text-emerald-600"}>{currentScore}</span>
+                            <Calculator className="w-4 h-4" />
+                            SPRS Score: <span className={currentScore < 50 ? "text-rose-600" : "text-emerald-600"}>{currentScore}</span>
                         </div>
 
                         <Button
@@ -327,10 +329,10 @@ export default function Nist800171AssessmentPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="px-6 grid grid-cols-1 lg:grid-cols-4 2xl:grid-cols-5 gap-6 xl:gap-8 items-start">
                     {/* Sidebar Filters */}
-                    <div className="md:col-span-1 space-y-6">
-                        <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white/50 backdrop-blur-sm sticky top-6">
+                    <div className="lg:col-span-1 space-y-6 sticky top-28 z-30">
+                        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white/80 backdrop-blur-xl">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-400">Control Families</CardTitle>
                             </CardHeader>
@@ -370,7 +372,7 @@ export default function Nist800171AssessmentPage() {
                     </div>
 
                     {/* Main Content */}
-                    <div className="md:col-span-3 space-y-6">
+                    <div className="lg:col-span-3 2xl:col-span-4 space-y-6">
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-4">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex-1">
@@ -432,8 +434,9 @@ export default function Nist800171AssessmentPage() {
 
                         {loadingControls ? (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-                                <p className="font-medium animate-pulse">Loading NIST 800-171 Catalog...</p>
+                                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4 mx-auto" />
+                                <p className="font-bold text-lg text-slate-900 animate-pulse">Synchronizing Assessment Data...</p>
+                                <p className="text-sm text-slate-500 mt-2">Loading the NIST 800-171 catalog and your responses.</p>
                             </div>
                         ) : filteredControls.length === 0 ? (
                             <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
@@ -442,7 +445,7 @@ export default function Nist800171AssessmentPage() {
                                 <p className="text-slate-500">Try adjusting your search or family filter.</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4">
                                 {filteredControls.map((control: any) => (
                                     <div
                                         key={control.id}

@@ -37,7 +37,7 @@ export function VendorOnboardingWizard({ clientId, onComplete, onCancel }: Vendo
 
     const [createdVendorId, setCreatedVendorId] = useState<number | null>(null);
 
-    const createVendorMutation = trpc.vendors.create.useMutation({
+    const createVendorMutation = trpc.vendors.createVendor.useMutation({
         onSuccess: (data) => {
             setCreatedVendorId(data.id);
             setStep(2);
