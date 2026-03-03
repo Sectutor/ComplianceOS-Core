@@ -33,6 +33,7 @@ interface AssessmentResponse {
     notes?: string;
     priorityScore?: number | null;
     priorityReason?: string | null;
+    gapSeverity?: string | null;
 }
 
 interface GapAnalysisControlCardProps {
@@ -109,6 +110,29 @@ export function GapAnalysisControlCard({
                         </div>
                         <h3 className="font-semibold">{control.name}</h3>
                         <p className="text-sm text-muted-foreground">{control.description}</p>
+
+                        {/* Priority Score Badge — shown whenever AI Prioritize has run */}
+                        {response?.priorityScore != null && (currentStatus === 'not_implemented' || currentStatus === 'partially_implemented') && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${(response.gapSeverity === 'critical' || (response.priorityScore >= 80))
+                                        ? 'bg-red-50 border-red-200 text-red-700'
+                                        : (response.gapSeverity === 'high' || response.priorityScore >= 60)
+                                            ? 'bg-orange-50 border-orange-200 text-orange-700'
+                                            : (response.gapSeverity === 'medium' || response.priorityScore >= 35)
+                                                ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                                                : 'bg-green-50 border-green-200 text-green-700'
+                                    }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${(response.gapSeverity === 'critical' || response.priorityScore >= 80) ? 'bg-red-500' :
+                                            (response.gapSeverity === 'high' || response.priorityScore >= 60) ? 'bg-orange-500' :
+                                                (response.gapSeverity === 'medium' || response.priorityScore >= 35) ? 'bg-yellow-500' :
+                                                    'bg-green-500'
+                                        }`} />
+                                    <Sparkles className="w-3 h-3" />
+                                    {(response.gapSeverity ?? '').toUpperCase() || (response.priorityScore >= 80 ? 'CRITICAL' : response.priorityScore >= 60 ? 'HIGH' : response.priorityScore >= 35 ? 'MEDIUM' : 'LOW')}
+                                    <span className="opacity-60">· {response.priorityScore}</span>
+                                </div>
+                            </div>
+                        )}
 
                         {control.implementationGuidance && (
                             <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg">

@@ -9,7 +9,7 @@ import { Textarea } from "@complianceos/ui/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@complianceos/ui/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { Badge } from "@complianceos/ui/ui/badge";
-import { Loader2, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, Save, ChevronRight, ArrowLeft, Sparkles } from "lucide-react";
+import { Loader2, Upload, FileText, CheckCircle, AlertCircle, RefreshCw, Save, ChevronRight, ArrowLeft, Sparkles, Lock, FileDown, FileSpreadsheet, Mail, LayoutGrid, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@complianceos/ui/ui/progress";
 import {
@@ -20,7 +20,18 @@ import {
   DialogFooter,
   DialogDescription
 } from "@complianceos/ui/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@complianceos/ui/ui/alert-dialog";
 import { Label } from "@complianceos/ui/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@complianceos/ui/ui/tabs";
 
 type Step = "upload" | "preview" | "generating" | "review";
 
@@ -35,13 +46,43 @@ export default function QuestionnaireWorkspace() {
   const [questions, setQuestions] = useState<Array<{ questionId?: string; question: string }>>([]);
   const [answers, setAnswers] = useState<any[]>([]);
 
-  // Create Project State
+  // Create Questionnaire State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCompleteOpen, setIsCompleteOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [senderName, setSenderName] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [generatedCount, setGeneratedCount] = useState(0);
   const [isParseComplete, setIsParseComplete] = useState(false);
+
+  // Template Selection State
+  const [isTemplateMode, setIsTemplateMode] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+
+  // Vendor Dialog State
+  const [showVendorDialog, setShowVendorDialog] = useState(false);
+  const [vendorName, setVendorName] = useState("");
+  const [vendorEmail, setVendorEmail] = useState("");
+  const [vendorMessage, setVendorMessage] = useState("");
+
+  // Detect template mode from URL (SSR-safe)
+  useEffect(() => {
+    // Skip during SSR - window is not available on the server
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'template') {
+      setIsTemplateMode(true);
+      setShowTemplateDialog(true);
+    }
+  }, []);
+
+  // Fetch template questions when a template is selected
+  const { data: templateQuestions } = trpc.questionnaire.getTemplateQuestions.useQuery(
+    { templateId: selectedTemplateId! },
+    { enabled: !!selectedTemplateId }
+  );
 
   // Queries & Mutations
   const { data: projectData, isLoading: isProjectLoading, refetch: refetchProject } = trpc.questionnaire.get.useQuery({ id: qId! }, {
@@ -81,7 +122,7 @@ export default function QuestionnaireWorkspace() {
 
   const createProjectMutation = trpc.questionnaire.create.useMutation({
     onSuccess: async (data) => {
-      toast.success("Project created successfully");
+      toast.success("Questionnaire created successfully");
       setIsCreateOpen(false);
       // Save initial questions
       await saveQuestionsMutation.mutateAsync({
@@ -122,28 +163,116 @@ export default function QuestionnaireWorkspace() {
 
   const updateMutation = trpc.questionnaire.update.useMutation({
     onSuccess: () => {
-      toast.success("Project updated");
+      toast.success("Questionnaire updated");
       refetchProject();
     }
   });
 
   const completeMutation = trpc.questionnaire.complete.useMutation({
     onSuccess: (data) => {
-      toast.success(`Project completed! Indexed ${data.indexedCount} answer pairs.`);
+      toast.success(`Questionnaire completed! ${data.indexedCount} answers saved.`);
       refetchProject();
     },
     onError: (err) => {
-      toast.error(`Failed to complete project: ${err.message}`);
+      toast.error(`Failed to complete questionnaire: ${err.message}`);
     }
   });
 
   const generateMutation = trpc.questionnaire.generateAnswers.useMutation({
-    // We handle success manually in the loop
     onError: (err) => {
-      // Toast only on critical failure, otherwise we continue
-      console.error(err);
+      // Surface the error clearly — this is a Premium gated feature
+      toast.error(err.message || 'AI generation failed. Please upgrade to Premium.');
     }
   });
+
+  // Export queries
+  const exportExcelQuery = trpc.questionnaire.exportExcel.useQuery({ id: qId! }, {
+    enabled: false // Only fetch when needed
+  });
+  const exportJSONQuery = trpc.questionnaire.exportJSON.useQuery({ id: qId! }, {
+    enabled: false // Only fetch when needed
+  });
+
+  // Template queries - only pass clientId if valid to ensure built-in templates always show
+  const { data: templates } = trpc.questionnaire.listTemplates.useQuery(
+    clientId && clientId > 0 ? { clientId } : {},
+    { enabled: clientId !== undefined }
+  );
+
+  // Vendor list for dropdown - use listVendors to get org-specific vendors
+  const { data: vendorList } = trpc.vendors.listVendors.useQuery(
+    { clientId },
+    { enabled: !!clientId && clientId > 0 }
+  );
+
+  // Vendor mutations
+  const sendVendorInviteMutation = trpc.questionnaire.sendVendorInvite.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Vendor invite sent to ${vendorEmail}!`);
+      setShowVendorDialog(false);
+      setVendorName("");
+      setVendorEmail("");
+      setVendorMessage("");
+      refetchProject();
+    },
+    onError: (err) => {
+      toast.error(`Failed to send invite: ${err.message}`);
+    }
+  });
+
+  const submitForReviewMutation = trpc.questionnaire.submitForReview.useMutation({
+    onSuccess: () => {
+      toast.success("Questionnaire submitted for review!");
+      refetchProject();
+    },
+    onError: (err) => {
+      toast.error(`Failed to submit: ${err.message}`);
+    }
+  });
+
+  // Handle sending to vendor
+  const handleSendToVendor = () => {
+    if (!qId || !vendorEmail || !vendorName) {
+      toast.error("Please fill in vendor name and email");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(vendorEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    sendVendorInviteMutation.mutate({
+      id: qId,
+      clientId,
+      vendorName,
+      vendorEmail,
+      message: vendorMessage
+    });
+  };
+
+  // Handle submit for review
+  const handleSubmitForReview = () => {
+    if (!qId) return;
+    submitForReviewMutation.mutate({ id: qId, clientId });
+  };
+
+  // Handle template selection
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+  };
+
+  // Apply selected template - load questions and open create dialog
+  const handleUseTemplate = () => {
+    if (!selectedTemplateId || !templateQuestions) return;
+
+    setProjectName(templates?.find(t => t.id === selectedTemplateId)?.name || "New Questionnaire");
+    setQuestions(templateQuestions.map(q => ({ questionId: q.questionId, question: q.question })));
+    setShowTemplateDialog(false);
+    setIsCreateOpen(true);
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -204,73 +333,8 @@ export default function QuestionnaireWorkspace() {
   };
 
   const handleGenerate = async () => {
-    setCurrentStep("generating");
-    setGeneratedCount(0);
-
-    // Initialize answers with placeholders based on questions
-    const initialAnswers = questions.map((q: any) => ({
-      questionId: q.questionId,
-      question: q.question,
-      answer: "",
-      confidence: 0,
-      sources: [],
-      status: 'pending'
-    }));
-    setAnswers(initialAnswers);
-
-    const BATCH_SIZE = 3;
-    const total = questions.length;
-
-    // Process in batches
-    for (let i = 0; i < total; i += BATCH_SIZE) {
-      const batch = questions.slice(i, i + BATCH_SIZE);
-      try {
-        const batchResults = await generateMutation.mutateAsync({
-          clientId,
-          questions: batch
-        });
-
-        // Update answers state with new results
-        setAnswers(prev => {
-          const next = [...prev];
-          batchResults.forEach((res: any, idx: number) => {
-            const targetIndex = i + idx;
-            if (next[targetIndex]) {
-              next[targetIndex] = {
-                ...next[targetIndex],
-                answer: res.answer,
-                confidence: res.confidence,
-                sources: res.sources
-              };
-            }
-          });
-          return next;
-        });
-
-        setGeneratedCount(prev => Math.min(prev + batch.length, total));
-
-      } catch (e) {
-        console.error("Batch failed", e);
-        toast.error(`Batch ${i / BATCH_SIZE + 1} failed, continuing...`);
-      }
-    }
-
-    setCurrentStep("review");
-    toast.success("Generation complete!");
-
-    // Final Auto-save
-    if (qId) {
-      await saveQuestionsMutation.mutateAsync({
-        questionnaireId: qId,
-        questions: answers.map((a: any) => ({
-          question: a.question,
-          answer: a.answer,
-          confidence: a.confidence,
-          sources: a.sources,
-          status: 'pending'
-        }))
-      });
-    }
+    // AI generation disabled
+    toast.info("AI generation is not available in this version.");
   };
 
   const handleSaveProgress = async () => {
@@ -282,11 +346,57 @@ export default function QuestionnaireWorkspace() {
         answer: a.answer,
         confidence: a.confidence,
         sources: a.sources,
-        status: a.status
-      }))
+        status: a.status,
+      })),
     });
     toast.success("Progress saved");
   };
+
+  // Export handlers
+  const handleExportExcel = async () => {
+    if (!qId) return;
+    try {
+      const data = await exportExcelQuery.refetch();
+      if (!data.data) return;
+
+      // Convert to CSV-like format for download
+      const rows = data.data.questions;
+      const headers = Object.keys(rows[0] || {});
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row: any) => headers.map(h => `"${(row[h] || '').toString().replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${data.data.name.replace(/[^a-z0-9]/gi, '_')}_export.csv`;
+      link.click();
+      toast.success('Exported to CSV successfully');
+    } catch (err) {
+      toast.error('Export failed');
+    }
+  };
+
+  const handleExportJSON = async () => {
+    if (!qId) return;
+    try {
+      const data = await exportJSONQuery.refetch();
+      if (!data.data) return;
+
+      const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${data.data.metadata.name.replace(/[^a-z0-9]/gi, '_')}_export.json`;
+      link.click();
+      toast.success('Exported to JSON successfully');
+    } catch (err) {
+      toast.error('Export failed');
+    }
+  };
+
+  const formatStatus = (status: string) =>
+    status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   if (qId && isProjectLoading) {
     return (
@@ -307,7 +417,7 @@ export default function QuestionnaireWorkspace() {
             onClick={() => setLocation(`/clients/${clientId}/questionnaires`)}
             className="hover:text-foreground transition-colors"
           >
-            AI Questionnaires
+            Questionnaires
           </button>
           <ChevronRight className="h-4 w-4" />
           <span className="text-foreground font-medium">
@@ -331,7 +441,10 @@ export default function QuestionnaireWorkspace() {
                 {projectData ? projectData.name : "AI Questionnaire Workspace"}
               </h1>
               <p className="text-muted-foreground mt-1">
-                {projectData ? `Status: ${projectData.status}` : "Upload a security questionnaire to automatically generate answers."}
+                {projectData
+                  ? `Status: ${formatStatus(projectData.status)}`
+                  : "Upload a security questionnaire to automatically generate answers."
+                }
               </p>
             </div>
           </div>
@@ -467,10 +580,6 @@ export default function QuestionnaireWorkspace() {
               </div>
               <div className="flex justify-end gap-2">
                 {!qId && <Button variant="outline" onClick={() => setCurrentStep("upload")}>Back</Button>}
-                <Button onClick={handleGenerate} disabled={questions.length === 0 || generateMutation.isPending}>
-                  {generateMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                  Generate Answers with AI
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -506,32 +615,48 @@ export default function QuestionnaireWorkspace() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Review Generated Answers</CardTitle>
-                <CardDescription>Review usage of AI sources and edit as needed.</CardDescription>
+                <CardDescription>Verify AI-suggested answers and edit as needed before completing.</CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={generateMutation.isPending}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {generateMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                  Generate with AI
-                </Button>
                 {projectData?.status !== 'completed' && (
-                  <Button variant="outline" onClick={() => {
-                    if (window.confirm("This will mark the project as completed and index all approved answers into the Knowledge Base. Continue?")) {
-                      completeMutation.mutate({ id: qId! });
-                    }
-                  }} disabled={completeMutation.isPending}>
+                  <Button variant="outline" onClick={() => setIsCompleteOpen(true)} disabled={completeMutation.isPending}>
                     {completeMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />}
                     Mark as Completed
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => toast.info("Export CSV coming soon")}>
-                  Export CSV
-                </Button>
+                {/* Show "Send to Vendor" for open/in_progress status */}
+                {(projectData?.status === 'open' || projectData?.status === 'in_progress') && (
+                  <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50" onClick={() => setShowVendorDialog(true)}>
+                    <Mail className="mr-2 h-4 w-4" /> Send to Vendor
+                  </Button>
+                )}
+                {/* Show "Submit for Review" for vendor_pending status */}
+                {projectData?.status === 'vendor_pending' && (
+                  <Button variant="outline" className="border-amber-600 text-amber-600 hover:bg-amber-50" onClick={handleSubmitForReview} disabled={submitForReviewMutation.isPending}>
+                    {submitForReviewMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Check className="mr-2 h-4 w-4" />}
+                    Submit for Review
+                  </Button>
+                )}
+                {/* Show vendor info if already sent */}
+                {projectData?.status === 'vendor_pending' && projectData?.vendorName && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                    <Mail className="h-4 w-4 text-amber-600" />
+                    <span className="text-amber-800">Sent to: <strong>{projectData.vendorName}</strong></span>
+                    {projectData.vendorLinkExpiresAt && (
+                      <span className="text-amber-600 text-xs">
+                        (expires {new Date(projectData.vendorLinkExpiresAt).toLocaleDateString()})
+                      </span>
+                    )}
+                  </div>
+                )}
                 <Button onClick={handleSaveProgress}>
-                  <Save className="mr-2 h-4 w-4" /> Save Project
+                  <Save className="mr-2 h-4 w-4" /> Save
+                </Button>
+                <Button variant="outline" onClick={handleExportExcel} disabled={exportExcelQuery.isFetching}>
+                  <FileSpreadsheet className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+                <Button variant="outline" onClick={handleExportJSON} disabled={exportJSONQuery.isFetching}>
+                  <FileDown className="mr-2 h-4 w-4" /> Export JSON
                 </Button>
               </div>
             </CardHeader>
@@ -541,16 +666,11 @@ export default function QuestionnaireWorkspace() {
                   <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">
                     <TableHead className="w-[3%] text-white font-semibold py-4">#</TableHead>
                     <TableHead className="w-[10%] text-white font-semibold py-4">Question ID</TableHead>
-                    <TableHead className="w-[20%] text-white font-semibold py-4">Question</TableHead>
-                    <TableHead className="w-[20%] text-white font-semibold py-4">Answer</TableHead>
+                    <TableHead className="w-[25%] text-white font-semibold py-4">Question</TableHead>
+                    <TableHead className="w-[30%] text-white font-semibold py-4">Answer</TableHead>
                     <TableHead className="w-[8%] text-white font-semibold py-4">Confidence</TableHead>
-                    <TableHead className="w-[10%] text-white font-semibold py-4">Sources</TableHead>
-                    <TableHead className="w-[15%] text-white font-semibold py-4">Comment</TableHead>
-                    <TableHead className="w-[8%] text-white font-semibold py-4">Tags</TableHead>
-                    <TableHead className="w-[8%] text-white font-semibold py-4">Access</TableHead>
-                    <TableHead className="w-[8%] text-white font-semibold py-4">Assignee</TableHead>
-                    <TableHead className="w-[8%] text-white font-semibold py-4">Last Modified</TableHead>
-                    <TableHead className="w-[3%] text-white font-semibold py-4"></TableHead>
+                    <TableHead className="w-[12%] text-white font-semibold py-4">Sources</TableHead>
+                    <TableHead className="w-[12%] text-white font-semibold py-4">Comment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -594,6 +714,7 @@ export default function QuestionnaireWorkspace() {
                             </Badge>
                             <div className="hidden group-hover:block absolute left-0 bottom-full mb-2 w-64 p-2 bg-slate-800 text-white rounded shadow-lg z-50 text-xs pointer-events-none">
                               <p className="font-semibold mb-1">{s.title}</p>
+                              {s.excerpt && <p className="text-slate-300 line-clamp-3">{s.excerpt}</p>}
                             </div>
                           </div>
                         ))}
@@ -601,7 +722,7 @@ export default function QuestionnaireWorkspace() {
                       <TableCell className="align-top">
                         <Input
                           className="text-sm"
-                          placeholder="-"
+                          placeholder="Add a note..."
                           defaultValue={item.comment || ""}
                           onChange={(e) => {
                             const newAnswers = [...answers];
@@ -609,27 +730,6 @@ export default function QuestionnaireWorkspace() {
                             setAnswers(newAnswers);
                           }}
                         />
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Badge variant="outline" className="text-xs">
-                          {item.tags?.join(", ") || "-"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Badge variant="secondary" className="text-xs">
-                          {item.access || "Internal"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="align-top text-sm text-muted-foreground">
-                        {item.assignee || "-"}
-                      </TableCell>
-                      <TableCell className="align-top text-xs text-muted-foreground">
-                        {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "-"}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Button variant="ghost" size="sm">
-                          ⋮
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -639,12 +739,104 @@ export default function QuestionnaireWorkspace() {
           </Card>
         )}
 
+        {/* Template Selection Dialog */}
+        <Dialog open={showTemplateDialog} onOpenChange={(open) => {
+          setShowTemplateDialog(open);
+          if (!open) {
+            // Clear URL param when closing
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mode');
+            window.history.replaceState({}, '', url.toString());
+            setIsTemplateMode(false);
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <LayoutGrid className="h-5 w-5" />
+                Select a Questionnaire Template
+              </DialogTitle>
+              <DialogDescription>
+                Choose from pre-built templates for common compliance frameworks
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto py-4">
+              {templates?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No templates available. Upload a file to create a questionnaire.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {templates?.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => handleTemplateSelect(template.id)}
+                      className={`
+                        relative p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md
+                        ${selectedTemplateId === template.id
+                          ? 'border-[#3ABEF9] bg-[#3ABEF9]/10'
+                          : 'border-gray-200 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {selectedTemplateId === template.id && (
+                        <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[#3ABEF9] flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-[#1C4D8D]/10">
+                          <FileText className="h-5 w-5 text-[#1C4D8D]" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {template.framework}
+                            </Badge>
+                            <span className="text-xs text-gray-400">
+                              {template.questionCount} questions
+                            </span>
+                            <Badge variant="secondary" className="text-xs">
+                              {template.category}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowTemplateDialog(false);
+                const url = new URL(window.location.href);
+                url.searchParams.delete('mode');
+                window.history.replaceState({}, '', url.toString());
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUseTemplate}
+                disabled={!selectedTemplateId}
+                className="bg-[#1C4D8D] hover:bg-[#1C4D8D]/90"
+              >
+                Use Template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Save New Questionnaire</DialogTitle>
               <DialogDescription>
-                Create a new project to save your progress.
+                Give this questionnaire a name to save your progress.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -653,15 +845,142 @@ export default function QuestionnaireWorkspace() {
                 <Input value={projectName} onChange={e => setProjectName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Sent By (Vendor/Account)</Label>
+                <Label>Sent By (Vendor / Account)</Label>
                 <Input value={senderName} onChange={e => setSenderName(e.target.value)} placeholder="e.g. Acme Corp" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Framework / Standard</Label>
+                  <Input placeholder="e.g. ISO 27001, SOC 2" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Risk Tier</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="">Select risk tier...</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
               <Button onClick={handleCreateProject} disabled={createProjectMutation.isPending}>
                 {createProjectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Project
+                Create Questionnaire
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Mark as Completed — Proper AlertDialog */}
+        <AlertDialog open={isCompleteOpen} onOpenChange={setIsCompleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mark as Completed?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will mark <strong>{projectData?.name}</strong> as completed and lock all answers.
+                Any unanswered questions will remain as-is. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => {
+                  completeMutation.mutate({ id: qId! });
+                  setIsCompleteOpen(false);
+                }}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Confirm Completion
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Send to Vendor Dialog */}
+        <Dialog open={showVendorDialog} onOpenChange={setShowVendorDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Questionnaire to Vendor</DialogTitle>
+              <DialogDescription>
+                Send this questionnaire to a vendor for them to complete directly.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Select Vendor</Label>
+                {vendorList && vendorList.length > 0 ? (
+                  <select
+                    value={vendorName}
+                    onChange={e => {
+                      const selectedVendor = vendorList.find(v => v.name === e.target.value);
+                      setVendorName(e.target.value);
+                      if (selectedVendor?.primaryContactEmail) {
+                        setVendorEmail(selectedVendor.primaryContactEmail);
+                      }
+                    }}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Select a vendor...</option>
+                    {vendorList.map((vendor: any) => (
+                      <option key={vendor.id} value={vendor.name}>
+                        {vendor.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    value={vendorName}
+                    onChange={e => setVendorName(e.target.value)}
+                    placeholder="e.g. Acme Corporation (no vendors found)"
+                  />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Vendor Email</Label>
+                <Input
+                  type="email"
+                  value={vendorEmail}
+                  onChange={e => setVendorEmail(e.target.value)}
+                  placeholder="vendor@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Message (Optional)</Label>
+                <Textarea
+                  value={vendorMessage}
+                  onChange={e => setVendorMessage(e.target.value)}
+                  placeholder="Add a message for the vendor..."
+                  rows={3}
+                />
+              </div>
+              {projectData?.vendorLinkExpiresAt && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                  <p className="font-medium text-amber-800">Link already sent</p>
+                  <p className="text-amber-600">
+                    Expires: {new Date(projectData.vendorLinkExpiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowVendorDialog(false)}>Cancel</Button>
+              <Button
+                onClick={handleSendToVendor}
+                disabled={sendVendorInviteMutation.isPending || !vendorName || !vendorEmail}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {sendVendorInviteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Mail className="mr-2 h-4 w-4" />
+                Send to Vendor
               </Button>
             </DialogFooter>
           </DialogContent>

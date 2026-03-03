@@ -37,7 +37,7 @@ import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from './packages/core/src/routers';
 import { createContext } from './packages/core/src/server/context';
 import { authMiddleware } from './packages/core/src/authMiddleware';
-import { getDb } from './packages/core/src/db';
+import { getDb, resetDb } from './packages/core/src/db';
 import { sql } from 'drizzle-orm';
 import { exportRouter } from './packages/core/src/server/routers/export';
 import { uploadRouter } from './packages/core/src/server/routers/upload';
@@ -71,12 +71,29 @@ const port = process.env.PORT || 3002;
 // Force restart
 console.log(`[Server] Initializing... Last update: ${new Date().toISOString()}`);
 
-process.on('uncaughtException', (err) => {
-    console.error('[FATAL] Uncaught Exception:', err);
+process.on('uncaughtException', (err: any) => {
+    console.error('[FATAL] Uncaught Exception:', {
+        message: err?.message,
+        code: err?.code,
+        stack: err?.stack,
+        details: err
+    });
+    // Reset DB pool on connection-related errors to allow recovery
+    if (err?.code === 'ERR_INVALID_ARG_TYPE' || err?.message?.includes('connect') || err?.message?.includes('address')) {
+        console.warn('[DB] Resetting DB pool due to uncaughtException...');
+        resetDb().catch(() => { });
+    }
+    // Do NOT exit — let the server recover gracefully
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason: any, promise) => {
     console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+    // Reset DB pool on connection-related errors so the next request reconnects cleanly
+    if (reason?.code === 'ERR_INVALID_ARG_TYPE' || reason?.message?.includes('connect') || reason?.message?.includes('address') || reason?.code === 'ECONNRESET' || reason?.code === 'ECONNREFUSED') {
+        console.warn('[DB] Resetting DB pool due to unhandledRejection...');
+        resetDb().catch(() => { });
+    }
+    // Do NOT exit — TRPC and Express will surface the error as a 500
 });
 
 console.log('[Server Start] Environment Check:');
@@ -250,20 +267,16 @@ if (process.env.NODE_ENV === 'production' && !process.env.NETLIFY) {
 }
 
 // TRPC Endpoint
-app.use((req, res, next) => {
-    if (req.path.startsWith('/api/trpc')) {
-        console.log(`[TRPC Debug] ${req.method} ${req.url}`);
-        console.log(`[TRPC Debug] Content-Type: ${req.headers['content-type']}`);
-        if (req.method === 'POST') {
-            const bodyStr = req.body ? JSON.stringify(req.body) : '{}';
-            console.log(`[TRPC Debug] Body: ${bodyStr.substring(0, 500)}...`);
-        }
-    }
-    next();
-});
+// Note: TRPC middleware already handles request logging via onError callback
+// Removed monkey-patching of res.send as it's fragile and can break Express handling
 
+// TRPC Endpoint with request logging
 app.use(
     '/api/trpc',
+    (req, res, next) => {
+        console.log(`[TRPC Request] ${req.method} ${req.url} - Content-Type: ${req.headers['content-type']}`);
+        next();
+    },
     createExpressMiddleware({
         router: appRouter,
         createContext,
@@ -307,21 +320,39 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
         return next(err);
     }
 
-    res.status(500).json({
-        message: err.message || 'Internal Server Error',
-        code: 'INTERNAL_SERVER_ERROR',
+    // Handle database connection errors specifically
+    const isDbError = err.message?.includes('connect') ||
+        err.message?.includes('database') ||
+        err.message?.includes('ECONNREFUSED') ||
+        err.message?.includes('ENOTFOUND') ||
+        err.message?.includes('timeout');
+
+    const statusCode = isDbError ? 503 : 500;
+    const errorCode = isDbError ? 'DATABASE_ERROR' : 'INTERNAL_SERVER_ERROR';
+    const errorMessage = isDbError
+        ? 'Database connection error. Please try again later.'
+        : (err.message || 'Internal Server Error');
+
+    // Ensure response is always JSON, even for critical errors
+    res.status(statusCode).json({
+        message: errorMessage,
+        code: errorCode,
         data: null,
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
 });
 
 // Only listen locally, Netlify calls the handler directly
 if (process.env.NODE_ENV !== 'production' || !process.env.NETLIFY) {
     const listenAddr = process.env.LISTEN_ADDR || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
-    app.listen(Number(port), listenAddr, () => {
+    const server = app.listen(Number(port), listenAddr, () => {
         console.log(`\n🚀 Server listening specifically on http://${listenAddr}:${port}`);
         console.log(`-> Health check: http://${listenAddr}:${port}/health`);
         console.log(`-> TRPC endpoint: http://${listenAddr}:${port}/api/trpc\n`);
     });
+    server.timeout = 300000; // 5 minutes 
 }
+
+
 
 

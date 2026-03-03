@@ -3,7 +3,7 @@ import { PropsWithChildren } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { ShieldCheck, Activity, BarChart3, FileText, Lock, AlertTriangle } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useClientContext } from "@/contexts/ClientContext";
 
 export default function CyberLayout({ children }: PropsWithChildren) {
@@ -11,13 +11,7 @@ export default function CyberLayout({ children }: PropsWithChildren) {
     const { selectedClientId } = useClientContext();
 
     const tabs = [
-        { name: "Overview", path: `/clients/${selectedClientId}/cyber`, icon: BarChart3 },
-        { name: "NIS2 Assessment", path: `/clients/${selectedClientId}/cyber/assessment`, icon: ShieldCheck },
-        { name: "Risk Management", path: `/clients/${selectedClientId}/risks/dashboard`, icon: AlertTriangle },
-        { name: "Business Continuity", path: `/clients/${selectedClientId}/business-continuity`, icon: Activity },
-        { name: "Supply Chain", path: `/clients/${selectedClientId}/vendors/overview`, icon: Lock },
-        { name: "Incident Reporting", path: `/clients/${selectedClientId}/cyber/incidents`, icon: Activity }, // Keep local for now
-        { name: "Documentation", path: `/clients/${selectedClientId}/cyber/documents`, icon: FileText },
+        { name: "Cyber Resilience", path: `/clients/${selectedClientId}/cyber`, icon: ShieldCheck },
     ];
 
     return (

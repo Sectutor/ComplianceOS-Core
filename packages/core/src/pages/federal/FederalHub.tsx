@@ -133,7 +133,7 @@ export default function FederalHub() {
                                 </p>
                             </div>
                         </div>
-                        <Link href={`/clients/${clientId}/federal/overview`}>
+                        <Link href={`/clients/${clientId}/federal/program-guide`}>
                             <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold whitespace-nowrap">
                                 View Guide <ArrowRight className="w-4 h-4 ml-2" />
                             </Button>
@@ -192,7 +192,7 @@ export default function FederalHub() {
                     </Card>
 
                     {/* Compliance Guide Card */}
-                    <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-slate-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/federal/alignment-guide`}>
+                    <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-slate-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/federal/program-guide`}>
                         <div className="flex justify-between items-start">
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-2 mb-1">

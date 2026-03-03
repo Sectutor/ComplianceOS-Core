@@ -91,10 +91,22 @@ export default function RiskDashboard() {
                             description="Real-time overview of your organizational risk posture."
                             rationale="This dashboard provides executives and risk managers with an immediate view of high-priority risks, upcoming deadlines, and overall risk reduction progress."
                             howToUse={[
-                                { step: "Monitor Stats", description: "Track key metrics like 'Critical Risks' and 'Overdue Actions' at a glance." },
-                                { step: "Analyze Heatmaps", description: "Visualize inherent vs. residual risk distribution." },
-                                { step: "Track Remediation", description: "Use the 'Risk Reduction' chart to see progress over time." },
-                                { step: "Action Items", description: "Address items in the 'Overdue' and 'Upcoming' lanes immediately." }
+                                { step: "Monitor Stats", description: "Track key metrics like 'Critical Risks' and 'Overdue Actions' at a glance.", targetId: "risk-stats-summary" },
+                                { step: "Analyze Heatmaps", description: "Visualize inherent vs. residual risk distribution.", targetId: "risk-heatmap-container" },
+                                { step: "Track Remediation", description: "Use the 'Risk Reduction' chart to see progress over time.", targetId: "risk-remediation-chart" },
+                                { step: "Action Items", description: "Address items in the 'Overdue' and 'Upcoming' lanes immediately.", targetId: "risk-action-lanes" }
+                            ]}
+                            scenarios={[
+                                {
+                                    title: "High-Priority Risk Treatment",
+                                    example: "A new critical risk appears on the heatmap after a vulnerability scan. You need to move it into remediation.",
+                                    auditTip: "Use the 'Action Lanes' to document treatment plans. Prompt response to high-priority risks is a major requirement for ISO 27001/SOC 2."
+                                },
+                                {
+                                    title: "Risk-Based Budgeting",
+                                    example: "You need to justify the ROI of a security project to the CFO.",
+                                    auditTip: "The 'Risk Reduction ROI' chart is your best asset here. It demonstrates that security spending is driven by calculated risk impact."
+                                }
                             ]}
                             integrations={[
                                 { name: "Risk Register", description: "Aggregates data from all individual risk assessments." },
@@ -106,7 +118,7 @@ export default function RiskDashboard() {
                 </div>
 
                 {/* Risk Management Overview Callout */}
-                <Card className="bg-gradient-to-r from-slate-900 to-orange-900 text-white border-0 shadow-2xl overflow-hidden group cursor-pointer" onClick={() => setLocation(`/clients/${clientId}/risks/overview`)}>
+                <Card className="bg-gradient-to-r from-slate-900 to-orange-900 text-white border-0 shadow-2xl overflow-hidden group cursor-pointer" onClick={() => setLocation(`/clients/${clientId}/risks/program-guide`)}>
                     <CardContent className="p-0 relative">
                         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-orange-500/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
                         <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
@@ -209,7 +221,7 @@ export default function RiskDashboard() {
                 </Card>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4" id="risk-stats-summary">
                     {stats.map((stat, i) => (
                         <div key={i} className={`p-4 rounded-xl border-none shadow-sm flex items-center justify-between ${stat.bgColor} ${stat.containerClass}`}>
                             <div>
@@ -223,7 +235,7 @@ export default function RiskDashboard() {
                     ))}
 
                     {/* Compliance Guide Card */}
-                    <div className="p-4 rounded-xl border border-amber-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/risks/alignment-guide`}>
+                    <div className="p-4 rounded-xl border border-amber-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-amber-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/risks/program-guide`}>
                         <div className="flex justify-between items-start">
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-2 mb-1">
@@ -253,7 +265,7 @@ export default function RiskDashboard() {
                 </div>
 
                 {/* Overdue & Upcoming Action Lanes */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="risk-action-lanes">
                     <OverdueItemsLane clientId={clientId} />
                     <UpcomingItemsLane clientId={clientId} />
                 </div>
@@ -300,10 +312,12 @@ export default function RiskDashboard() {
                         <div className="space-y-6">
                             {/* ROI Dashboard */}
                             {riskAssessments && riskAssessments.length > 0 && (
-                                <RiskReductionROI risks={riskAssessments} />
+                                <div id="risk-remediation-chart">
+                                    <RiskReductionROI risks={riskAssessments} />
+                                </div>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="risk-heatmap-container">
                                 <Card>
                                     <CardContent className="pt-6">
                                         <RiskHeatmap

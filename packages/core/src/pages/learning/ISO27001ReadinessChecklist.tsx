@@ -113,7 +113,7 @@ export default function ISO27001ReadinessChecklist() {
 
     return (
         <DashboardLayout>
-            <div className="max-w-4xl mx-auto p-8 print:p-0 print:max-w-none">
+            <div className="p-8 print:p-0">
                 <div className="flex items-center justify-between mb-8 print:hidden">
                     <div className="flex items-center gap-4">
                         <Link href="/learning/iso-27001">

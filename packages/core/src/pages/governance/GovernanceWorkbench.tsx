@@ -145,7 +145,7 @@ export default function GovernanceWorkbench() {
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-indigo-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/governance`}>
+                    <div className="p-4 rounded-xl border border-indigo-200 bg-white shadow-sm flex flex-col justify-between cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all group" onClick={() => window.location.href = `/clients/${clientId}/governance/program-guide`}>
                         <div className="flex justify-between items-start">
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-2 mb-1">

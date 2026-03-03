@@ -422,15 +422,33 @@ export function PeoplePage() {
               description="Manage your team structure, roles, and employee records."
               rationale="Compliance requires clear lines of authority and responsibility. This module separates 'Who works here' (Employees) from 'What they do' (Roles) to ensure continuity even when staff changes."
               howToUse={[
-                { step: "Define Structure", description: "Use the 'Org Structure' tab to create standard roles (e.g. 'CISO') and reporting lines." },
-                { step: "Add Team", description: "Add employees in the 'Team Members' tab and assign them to the roles you defined." },
-                { step: "Visualize", description: "View the 'Visual Chart' to audit your reporting hierarchy and identify gaps." },
-                { step: "Assign Assets", description: "Use the laptop icon to assign devices to employees." }
+                {
+                  step: "Define Roles",
+                  description: "Establish standard job titles and expectations in the 'Org Structure' tab.",
+                  targetId: "people-tab-roles"
+                },
+                {
+                  step: "Manage Team",
+                  description: "Use the 'Team Members' list to track compliance status for each individual.",
+                  targetId: "people-tab-employees"
+                },
+                {
+                  step: "Visualize Flow",
+                  description: "Review reporting lines in the 'Visual Chart' to avoid single points of failure.",
+                  targetId: "people-tab-chart"
+                }
               ]}
-              integrations={[
-                { name: "Access Control", description: "Roles defined here determine access levels in connected systems." },
-                { name: "Training", description: "Training assignments are linked to specific job roles." },
-                { name: "Offboarding", description: "Terminating an employee here triggers the offboarding workflow." }
+              scenarios={[
+                {
+                  title: "Evidence for ISO 27001 Clause 7.2 (Competence)",
+                  example: "An auditor asks how you ensure new hires are competent for their security-critical roles.",
+                  auditTip: "Download the Org Hierarchy report. It shows defined responsibilities for each role along with the actual employee's training completion score."
+                },
+                {
+                  title: "Emergency Access Revocation",
+                  example: "An employee has left the company under hostile circumstances. You need to ensure all access is terminated.",
+                  auditTip: "Flip the status to 'Terminated' in the Team Members list. This triggers the offboarding workflow and provides a timestamped audit trail of the revocation request."
+                }
               ]}
             />
           </div>
@@ -476,20 +494,20 @@ export function PeoplePage() {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-[600px] grid-cols-3">
-            <TabsTrigger value="roles" className="flex items-center gap-2">
+          <TabsList className="grid w-full max-w-[620px] grid-cols-4">
+            <TabsTrigger value="roles" id="people-tab-roles" className="flex items-center gap-2">
               <Network className="w-4 h-4" />
               Org Structure
             </TabsTrigger>
-            <TabsTrigger value="employees" className="flex items-center gap-2">
+            <TabsTrigger value="employees" id="people-tab-employees" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Team Members
             </TabsTrigger>
-            <TabsTrigger value="stakeholders" className="flex items-center gap-2">
+            <TabsTrigger value="stakeholders" id="people-tab-stakeholders" className="flex items-center gap-2">
               <Briefcase className="w-4 h-4" />
               Stakeholders
             </TabsTrigger>
-            <TabsTrigger value="chart" className="flex items-center gap-2">
+            <TabsTrigger value="chart" id="people-tab-chart" className="flex items-center gap-2">
               <GitGraph className="w-4 h-4" />
               Visual Chart
             </TabsTrigger>

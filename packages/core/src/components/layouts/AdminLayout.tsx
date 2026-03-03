@@ -62,7 +62,7 @@ export default function AdminLayout({
         return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
     });
     const { loading, user } = useAuth();
-    const { appName } = useBranding();
+    const { appName, logoUrl } = useBranding();
 
     useEffect(() => {
         localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -114,7 +114,7 @@ function AdminLayoutContent({
     const [isResizing, setIsResizing] = useState(false);
     const sidebarRef = useRef<HTMLDivElement>(null);
     const isMobile = useIsMobile();
-    const { appName } = useBranding();
+    const { appName, logoUrl } = useBranding();
 
     useEffect(() => {
         if (isCollapsed) setIsResizing(false);
@@ -158,7 +158,9 @@ function AdminLayoutContent({
                             </button>
                             {!isCollapsed && (
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-semibold tracking-tight truncate">{appName} Admin</span>
+                                    <span className="font-semibold tracking-tight truncate">
+                                        {logoUrl ? 'Admin' : `${appName} Admin`}
+                                    </span>
                                 </div>
                             )}
                         </div>

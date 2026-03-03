@@ -18,6 +18,8 @@ import {
 import { useLocation } from "wouter";
 import { useClientContext } from "@/contexts/ClientContext";
 import { cn } from "@/lib/utils";
+import { PageGuide } from "@/components/PageGuide";
+import { Breadcrumb } from "@/components/Breadcrumb";
 
 export default function CyberDashboard() {
     const { selectedClientId } = useClientContext();
@@ -116,8 +118,65 @@ export default function CyberDashboard() {
         }
     ];
 
+    const getTargetId = (title: string) => {
+        switch (title) {
+            case "NIS2 Assessment": return "cyber-nis2-assessment";
+            case "Incident Reporting": return "cyber-incident-reporting";
+            case "Supply Chain Security": return "cyber-vendor-risk";
+            case "Business Continuity": return "cyber-continuity";
+            default: return undefined;
+        }
+    }
+
     return (
         <div className="space-y-12 animate-in fade-in duration-700">
+            <div className="flex items-center justify-between">
+                <div />
+                <PageGuide
+                    title="Cyber Resilience (NIS2)"
+                    description="Centralized command for NIS2 compliance and systemic cyber resilience."
+                    rationale="The NIS2 Directive introduces strict security measures and reporting obligations for essential and important entities. This dashboard helps you navigate Article 21 (measures) and Article 23 (reporting) to ensure legal compliance and technical hardening."
+                    howToUse={[
+                        {
+                            step: "Assess Compliance",
+                            description: "Start with the NIS2 Assessment to gap analyze your current posture against the 10 key measures.",
+                            targetId: "cyber-nis2-assessment"
+                        },
+                        {
+                            step: "Incident Reporting",
+                            description: "Access the workflow for 24h/72h incident notifications required by the Directive.",
+                            targetId: "cyber-incident-reporting"
+                        },
+                        {
+                            step: "Supply Chain",
+                            description: "Monitor risks from your external vendors and service providers.",
+                            targetId: "cyber-vendor-risk"
+                        },
+                        {
+                            step: "Continuity Planning",
+                            description: "Build and test your Business Impact Analysis (BIA) and recovery plans.",
+                            targetId: "cyber-continuity"
+                        }
+                    ]}
+                    scenarios={[
+                        {
+                            title: "Critical Incident Response",
+                            example: "A major ransomware attack hits a core system. Use the Incident Reporting module to meet the 24-hour Early Warning deadline for the CSIRT.",
+                            auditTip: "Regulators look for 'vulnerability to significant impact'. Document not just the tech fix, but the business continuity steps taken to protect essential services."
+                        },
+                        {
+                            title: "Third-Party Breach",
+                            example: "A SaaS provider used by your HR team is breached. Use Supply Chain Security to assess the impact.",
+                            auditTip: "Article 21 specifically mandates 'supply chain security'. Ensure you have a central list of all critical suppliers and their security certifications (ISO 27001, SOC 2)."
+                        }
+                    ]}
+                    integrations={[
+                        { name: "Risk Register", description: "Cyber risks identified during assessment automatically sync to your global risk board." },
+                        { name: "Incident Management", description: "Direct link to CSIRT reporting workflows." }
+                    ]}
+                />
+            </div>
+
             {/* Hero Section */}
             <div className="relative overflow-hidden rounded-[2.5rem] bg-[#1C4D8D] p-12 md:p-20 text-white shadow-2xl shadow-sky-900/20">
                 <div className="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-[#3ABEF9]/20 rounded-full blur-[100px] animate-pulse" />
@@ -211,7 +270,7 @@ export default function CyberDashboard() {
             {/* Feature Grid */}
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {sections.map((section, idx) => (
-                    <Card key={idx} className="group overflow-hidden border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] bg-white ring-1 ring-slate-200/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-sky-900/5">
+                    <Card key={idx} id={getTargetId(section.title)} className="group overflow-hidden border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] bg-white ring-1 ring-slate-200/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-sky-900/5">
                         <CardContent className="p-0">
                             <div className={`h-2 bg-gradient-to-r ${section.color}`} />
                             <div className="p-10">

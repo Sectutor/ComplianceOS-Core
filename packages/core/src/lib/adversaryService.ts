@@ -49,8 +49,32 @@ export interface SecurityFeedItem {
     category?: string;
     severity?: 'critical' | 'high' | 'medium' | 'low' | 'info';
     cveIds?: string[];
+    cveInfo?: CveInfo[];
     tags?: string[];
-    techStack?: string[]; // New field for tech stack matching
+    techStack?: string[];
+    isBookmarked?: boolean;
+}
+
+export interface MitreGroup {
+    id: string;
+    name: string;
+    alias: string[];
+    description: string;
+    url: string;
+    techniques: string[];
+    software: string[];
+    created: string;
+    modified: string;
+}
+
+export interface CveInfo {
+    id: string;
+    cvssScore: number | null;
+    cvssVector: string | null;
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'none';
+    description: string;
+    published: string;
+    affectedProducts: string[];
 }
 
 // ... (keep generic constants)
@@ -125,17 +149,24 @@ export interface MitreAttackData {
 // ==================== CONSTANTS ====================
 
 const MITRE_ATTACK_URL = 'https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json';
+const MITRE_GROUPS_URL = 'https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/enterprise-attack/enterprise-attack.json';
 const CISA_ALERTS_RSS = 'https://www.cisa.gov/cybersecurity-advisories/all.xml';
 const HACKER_NEWS_RSS = 'https://feeds.feedburner.com/TheHackersNews';
 const BLEEPING_COMPUTER_RSS = 'https://www.bleepingcomputer.com/feed/';
+const NVD_API_URL = 'https://services.nvd.nist.gov/rest/json/cves/2.0';
 
 // In-memory cache for performance
 let mitreCache: MitreAttackData | null = null;
 let mitreCacheExpiry: Date | null = null;
+let mitreGroupsCache: MitreGroup[] | null = null;
+let mitreGroupsCacheExpiry: Date | null = null;
 const feedCache: Map<string, { items: SecurityFeedItem[], expiry: Date }> = new Map();
+const cveCache: Map<string, CveInfo> = new Map();
 
 const MITRE_CACHE_HOURS = 24; // Cache MITRE data for 24 hours
+const MITRE_GROUPS_CACHE_HOURS = 48; // Cache MITRE groups for 48 hours
 const FEED_CACHE_MINUTES = 30; // Cache feeds for 30 minutes
+const CVE_CACHE_HOURS = 6; // Cache CVE info for 6 hours
 
 // ==================== MITRE ATT&CK FUNCTIONS ====================
 
@@ -349,6 +380,208 @@ export async function getMitreTechniqueById(id: string): Promise<MitreTechnique 
 export async function getTechniquesByTactic(tacticId: string): Promise<MitreTechnique[]> {
     const data = await fetchMitreAttackData();
     return data.techniques.filter(t => t.tacticId === tacticId);
+}
+
+// ==================== MITRE GROUPS FUNCTIONS ====================
+
+/**
+ * Fetch MITRE ATT&CK Groups from the STIX data
+ */
+export async function fetchMitreGroups(): Promise<MitreGroup[]> {
+    // Check cache first
+    if (mitreGroupsCache && mitreGroupsCacheExpiry && new Date() < mitreGroupsCacheExpiry) {
+        console.log('[AdversaryIntel] Returning cached MITRE ATT&CK Groups');
+        return mitreGroupsCache;
+    }
+
+    console.log('[AdversaryIntel] Fetching MITRE ATT&CK Groups...');
+
+    try {
+        const response = await fetch(MITRE_GROUPS_URL, {
+            headers: { 'Accept': 'application/json' },
+        });
+
+        if (!response.ok) {
+            throw new Error(`MITRE Groups fetch failed: ${response.status}`);
+        }
+
+        const stixBundle = await response.json();
+        const groups: MitreGroup[] = [];
+
+        // Parse STIX bundle for threat groups (intrusion-set)
+        for (const obj of stixBundle.objects) {
+            if (obj.type === 'intrusion-set') {
+                const externalId = obj.external_references?.find((r: any) => r.source_name === 'mitre-attack')?.external_id;
+                const url = obj.external_references?.find((r: any) => r.source_name === 'mitre-attack')?.url;
+
+                // Extract techniques used by this group
+                const techniques: string[] = [];
+                const software: string[] = [];
+
+                // Look for related attack patterns (techniques)
+                const relationships = stixBundle.objects.filter((r: any) =>
+                    r.type === 'relationship' &&
+                    r.source_ref === obj.id
+                );
+
+                for (const rel of relationships) {
+                    const target = stixBundle.objects.find((o: any) => o.id === rel.target_ref);
+                    if (target?.type === 'attack-pattern') {
+                        const extId = target.external_references?.find((r: any) => r.source_name === 'mitre-attack')?.external_id;
+                        if (extId) techniques.push(extId);
+                    }
+                    if (target?.type === 'tool' || target?.type === 'malware') {
+                        const extId = target.external_references?.find((r: any) => r.source_name === 'mitre-attack')?.external_id;
+                        if (extId) software.push(extId);
+                    }
+                }
+
+                const group: MitreGroup = {
+                    id: externalId || obj.id,
+                    name: obj.name || '',
+                    alias: obj.aliases || obj.x_mitre_aliases || [],
+                    description: (obj.description || '').slice(0, 500),
+                    url: url || `https://attack.mitre.org/groups/${externalId}/`,
+                    techniques: techniques.slice(0, 20),
+                    software: software.slice(0, 10),
+                    created: obj.created || '',
+                    modified: obj.modified || '',
+                };
+                groups.push(group);
+            }
+        }
+
+        // Sort by name
+        groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Update cache
+        mitreGroupsCache = groups;
+        mitreGroupsCacheExpiry = new Date();
+        mitreGroupsCacheExpiry.setHours(mitreGroupsCacheExpiry.getHours() + MITRE_GROUPS_CACHE_HOURS);
+
+        console.log(`[AdversaryIntel] Loaded ${groups.length} threat groups`);
+        return groups;
+    } catch (error) {
+        console.error('[AdversaryIntel] Failed to fetch MITRE Groups:', error);
+        if (mitreGroupsCache) {
+            return mitreGroupsCache;
+        }
+        return [];
+    }
+}
+
+/**
+ * Search MITRE Groups by keyword
+ */
+export async function searchMitreGroups(query: string, limit: number = 20): Promise<MitreGroup[]> {
+    const groups = await fetchMitreGroups();
+    const lowerQuery = query.toLowerCase();
+
+    const results = groups.filter(g =>
+        g.name.toLowerCase().includes(lowerQuery) ||
+        g.alias.some((a: string) => a.toLowerCase().includes(lowerQuery)) ||
+        g.description.toLowerCase().includes(lowerQuery)
+    );
+
+    return results.slice(0, limit);
+}
+
+/**
+ * Get a specific group by ID
+ */
+export async function getMitreGroupById(id: string): Promise<MitreGroup | null> {
+    const groups = await fetchMitreGroups();
+    return groups.find(g => g.id === id) || null;
+}
+
+// ==================== CVE FUNCTIONS ====================
+
+/**
+ * Fetch CVE information from NVD API
+ */
+export async function fetchCveInfo(cveId: string): Promise<CveInfo | null> {
+    // Check cache first
+    const cached = cveCache.get(cveId);
+    if (cached) {
+        return cached;
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(`${NVD_API_URL}?cveId=${cveId}`, {
+            headers: {
+                'Accept': 'application/json',
+            },
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.warn(`[AdversaryIntel] NVD API failed for ${cveId}: ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const vuln = data.vulnerabilities?.[0]?.cve;
+
+        if (!vuln) {
+            return null;
+        }
+
+        const metrics = vuln.metrics?.cvssMetricV31?.[0]?.cvssData
+            || vuln.metrics?.cvssMetricV30?.[0]?.cvssData
+            || vuln.metrics?.cvssMetricV2?.[0]?.cvssData;
+
+        const cvssScore = metrics?.baseScore || null;
+        const severity = cvssScore >= 9.0 ? 'critical'
+            : cvssScore >= 7.0 ? 'high'
+                : cvssScore >= 4.0 ? 'medium'
+                    : cvssScore > 0 ? 'low'
+                        : 'none';
+
+        const cveInfo: CveInfo = {
+            id: cveId,
+            cvssScore,
+            cvssVector: metrics?.vectorString || null,
+            severity,
+            description: vuln.descriptions?.[0]?.value || '',
+            published: vuln.published || '',
+            affectedProducts: vuln.configurations?.[0]?.nodes?.[0]?.cpeMatch?.map((c: any) => c.criteria) || [],
+        };
+
+        // Cache the result
+        cveCache.set(cveId, cveInfo);
+
+        return cveInfo;
+    } catch (error) {
+        console.error(`[AdversaryIntel] Error fetching CVE ${cveId}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Fetch multiple CVEs in batch
+ */
+export async function fetchCveInfos(cveIds: string[]): Promise<Map<string, CveInfo>> {
+    const results = new Map<string, CveInfo>();
+
+    // Process in batches of 5 to avoid overwhelming the API
+    const batchSize = 5;
+    for (let i = 0; i < cveIds.length; i += batchSize) {
+        const batch = cveIds.slice(i, i + batchSize);
+        const promises = batch.map(cveId => fetchCveInfo(cveId));
+        const cveInfos = await Promise.all(promises);
+
+        batch.forEach((cveId, idx) => {
+            if (cveInfos[idx]) {
+                results.set(cveId, cveInfos[idx]);
+            }
+        });
+    }
+
+    return results;
 }
 
 // ==================== RSS FEED FUNCTIONS ====================

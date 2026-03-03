@@ -18,7 +18,6 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 try {
                     const dbConn = await db.getDb();
                     console.log('[DEBUG] clients.list called');
-                    console.log('[DEBUG] ctx.user:', JSON.stringify(ctx.user, null, 2));
 
                     // Validate user context
                     if (!ctx.user?.id) {
@@ -44,6 +43,10 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                             brandPrimaryColor: clients.brandPrimaryColor,
                             brandSecondaryColor: clients.brandSecondaryColor,
                             portalTitle: clients.portalTitle,
+                            sidebarBg: clients.sidebarBg,
+                            sidebarFg: clients.sidebarFg,
+                            headingFont: clients.headingFont,
+                            bodyFont: clients.bodyFont,
                             role: userClients.role, // Get their role if they are a member
                         })
                             .from(clients)
@@ -51,11 +54,7 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                             .orderBy(desc(clients.updatedAt));
 
                         console.log('[DEBUG] Admin listing clients count:', all.length);
-                        return all.map((c: any) => ({
-                            ...c,
-                            updatedAt: c.updatedAt?.toString() || null,
-                            createdAt: c.createdAt?.toString() || null,
-                        }));
+                        return all;
                     }
 
                     // Else list clients by membership (non-admin users)
@@ -78,6 +77,10 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                         brandPrimaryColor: clients.brandPrimaryColor,
                         brandSecondaryColor: clients.brandSecondaryColor,
                         portalTitle: clients.portalTitle,
+                        sidebarBg: clients.sidebarBg,
+                        sidebarFg: clients.sidebarFg,
+                        headingFont: clients.headingFont,
+                        bodyFont: clients.bodyFont,
                         role: userClients.role,
                     })
                         .from(userClients)
@@ -96,11 +99,7 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                     const allowed = [...allowedOwned, ...invitedClients];
 
                     console.log(`[DEBUG] User listing: ${rows.length} total, ${ownedClients.length} owned, limit=${maxClients}, showing=${allowed.length}`);
-                    return allowed.map((c: any) => ({
-                        ...c,
-                        updatedAt: c.updatedAt?.toString() || null,
-                        createdAt: c.createdAt?.toString() || null,
-                    }));
+                    return allowed;
                 } catch (error) {
                     console.error('[DEBUG] Error in clients.list:', error);
                     throw error;
@@ -591,6 +590,10 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
                 // Branding
                 brandPrimaryColor: z.string().optional().nullable(),
                 brandSecondaryColor: z.string().optional().nullable(),
+                sidebarBg: z.string().optional().nullable(),
+                sidebarFg: z.string().optional().nullable(),
+                headingFont: z.string().optional().nullable(),
+                bodyFont: z.string().optional().nullable(),
                 portalTitle: z.string().optional().nullable(),
                 requireMfa: z.boolean().optional(),
             }))
@@ -611,6 +614,12 @@ export const createClientsRouter = (t: any, adminProcedure: any, clientProcedure
         getUsers: clientProcedure
             .input(z.object({ clientId: z.number() }))
             .query(async ({ input }: any) => {
+                return await db.getClientUsers(input.clientId);
+            }),
+        getTeamMembers: clientProcedure
+            .input(z.object({ clientId: z.number() }))
+            .query(async ({ input }: any) => {
+                // Alias for getUsers - returns team members for a client
                 return await db.getClientUsers(input.clientId);
             }),
         inviteUser: clientEditorProcedure

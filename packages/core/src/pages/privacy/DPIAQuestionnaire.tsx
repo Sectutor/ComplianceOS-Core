@@ -60,8 +60,8 @@ export default function DPIAQuestionnaire() {
                 templateId: selectedTemplate.id,
                 templateName: selectedTemplate.name
             },
-            riskLevel: "To Be Determined",
-            recommendations: "Pending Review"
+            status: "in_progress",
+            score: 0
         });
     };
 
@@ -70,6 +70,69 @@ export default function DPIAQuestionnaire() {
             <div className="flex flex-col items-center justify-center p-24 space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-[#3ABEF9]" />
                 <p className="text-slate-400 font-medium animate-pulse">Loading assessment template...</p>
+            </div>
+        );
+    }
+
+    if (!selectedTemplate && !templateId) {
+        return (
+            <div className="p-12 space-y-8 animate-in fade-in duration-500">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 max-w-5xl mx-auto w-full">
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setLocation(`/clients/${clientId}/privacy/dpia`)}
+                            className="h-11 w-11 rounded-xl hover:bg-slate-100 text-slate-500"
+                        >
+                            <ArrowLeft className="h-6 w-6" />
+                        </Button>
+                        <div className="space-y-0.5">
+                            <h1 className="text-3xl font-bold tracking-tight text-slate-900">New DPIA Assessment</h1>
+                            <p className="text-slate-500 text-lg">Select a template to begin</p>
+                        </div>
+                    </div>
+                </div>
+
+                {templatesLoading ? (
+                    <div className="flex flex-col items-center justify-center p-24 space-y-4">
+                        <Loader2 className="h-12 w-12 animate-spin text-[#3ABEF9]" />
+                        <p className="text-slate-400 font-medium animate-pulse">Loading templates...</p>
+                    </div>
+                ) : templates && templates.length > 0 ? (
+                    <div className="grid gap-4 max-w-5xl mx-auto w-full">
+                        {templates.map((template) => (
+                            <Card
+                                key={template.id}
+                                className="cursor-pointer hover:shadow-lg hover:border-[#3ABEF9]/50 transition-all border-2 border-transparent"
+                                onClick={() => setLocation(`/clients/${clientId}/privacy/dpia/new?templateId=${template.id}`)}
+                            >
+                                <CardContent className="p-6 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">{template.name}</h3>
+                                        <p className="text-slate-500 text-sm mt-1">{template.description || 'No description'}</p>
+                                    </div>
+                                    <Button className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold">
+                                        Select Template
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center p-12 space-y-4">
+                        <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+                        <h2 className="text-xl font-bold text-slate-900">No Templates Available</h2>
+                        <p className="text-slate-500 max-w-sm mx-auto">Please contact your administrator to set up DPIA templates.</p>
+                        <Button
+                            variant="outline"
+                            onClick={() => setLocation(`/clients/${clientId}/privacy/dpia`)}
+                            className="mt-4"
+                        >
+                            Return to DPIA Dashboard
+                        </Button>
+                    </div>
+                )}
             </div>
         );
     }

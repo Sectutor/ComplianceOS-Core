@@ -3,6 +3,7 @@ export interface Regulation {
     name: string;
     description: string;
     type: string;
+    isObligation?: boolean;
     logo?: string;
     articles: Article[];
     questions?: Question[];

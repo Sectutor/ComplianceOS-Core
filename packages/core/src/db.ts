@@ -33,6 +33,7 @@ import {
   evidenceFiles, InsertEvidenceFile, EvidenceFile,
 
   notificationSettings, InsertNotificationSettings, NotificationSettings,
+  threatAlertSettings, InsertThreatAlertSettings, ThreatAlertSettings,
 
   notificationLog, InsertNotificationLog, NotificationLog,
 
@@ -210,11 +211,12 @@ export async function getDb(): Promise<NonNullable<typeof _db>> {
         _sql = postgres(databaseUrl, {
           ssl: { rejectUnauthorized: false }, // Critical for Supabase Transaction Pooler compatibility
           prepare: false, // Required for Supabase Transaction Pooler (port 6543)
-          idle_timeout: 60, // Close idle connections after 60s (increased from 20s)
-          connect_timeout: 30, // Increased to 30s to prevent timeouts
-          max: 10, // Max pool size
+          idle_timeout: 30,      // Close idle connections after 30s (reduced from 60s)
+          max_lifetime: 300,     // Force-recycle connections every 5 min — prevents stale TCP after Supabase drops idle sessions
+          connect_timeout: 30,   // 30s connect timeout
+          max: 10,               // Max pool size
           connection: {
-            statement_timeout: 30000, // 30s statement timeout (increased from 5s)
+            statement_timeout: 30000, // 30s statement timeout
           },
           onnotice: (notice) => {
             console.log('[DB Notice]', notice);
@@ -266,6 +268,15 @@ export async function closeDb() {
 
 }
 
+/**
+ * Reset the DB connection — call this when a stale/broken connection is detected.
+ * The next call to getDb() will create a fresh pool.
+ */
+export async function resetDb() {
+  console.warn('[DB] Resetting connection pool due to stale/broken connection...');
+  await closeDb();
+  console.warn('[DB] Connection pool reset. Will reconnect on next request.');
+}
 
 
 // ==================== RISK FRAMEWORK FUNCTIONS ====================
@@ -563,6 +574,7 @@ export async function getUserClients(userId: number) {
 
 
 export async function getUserById(id: number) {
+  console.log('[DEBUG getUserById] id:', id, 'type:', typeof id);
   const db = await getDb();
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result[0];

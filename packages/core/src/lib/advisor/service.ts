@@ -1,4 +1,5 @@
 import { llmService } from '../llm/service';
+import { AgentService } from '../ai/agent-service';
 
 export async function suggestTechnologies(request: {
     clientId: number;
@@ -66,15 +67,24 @@ export async function askQuestion(request: {
     clientId: number;
     question: string;
     context?: any;
+    conversationHistory?: any[];
 }) {
+    const agentPrompt = await AgentService.getAgentPrompt(request.clientId);
+
     const response = await llmService.generate({
-        systemPrompt: "You are a helpful compliance advisor.",
+        systemPrompt: "You are a helpful compliance advisor." + agentPrompt,
         userPrompt: request.question,
         temperature: 0.3,
         feature: 'general_advisor'
     });
 
-    return { answer: response.text, sources: [] };
+    const { cleanText, proposals } = AgentService.parseProposals(response.text);
+
+    return {
+        answer: cleanText,
+        sources: [],
+        proposals: proposals.length > 0 ? proposals : undefined
+    };
 }
 
 export async function analyzeRisk(request: {

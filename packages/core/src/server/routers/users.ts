@@ -273,8 +273,6 @@ export const usersSubRouter = router({
                 clientData = membership?.client;
             }
 
-            // Return a plain object with only serializable fields
-            console.log('[users.me] Returning user data for ID:', user.id, 'with client:', clientData?.name || 'none');
             return {
                 id: user.id,
                 openId: user.openId,

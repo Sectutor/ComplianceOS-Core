@@ -1,5 +1,5 @@
 import { getDb } from "../../db";
-import { and, gte, lte, or, isNull, sql, eq } from "drizzle-orm";
+import { and, gte, lte, or, isNull, sql, eq, lt } from "drizzle-orm";
 import { clientPolicies, users, employees } from "../../schema";
 import { EmailService } from "../../lib/email/service";
 import { notifyUsers } from "../../lib/notificationService";
@@ -13,8 +13,7 @@ export async function checkUpcomingPolicyReviews() {
     try {
         const db = await getDb();
         const now = new Date();
-
-        // Check for reviews due in the next 7 days
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
         const upcomingReviews = await db.select()
@@ -25,7 +24,7 @@ export async function checkUpcomingPolicyReviews() {
                     lte(clientPolicies.reviewDueDate, sevenDaysFromNow),
                     or(
                         isNull(clientPolicies.lastReviewAlertSentAt),
-                        sql`${clientPolicies.lastReviewAlertSentAt} < ${new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)}`
+                        lt(clientPolicies.lastReviewAlertSentAt, sevenDaysAgo)
                     )
                 )
             );
@@ -126,10 +125,14 @@ export async function checkUpcomingPolicyReviews() {
 export function start() {
     stop();
     // Run check every 24 hours
-    policyReviewCheckInterval = setInterval(checkUpcomingPolicyReviews, 24 * 60 * 60 * 1000);
+    policyReviewCheckInterval = setInterval(() => {
+        checkUpcomingPolicyReviews().catch(err => console.error('[PolicyReviewScheduler] Background check failed:', err));
+    }, 24 * 60 * 60 * 1000);
 
     // Run initial check after 30 seconds to allow DB to stabilize
-    setTimeout(checkUpcomingPolicyReviews, 30000);
+    setTimeout(() => {
+        checkUpcomingPolicyReviews().catch(err => console.error('[PolicyReviewScheduler] Initial check failed:', err));
+    }, 30000);
 
     console.log("[PolicyReviewScheduler] Started");
 }

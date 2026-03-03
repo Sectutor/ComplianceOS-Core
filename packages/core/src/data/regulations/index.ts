@@ -31,7 +31,7 @@ export const regulations: Regulation[] = [
     appi,
     australiaPrivacy,
     technicalPrivacy,
-];
+].map(r => ({ ...r, isObligation: true }));
 
 export const getRegulation = (id: string): Regulation | undefined => {
     return regulations.find(r => r.id === id);

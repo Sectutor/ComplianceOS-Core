@@ -23,8 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { VendorTrustCenter } from "@/components/tprm/VendorTrustCenter";
 import { RequestItemsDialog } from "@/components/tprm/RequestItemsDialog";
 import VendorMitigationPlanViewer from "@complianceos/premium/components/advisor/VendorMitigationPlanViewer";

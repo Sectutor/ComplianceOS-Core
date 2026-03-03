@@ -129,6 +129,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
           try {
             console.log(`[PolicyCreate] Starting generation for Client ${data.clientId}, Template ${data.templateId || 'from sections'}`);
             if (data.templateId) {
+              console.log(`[PolicyCreate] Starting generation for template: ${data.templateId}, tailor: ${data.tailor}`);
               // Generate from Template
               const generatedContent = await policyGenerator.generate(data.clientId, data.templateId, {
                 tailorToIndustry: data.tailor,
@@ -138,6 +139,7 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
               data.content = generatedContent;
               console.log(`[PolicyCreate] Generation from template complete. Content length: ${generatedContent?.length || 0}`);
             } else if (data.sections && data.sections.length > 0) {
+              console.log(`[PolicyCreate] Starting generation from sections for policy: ${data.name}, sections: ${data.sections.length}, tailor: ${data.tailor}`);
               // Generate from Blank with Sections
               const generatedContent = await policyGenerator.generateFromSections(data.clientId, data.name, data.sections, {
                 tailorToIndustry: data.tailor,
@@ -150,12 +152,18 @@ export const createClientPoliciesRouter = (t: any, clientProcedure: any, adminPr
             // Mark as AI generated
             (data as any).isAiGenerated = true;
             console.log(`[PolicyCreate] Generation complete. Length: ${data.content?.length || 0}`);
-          } catch (e) {
-            console.error("[PolicyCreate] Policy Generation failed:", e);
+          } catch (e: any) {
+            console.error("[PolicyCreate] Policy Generation CRITICAL FAILURE:", {
+              message: e.message,
+              stack: e.stack,
+              code: e.code,
+              clientId: data.clientId,
+              templateId: data.templateId
+            });
             // Throw error instead of silently creating empty policy
             throw new TRPCError({
               code: "INTERNAL_SERVER_ERROR",
-              message: "Failed to generate policy content. Please try again or provide content manually."
+              message: `Failed to generate policy content: ${e.message}. Please try again or provide content manually.`
             });
           }
         } else {

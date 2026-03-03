@@ -188,7 +188,21 @@ export const businessContinuitySubRouter = router({
             try {
                 const result = await db.createBusinessProcess(input);
                 console.log("SERVER: Process Created", result);
-                return result;
+                // Return a properly serialized object with Date fields converted to strings
+                return {
+                    id: result.id,
+                    clientId: result.clientId,
+                    name: result.name,
+                    description: result.description,
+                    department: result.department,
+                    criticalityTier: result.criticalityTier,
+                    rto: result.rto,
+                    rpo: result.rpo,
+                    mtpd: result.mtpd,
+                    parentId: result.parentId,
+                    createdAt: result.createdAt instanceof Date ? result.createdAt.toISOString() : result.createdAt,
+                    updatedAt: result.updatedAt instanceof Date ? result.updatedAt.toISOString() : result.updatedAt,
+                };
             } catch (e: any) {
                 console.error("SERVER: Process Creation Failed", e);
                 throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Process Creation Failed: " + e.message });

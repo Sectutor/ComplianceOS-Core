@@ -10,6 +10,14 @@ export const createContext = ({ req, res }: CreateExpressContextOptions) => {
     const clientId = req.headers['x-client-id'] ? parseInt(req.headers['x-client-id'] as string) : null;
     const aal = (req as any).aal as 'aal1' | 'aal2' | null;
 
+    // Track auth header presence for better error messages
+    const authHeader = req.headers.authorization;
+    const hasAuthHeader = !!authHeader;
+    const authHeaderPrefix = authHeader ? authHeader.substring(0, 20) + '...' : null;
+    
+    // Get info from middleware
+    const middlewareAuthInfo = (req as any).authInfo || {};
+
     return {
         req,
         res,
@@ -17,8 +25,16 @@ export const createContext = ({ req, res }: CreateExpressContextOptions) => {
         clientId,
         aal,
         ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-        userAgent: req.headers['user-agent']
+        userAgent: req.headers['user-agent'],
+        // Auth debugging info for better error messages
+        authInfo: {
+            hasAuthHeader,
+            authHeaderPrefix,
+            isTrpcRequest: req.url?.startsWith('/api/trpc') || false,
+            ...middlewareAuthInfo
+        }
     };
 };
+
 
 export type Context = inferAsyncReturnType<typeof createContext>;

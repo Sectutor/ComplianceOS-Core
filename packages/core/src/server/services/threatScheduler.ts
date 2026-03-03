@@ -30,8 +30,12 @@ export async function runAssetScanOnce() {
 
 export function start() {
   stop();
-  kevInterval = setInterval(runKevSyncOnce, 24 * 60 * 60 * 1000);
-  assetScanInterval = setInterval(runAssetScanOnce, 7 * 24 * 60 * 60 * 1000);
+  kevInterval = setInterval(() => {
+    runKevSyncOnce().catch(err => console.error('[ThreatScheduler] KEV sync failed:', err));
+  }, 24 * 60 * 60 * 1000);
+  assetScanInterval = setInterval(() => {
+    runAssetScanOnce().catch(err => console.error('[ThreatScheduler] Asset scan failed:', err));
+  }, 7 * 24 * 60 * 60 * 1000);
   console.log("[ThreatScheduler] Started");
 }
 

@@ -60,7 +60,7 @@ export class LLMService {
     private async getProviders(feature?: string): Promise<LLMProvider[]> {
         // Check cache first
         const now = Date.now();
-        if (LLMService.providerCache && 
+        if (LLMService.providerCache &&
             (now - LLMService.providerCache.timestamp) < LLMService.CACHE_TTL_MS) {
             console.log('[LLMService] Using cached providers');
             return LLMService.providerCache.providers;
@@ -204,7 +204,7 @@ export class LLMService {
                 apiKey,
                 dangerouslyAllowBrowser: true, // Double-down on security override
                 maxRetries: 3,
-                timeout: 60000 // 60s timeout for complex compliance tasks
+                timeout: 60000 // 60s timeout - reduced from 180s for faster failure detection
             };
 
             if (provider.baseUrl) {
@@ -228,7 +228,7 @@ export class LLMService {
      */
     private getAnthropicClient(provider: LLMProvider): Anthropic {
         const apiKey = decrypt(provider.apiKey);
-        return new Anthropic({ apiKey });
+        return new Anthropic({ apiKey, timeout: 180000 });
     }
 
     /**
@@ -246,6 +246,7 @@ export class LLMService {
         request: CompletionRequest,
         metadata: UsageMetadata = { endpoint: 'generate' }
     ): Promise<CompletionResponse> {
+        const overallStart = Date.now();
         const providers = await this.getProviders(request.feature);
         console.log(`[LLMService] Found ${providers.length} providers. Priority order:`, providers.map(p => p.name).join(', '));
 
@@ -257,6 +258,7 @@ export class LLMService {
         let lastError: Error | undefined;
 
         for (const provider of providers) {
+            const providerStart = Date.now();
             try {
                 let response: CompletionResponse;
 
@@ -275,6 +277,9 @@ export class LLMService {
                         response = await this.generateOpenAI(provider, request);
                         break;
                 }
+
+                const providerLatency = Date.now() - providerStart;
+                console.log(`[LLMService] Provider ${provider.name} (${provider.model}) succeeded in ${providerLatency}ms. Response text length: ${response.text.length}`);
 
                 // Validate structured output if schema provided
                 if (request.schema && request.jsonMode) {
@@ -303,7 +308,10 @@ export class LLMService {
                     error.message
                 );
 
-                console.warn(`[LLM] Provider ${provider.name} failed:`, error.message);
+                console.warn(`[LLM] Provider ${provider.name} failed after ${latencyMs}ms:`, {
+                    message: error.message,
+                    stack: error.stack?.split('\n').slice(0, 3).join('\n')
+                });
                 lastError = error;
                 // Continue to next provider
             }
@@ -311,6 +319,8 @@ export class LLMService {
 
         // If we get here, all providers failed
         logger.error({ message: "All LLM providers failed", error: lastError?.message });
+        const overallLatency = Date.now() - overallStart;
+        console.log(`[LLMService] All providers failed after ${overallLatency}ms`);
         throw new Error(`All LLM providers failed. Last error: ${lastError?.message}`);
     }
 

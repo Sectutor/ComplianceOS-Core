@@ -18,6 +18,105 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
     return t.router({
         // ==================== DATA INVENTORY ====================
 
+        // Seed sample data inventory for demo purposes
+        seedInventory: clientProcedure
+            .mutation(async ({ ctx }: any) => {
+                const db = await getDb();
+                const clientId = ctx.clientId;
+
+                if (!clientId) {
+                    throw new TRPCError({
+                        code: "UNAUTHORIZED",
+                        message: "Client ID required. Please ensure you are authenticated with a valid client."
+                    });
+                }
+
+                const sampleAssets = [
+                    {
+                        clientId,
+                        name: "Employee Records Database",
+                        type: "Information",
+                        category: "Database",
+                        description: "HR database containing employee personal information",
+                        owner: "HR Department",
+                        criticality: "High",
+                        status: "active" as const,
+                        isPersonalData: true,
+                        dataSensitivity: "High",
+                        dataFormat: "Structured (SQL Database)",
+                        location: "On-premise HR Server",
+                    },
+                    {
+                        clientId,
+                        name: "Customer Email List",
+                        type: "Information",
+                        category: "Data Store",
+                        description: "Marketing database of customer email addresses",
+                        owner: "Marketing Team",
+                        criticality: "Medium",
+                        status: "active" as const,
+                        isPersonalData: true,
+                        dataSensitivity: "Medium",
+                        dataFormat: "Structured (CSV/Excel)",
+                        location: "Cloud Storage (AWS)",
+                    },
+                    {
+                        clientId,
+                        name: "Patient Health Records",
+                        type: "Information",
+                        category: "Database",
+                        description: "Medical records with patient health information",
+                        owner: "Healthcare Operations",
+                        criticality: "High",
+                        status: "active" as const,
+                        isPersonalData: true,
+                        dataSensitivity: "High",
+                        dataFormat: "Structured (EHR System)",
+                        location: "HIPAA-compliant Cloud",
+                    },
+                    {
+                        clientId,
+                        name: "User Account Profiles",
+                        type: "Information",
+                        category: "Application",
+                        description: "Application user profiles with login credentials",
+                        owner: "IT Security",
+                        criticality: "High",
+                        status: "active" as const,
+                        isPersonalData: true,
+                        dataSensitivity: "Medium",
+                        dataFormat: "Structured (NoSQL)",
+                        location: "Production Database",
+                    },
+                    {
+                        clientId,
+                        name: "Financial Transaction Logs",
+                        type: "Information",
+                        category: "Database",
+                        description: "Transaction history with payment details",
+                        owner: "Finance Department",
+                        criticality: "High",
+                        status: "active" as const,
+                        isPersonalData: true,
+                        dataSensitivity: "High",
+                        dataFormat: "Structured (SQL)",
+                        location: "Finance Server",
+                    },
+                ];
+
+                let created = 0;
+                for (const asset of sampleAssets) {
+                    try {
+                        await db.insert(assets).values(asset);
+                        created++;
+                    } catch (e) {
+                        console.log("Asset already exists or error:", e);
+                    }
+                }
+
+                return { success: true, created };
+            }),
+
         // List all assets marked as personal data
         getInventory: clientProcedure
             .input(z.object({ clientId: z.number().optional() }))
@@ -40,6 +139,89 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
                     .orderBy(desc(assets.updatedAt));
             }),
 
+        // Create a new data asset
+        createDataAsset: clientProcedure
+            .input(z.object({
+                clientId: z.number(),
+                name: z.string().min(1, "Name is required"),
+                type: z.string().optional(),
+                category: z.string().optional(),
+                description: z.string().optional(),
+                owner: z.string().optional(),
+                criticality: z.string().optional(),
+                status: z.string().optional(),
+                isPersonalData: z.boolean().default(true),
+                dataSensitivity: z.string().optional(),
+                dataFormat: z.string().optional(),
+                location: z.string().optional(),
+                dataOwner: z.string().optional(),
+            }))
+            .mutation(async ({ ctx, input }: any) => {
+                const db = await getDb();
+                const clientId = ctx.clientId || input.clientId;
+
+                if (!clientId) throw new TRPCError({ code: "BAD_REQUEST", message: "Client ID required" });
+
+                const [asset] = await db.insert(assets).values({
+                    clientId,
+                    name: input.name,
+                    type: input.type || "Information",
+                    category: input.category,
+                    description: input.description,
+                    owner: input.owner,
+                    criticality: input.criticality || "Medium",
+                    status: input.status || "active",
+                    isPersonalData: input.isPersonalData,
+                    dataSensitivity: input.dataSensitivity || "Medium",
+                    dataFormat: input.dataFormat,
+                    location: input.location,
+                    dataOwner: input.dataOwner,
+                }).returning();
+
+                return asset;
+            }),
+
+        // Update a data asset
+        updateDataAsset: clientProcedure
+            .input(z.object({
+                assetId: z.number(),
+                name: z.string().optional(),
+                type: z.string().optional(),
+                category: z.string().optional(),
+                description: z.string().optional(),
+                owner: z.string().optional(),
+                criticality: z.string().optional(),
+                status: z.string().optional(),
+                isPersonalData: z.boolean().optional(),
+                dataSensitivity: z.string().optional(),
+                dataFormat: z.string().optional(),
+                location: z.string().optional(),
+                dataOwner: z.string().optional(),
+            }))
+            .mutation(async ({ ctx, input }: any) => {
+                const db = await getDb();
+                const { assetId, ...data } = input;
+
+                const [asset] = await db.update(assets)
+                    .set({ ...data, updatedAt: new Date() })
+                    .where(eq(assets.id, assetId))
+                    .returning();
+
+                return asset;
+            }),
+
+        // Delete a data asset
+        deleteDataAsset: clientProcedure
+            .input(z.object({
+                assetId: z.number(),
+            }))
+            .mutation(async ({ ctx, input }: any) => {
+                const db = await getDb();
+
+                await db.delete(assets).where(eq(assets.id, input.assetId));
+
+                return { success: true };
+            }),
         // Update privacy specifics of an asset
         updateAssetPrivacy: clientProcedure
             .input(z.object({
@@ -171,6 +353,30 @@ export const createPrivacyRouter = (t: any, clientProcedure: any) => {
 
                 await db.delete(processDataFlows).where(eq(processDataFlows.id, input.flowId));
                 return { success: true };
+            }),
+
+        // Get all data flows for a client (across all processes)
+        getAllDataFlows: clientProcedure
+            .input(z.object({ clientId: z.number().optional() }))
+            .query(async ({ ctx, input }: any) => {
+                const db = await getDb();
+                const clientId = ctx.clientId || input?.clientId;
+
+                if (!clientId) throw new TRPCError({ code: "BAD_REQUEST", message: "Client ID required" });
+
+                const flows = await db
+                    .select({
+                        flow: processDataFlows,
+                        asset: assets,
+                        processName: businessProcesses.name,
+                        processId: businessProcesses.id
+                    })
+                    .from(processDataFlows)
+                    .innerJoin(businessProcesses, eq(processDataFlows.processId, businessProcesses.id))
+                    .leftJoin(assets, eq(processDataFlows.assetId, assets.id))
+                    .where(eq(businessProcesses.clientId, clientId));
+
+                return flows;
             }),
 
         // ==================== DSAR MANAGEMENT ====================

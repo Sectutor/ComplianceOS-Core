@@ -1,17 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@complianceos/ui/ui/button";
 import { X } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function GDPRBanner() {
+  const [location] = useLocation();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Don't show in the main app (/clients, /dashboard, /admin, /settings, etc.)
+    const isMainApp = location.startsWith('/clients') || 
+                      location.startsWith('/dashboard') || 
+                      location.startsWith('/admin') || 
+                      location.startsWith('/settings') ||
+                      location.startsWith('/risks') ||
+                      location.startsWith('/compliance') ||
+                      location.startsWith('/tprm');
+
+    if (isMainApp) {
+      setIsVisible(false);
+      return;
+    }
+
     const consent = localStorage.getItem("complianceos-cookie-consent");
     if (!consent) {
       setIsVisible(true);
     }
-  }, []);
+  }, [location]);
 
   const acceptCookies = () => {
     localStorage.setItem("complianceos-cookie-consent", "true");

@@ -159,18 +159,38 @@ export const ProjectsDashboard = () => {
                             description="Manage and track security initiatives across IT, AI, and Infrastructure."
                             rationale="Projects group related assets and risks, allowing for focused assessment and remediation."
                             howToUse={[
-                                { step: "Create Project", description: "Define clear scope and criticality for new initiatives." },
-                                { step: "Assign Owner", description: "Designate a responsible lead for accountability." },
-                                { step: "Assess Risks", description: "Use the project view to identify and treat specific risks." }
+                                {
+                                    step: "New Initiative",
+                                    description: "Launch a new security project with clear scope and ownership.",
+                                    targetId: "project-new-btn"
+                                },
+                                {
+                                    step: "Scope Filter",
+                                    description: "Quickly locate projects by name, type, or description.",
+                                    targetId: "project-search-bar"
+                                },
+                                {
+                                    step: "Posture Tracker",
+                                    description: "Monitor the real-time risk count and threat model status on each card.",
+                                    targetId: "project-grid-view"
+                                }
                             ]}
-                            integrations={[
-                                { name: "Risk Register", description: "Aggregates project risks into the global register." },
-                                { name: "Threat Modeling", description: "Links technical threat models to the project." }
+                            scenarios={[
+                                {
+                                    title: "Auditing a Critical Infrastructure Change",
+                                    example: "An auditor asks for proof that the 'Cloud Migration' project underwent a security review.",
+                                    auditTip: "Open the project card. It shows the number of 'Identified Risks' and 'Threat Models' specifically linked to that project's scope, proving continuous monitoring."
+                                },
+                                {
+                                    title: "Prioritizing remediation in high-risk projects",
+                                    example: "You have limited budget and need to decide which project needs security attention first.",
+                                    auditTip: "Check the 'Criticality' badges in the project grid. Focus on 'Critical' projects with high risk counts to maximize risk reduction ROI."
+                                }
                             ]}
                         />
                         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                             <DialogTrigger asChild>
-                                <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
+                                <Button id="project-new-btn" className="bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
                                     <Plus className="mr-2 h-5 w-5" /> New Project
                                 </Button>
                             </DialogTrigger>
@@ -279,6 +299,7 @@ export const ProjectsDashboard = () => {
                     <div className="relative flex-1 max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
+                            id="project-search-bar"
                             placeholder="Filter projects..."
                             className="pl-10 border-slate-200 focus:ring-blue-500"
                             value={search}
@@ -302,7 +323,7 @@ export const ProjectsDashboard = () => {
                         </p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="project-grid-view" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredProjects?.map(project => (
                             <Card
                                 key={project.id}

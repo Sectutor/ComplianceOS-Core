@@ -11,8 +11,8 @@ import { Label } from "@complianceos/ui/ui/label";
 import { Textarea } from "@complianceos/ui/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Save, Plus, Trash2, Info, Activity, Edit2, ChevronLeft, Users, Mail, Building, Briefcase } from "lucide-react";
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { EnhancedDialog } from "@complianceos/ui/ui/enhanced-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
@@ -26,7 +26,7 @@ export default function RiskFramework() {
 
     // Data Fetching
     const { data: client } = trpc.clients.get.useQuery({ id: clientId }, { enabled: !!clientId });
-    const { data: stakeholders } = trpc.risks.getStakeholders.useQuery({ clientId }, { enabled: !!clientId });
+    const { data: stakeholders, refetch: refetchStakeholders } = trpc.risks.getStakeholders.useQuery({ clientId }, { enabled: !!clientId });
     const { data: settings, isLoading, refetch } = trpc.riskSettings.get.useQuery({ clientId }, { enabled: !!clientId });
 
     // Local State for Form
@@ -83,7 +83,6 @@ export default function RiskFramework() {
         updateMutation.mutate({
             clientId,
             ...formData,
-            ...formData,
             impactCriteria,
             likelihoodCriteria,
             riskTolerance
@@ -104,7 +103,6 @@ export default function RiskFramework() {
     });
 
     const { data: kris, refetch: refetchKris } = trpc.kris.list.useQuery({ clientId }, { enabled: !!clientId });
-    const { refetch: refetchStakeholders } = trpc.risks.getStakeholders.useQuery({ clientId }, { enabled: !!clientId });
 
     // Stakeholder Mutations
     const [isStakeholderDialogOpen, setIsStakeholderDialogOpen] = useState(false);
@@ -113,7 +111,8 @@ export default function RiskFramework() {
         lastName: "",
         email: "",
         role: "",
-        department: ""
+        department: "",
+        phone: ""
     });
 
     const createStakeholderMutation = trpc.risks.createStakeholder.useMutation({
@@ -246,18 +245,24 @@ export default function RiskFramework() {
                         </Button>
                         <PageGuide
                             title="Risk Management Framework"
-                            description="Define the rules and context for your risk management program."
-                            rationale="Before assessing risks, you must define the rules of the game. A consistent framework ensures that 'High Risk' means the same thing to everyone in the organization."
+                            description="Establish the foundational rules, context, and scoring criteria for your organization's risk management program, aligned with ISO 27005 and industry best practices."
+                            rationale="Before assessing individual risks, you must establish the 'rules of the game'. Customizing your impact and likelihood criteria ensures that when a risk is marked as 'High', it holds a consistent, universally understood meaning across the entire organization. This alignment builds the foundation for defensible, executive-level risk decisions and resource allocation."
                             howToUse={[
-                                { step: "Define Context", description: "Document internal and external factors (e.g., regulations, market) in the 'Scope & Context' tab." },
-                                { step: "Set Appetite", description: "Establish your acceptable level of risk and specific tolerance thresholds." },
-                                { step: "Customize Criteria", description: "Adjust the Impact and Likelihood scales to match your business reality." },
-                                { step: "Monitor KRIs", description: "Set up Key Risk Indicators to track leading metrics of potential threats." }
+                                { step: "1. Define Scope & Context", description: "Document what is (and isn't) included in your risk management program. Note internal factors (culture, capabilities) and external factors (regulatory environment, market conditions)." },
+                                { step: "2. Set Risk Appetite & Tolerances", description: "Define 'how much' risk leadership is willing to accept to achieve business goals. Add concrete tolerance thresholds (e.g., Financial loss > $50k requires board approval)." },
+                                { step: "3. Calibrate Risk Criteria", description: "Customize your 1-5 scales for Impact and Likelihood. Ensure definitions are measurable (e.g., instead of 'Severe Impact', use 'Outage lasting > 24 hours')." },
+                                { step: "4. Configure KRIs", description: "Set up Key Risk Indicators to monitor leading metrics that predict potential threats before they materialize." },
+                                { step: "5. Identify Stakeholders", description: "Register the business owners, technical leads, and executives who will be responsible for owning risks and approving treatment plans." }
+                            ]}
+                            scenarios={[
+                                { title: "Standardizing Risk Scoring", example: "Your engineering team considers a 1-hour outage 'High Risk', but the executive team considers it 'Low Risk'. Use the Risk Criteria tab to explicitly define what a 'High' impact means in terms of lost revenue or downtime, forcing both teams to score objectively.", auditTip: "Auditors look for consistent application of risk criteria. Clear definitions prevent subjective scoring." },
+                                { title: "Meeting Board Expectations", example: "The Board wants assurance that the organization isn't taking reckless chances. You document a formal Risk Appetite statement and strict financial tolerances here.", auditTip: "A defined risk appetite proves executive oversight. It provides the mandate for the entire risk management program." },
+                                { title: "Compliance Audit Readiness", example: "An ISO 27001 auditor asks how you determine which risks require treatment. You present this configured framework.", auditTip: "This fulfills the requirement to establish and maintain information security risk criteria (ISO 27001 Clause 6.1.2a)." }
                             ]}
                             integrations={[
-                                { name: "Risk Register", description: "The criteria defined here (Impact/Likelihood) are used to score every risk." },
-                                { name: "Heatmaps", description: "The 5x5 matrix is dynamically generated based on your custom levels." },
-                                { name: "Reporting", description: "Executive reports reference the Risk Appetite statement to validate decisions." }
+                                { name: "Risk Assessment Scoring", description: "The Impact/Likelihood criteria defined here are deeply injected into the Risk Register. Changing a criteria definition here instantly affects how users score new risks." },
+                                { name: "Threat & Vulnerability Scoring", description: "The custom 5x5 heatmap generated from your settings visually maps where your organization's most critical threats are concentrated." },
+                                { name: "Compliance Mapping", description: "Framework scope and context statements support compliance evidence for ISO 27001, SOC 2, and other frameworks." }
                             ]}
                         />
                     </div>
@@ -270,14 +275,22 @@ export default function RiskFramework() {
 
                 <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-4 text-sm text-black dark:bg-blue-900/10 dark:text-blue-200 dark:border-blue-900/30">
                     <div className="flex items-start gap-3">
-                        <Info className="w-5 h-5 text-black shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                            <p className="font-medium text-black">About Risk Management Framework</p>
-                            <p className="text-black">
-                                Establishing a robust framework is the first step in the ISO 27005 risk management process.
-                                Use this page to define <strong>Context</strong> (internal/external factors), set your <strong>Risk Appetite</strong> (acceptable risk levels),
-                                and customize the <strong>Criteria</strong> used to score risks (Impact & Likelihood).
-                                This ensures all subsequent risk assessments are consistent and aligned with organizational objectives.
+                        <Activity className="w-5 h-5 text-[#1C4D8D] shrink-0 mt-0.5" />
+                        <div className="space-y-2">
+                            <p className="font-semibold text-[#1C4D8D] dark:text-blue-300">About Risk Management Framework</p>
+                            <p className="text-black dark:text-blue-100">
+                                Establishing a robust framework is the <strong>first step in the ISO 27005</strong> risk management process.
+                                This page allows you to define:
+                            </p>
+                            <ul className="list-disc list-inside space-y-1 text-black dark:text-blue-100 ml-2">
+                                <li><strong>Scope & Context</strong> - Boundaries and internal/external factors affecting your organization</li>
+                                <li><strong>Risk Appetite</strong> - Acceptable risk levels and specific tolerance thresholds</li>
+                                <li><strong>Risk Criteria</strong> - Custom Impact (1-5) and Likelihood (1-5) scales for scoring</li>
+                                <li><strong>Key Risk Indicators (KRIs)</strong> - Leading metrics to predict and monitor threats</li>
+                                <li><strong>Key Stakeholders</strong> - Risk owners and decision-makers</li>
+                            </ul>
+                            <p className="text-black dark:text-blue-100 mt-2">
+                                These definitions ensure all subsequent risk assessments are <strong>consistent, defensible, and aligned</strong> with organizational objectives.
                             </p>
                         </div>
                     </div>
@@ -1005,3 +1018,4 @@ export default function RiskFramework() {
         </DashboardLayout>
     );
 }
+

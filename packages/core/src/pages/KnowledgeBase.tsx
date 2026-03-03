@@ -134,19 +134,39 @@ export default function KnowledgeBase() {
             <div className="flex items-center gap-2">
               <PageGuide
                 title="Knowledge Base"
-                description="Answer library for security questionnaires."
-                rationale="Speeds up vendor reviews by storing standard security responses."
+                description="Central repository for common security questions and compliance facts."
+                rationale="Maintain consistency in how your organization reports its security posture to customers, auditors, and employees."
                 howToUse={[
-                  { step: "Search Answers", description: "Find approved responses for common security questions." },
-                  { step: "Add Entries", description: "Document new security controls and procedures." },
-                  { step: "Manage Access", description: "Control internal vs. external visibility." }
+                  {
+                    step: "Navigate Library",
+                    description: "Use keywords to find approved technical answers for common questions.",
+                    targetId: "kb-search-bar"
+                  },
+                  {
+                    step: "Update Repository",
+                    description: "Document new security controls as your program evolves.",
+                    targetId: "kb-add-entry"
+                  },
+                  {
+                    step: "Export Data",
+                    description: "Download approved facts for Sales RFPs or customer reports.",
+                    targetId: "kb-export-btn"
+                  }
                 ]}
-                integrations={[
-                  { name: "AI Questionnaires", description: "Auto-fill source." },
-                  { name: "Sales Enablement", description: "Shareable security facts." }
+                scenarios={[
+                  {
+                    title: "Drafting a New Security FAQ",
+                    example: "You keep receiving the same questions about your encryption-at-rest methodology during sales calls.",
+                    auditTip: "Add the answer to the KB once. This ensures that every salesperson uses the exact same approved technical language, reducing the risk of misrepresenting controls."
+                  },
+                  {
+                    title: "Sales RFP Support",
+                    example: "A major prospect has sent a 300-question security questionnaire that's due in 48 hours.",
+                    auditTip: "Use the 'Search' feature to find previous answers. Modern auditors look for evidence that internal security knowledge is centralized and not siloed in personal spreadsheets."
+                  }
                 ]}
               />
-              <Button onClick={() => setIsAddOpen(true)}>
+              <Button id="kb-add-entry" onClick={() => setIsAddOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Add entries
               </Button>
             </div>
@@ -156,6 +176,7 @@ export default function KnowledgeBase() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
+                id="kb-search-bar"
                 placeholder="Search questions or answers..."
                 className="pl-9"
                 value={search}

@@ -2,6 +2,7 @@
 import React from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useParams, useLocation } from "wouter";
+import { PageGuide } from "@/components/PageGuide";
 import { Button } from "@complianceos/ui/ui/button";
 import { Plus, Loader2, ArrowRight, FileText, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -47,10 +48,37 @@ export default function GapAnalysisList() {
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Gap Analysis</h1>
                         <p className="text-muted-foreground mt-1">Assess your compliance posture against major frameworks.</p>
                     </div>
-                    <Button onClick={() => setLocation(`/clients/${clientId}/gap-analysis/new`)} className="bg-primary hover:bg-primary/90">
-                        <Plus className="w-4 h-4 mr-2" />
-                        New Analysis
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button onClick={() => setLocation(`/clients/${clientId}/gap-analysis/new`)} className="bg-primary hover:bg-primary/90" id="gap-new-analysis">
+                            <Plus className="w-4 h-4 mr-2" />
+                            New Analysis
+                        </Button>
+                        <PageGuide
+                            title="Gap Analysis"
+                            description="Identify where your current controls fall short of regulatory requirements."
+                            rationale="Closing compliance gaps is the core of any security program. This tool helps you transform audit findings into remediation plans."
+                            howToUse={[
+                                {
+                                    step: "Start New Analysis",
+                                    description: "Create an assessment against a library framework (ISO, NIST, etc) to find what's missing.",
+                                    targetId: "gap-new-analysis"
+                                },
+                                {
+                                    step: "Review Status",
+                                    description: "Track progress of each domain and focus on 'In Progress' or 'Draft' assessments.",
+                                    targetId: "gap-assessments-list"
+                                },
+                                {
+                                    step: "Remediate Gaps",
+                                    description: "Open an assessment to generate remediation tasks for your IT and security teams."
+                                }
+                            ]}
+                            integrations={[
+                                { name: "Roadmap Builder", description: "Convert identified gaps directly into a multi-month strategic roadmap." },
+                                { name: "Evidence Vault", description: "Link existing evidence to automatically verify control implementation." }
+                            ]}
+                        />
+                    </div>
                 </div>
 
                 {isLoading ? (
@@ -60,7 +88,7 @@ export default function GapAnalysisList() {
                 ) : (
                     <div className="space-y-6">
                         {assessments && assessments.length > 0 ? (
-                            <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white">
+                            <div className="rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-white" id="gap-assessments-list">
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="bg-[#1C4D8D] hover:bg-[#1C4D8D] border-none">

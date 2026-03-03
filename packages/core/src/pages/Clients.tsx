@@ -178,92 +178,98 @@ export default function Clients() {
               )}
             </div>
           </div>
-          <EnhancedDialog
-            open={isCreateOpen}
-            onOpenChange={setIsCreateOpen}
-            trigger={
-              <Button className="gap-2" disabled={isAtLimit} variant={isAtLimit ? "outline" : "default"}>
-                <Plus className="h-4 w-4" />
-                {isAtLimit ? "Limit Reached" : "New Client"}
-              </Button>
-            }
-            title="Add New Client"
-            description={isAtLimit
-              ? (isCommunityEdition
-                ? "Community Edition is limited to 1 workspace."
-                : `You have reached the limit for your current plan (${ownedClientsLimit} organizations).`)
-              : "Create a new client workspace to manage."
-            }
-            footer={
-              <div className="flex justify-end gap-2 w-full">
-                <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                {!isAtLimit && (
-                  <Button onClick={handleCreateClient} disabled={createMutation.isPending}>
-                    {createMutation.isPending ? "Creating..." : "Create Client"}
-                  </Button>
-                )}
-                {isAtLimit && (
-                  <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => upgradeAccount('pro')} disabled={isBillingLoading}>
-                    Upgrade Plan
-                  </Button>
-                )}
-              </div>
-            }
-          >
-            {isAtLimit ? (
-              <div className="py-8 text-center space-y-4">
-                <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                  <Plus className="h-6 w-6 text-amber-600 rotate-45" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-lg">
-                    {isCommunityEdition ? "Community Edition Limit" : "Subscription Limit Reached"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {isCommunityEdition
-                      ? "The Community Edition includes a single workspace. To manage multiple clients, please upgrade to the Enterprise version."
-                      : `Your current Subscription (DIY) plan allows for up to ${ownedClientsLimit} organizations.`
-                    }
-                  </p>
-                  {!isCommunityEdition && (
-                    <p className="text-sm text-muted-foreground">
-                      Upgrade to Managed or vCISO tiers for unlimited client management and AI-powered evidence triage.
-                    </p>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="gap-2 shadow-sm" onClick={() => setLocation('/clients/new/msp')}>
+              <Plus className="h-4 w-4" />
+              MSP Onboarding
+            </Button>
+            <EnhancedDialog
+              open={isCreateOpen}
+              onOpenChange={setIsCreateOpen}
+              trigger={
+                <Button className="gap-2 shadow-sm bg-indigo-600 hover:bg-indigo-700" disabled={isAtLimit} variant={isAtLimit ? "outline" : "default"}>
+                  <Plus className="h-4 w-4" />
+                  {isAtLimit ? "Limit Reached" : "New Client"}
+                </Button>
+              }
+              title="Add New Client"
+              description={isAtLimit
+                ? (isCommunityEdition
+                  ? "Community Edition is limited to 1 workspace."
+                  : `You have reached the limit for your current plan (${ownedClientsLimit} organizations).`)
+                : "Create a new client workspace to manage."
+              }
+              footer={
+                <div className="flex justify-end gap-2 w-full">
+                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+                  {!isAtLimit && (
+                    <Button onClick={handleCreateClient} disabled={createMutation.isPending}>
+                      {createMutation.isPending ? "Creating..." : "Create Client"}
+                    </Button>
+                  )}
+                  {isAtLimit && (
+                    <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => upgradeAccount('pro')} disabled={isBillingLoading}>
+                      Upgrade Plan
+                    </Button>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Company Name</Label>
-                  <Input id="name" value={clientData.name} onChange={(e) => setClientData({ ...clientData, name: e.target.value })} placeholder="Acme Corp" />
+              }
+            >
+              {isAtLimit ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                    <Plus className="h-6 w-6 text-amber-600 rotate-45" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-bold text-lg">
+                      {isCommunityEdition ? "Community Edition Limit" : "Subscription Limit Reached"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isCommunityEdition
+                        ? "The Community Edition includes a single workspace. To manage multiple clients, please upgrade to the Enterprise version."
+                        : `Your current Subscription (DIY) plan allows for up to ${ownedClientsLimit} organizations.`
+                      }
+                    </p>
+                    {!isCommunityEdition && (
+                      <p className="text-sm text-muted-foreground">
+                        Upgrade to Managed or vCISO tiers for unlimited client management and AI-powered evidence triage.
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="industry">Industry</Label>
-                  <Input id="industry" value={clientData.industry} onChange={(e) => setClientData({ ...clientData, industry: e.target.value })} placeholder="Technology, Healthcare, etc." />
+              ) : (
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Company Name</Label>
+                    <Input id="name" value={clientData.name} onChange={(e) => setClientData({ ...clientData, name: e.target.value })} placeholder="Acme Corp" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="industry">Industry</Label>
+                    <Input id="industry" value={clientData.industry} onChange={(e) => setClientData({ ...clientData, industry: e.target.value })} placeholder="Technology, Healthcare, etc." />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="size">Company Size</Label>
+                    <Select value={clientData.size} onValueChange={(v) => setClientData({ ...clientData, size: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1-10">1-10 employees</SelectItem>
+                        <SelectItem value="11-50">11-50 employees</SelectItem>
+                        <SelectItem value="51-200">51-200 employees</SelectItem>
+                        <SelectItem value="201-500">201-500 employees</SelectItem>
+                        <SelectItem value="500+">500+ employees</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea id="description" value={clientData.description} onChange={(e) => setClientData({ ...clientData, description: e.target.value })} placeholder="Brief description of the client..." />
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="size">Company Size</Label>
-                  <Select value={clientData.size} onValueChange={(v) => setClientData({ ...clientData, size: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1-10">1-10 employees</SelectItem>
-                      <SelectItem value="11-50">11-50 employees</SelectItem>
-                      <SelectItem value="51-200">51-200 employees</SelectItem>
-                      <SelectItem value="201-500">201-500 employees</SelectItem>
-                      <SelectItem value="500+">500+ employees</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" value={clientData.description} onChange={(e) => setClientData({ ...clientData, description: e.target.value })} placeholder="Brief description of the client..." />
-                </div>
-              </div>
-            )}
-          </EnhancedDialog>
+              )}
+            </EnhancedDialog>
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">

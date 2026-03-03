@@ -12,7 +12,6 @@ import {
     Users,
     Key,
     Database,
-    Binary,
     Home,
     ChevronRight
 } from "lucide-react";
@@ -47,7 +46,7 @@ export function ISOLayout({ clientId, children, fullWidth = false }: ISOLayoutPr
             icon: ClipboardList,
         },
         {
-            label: "Risk Management",
+            label: "Risk Register",
             href: `/clients/${clientId}/iso27001/risks`,
             icon: ShieldCheck,
         },
@@ -55,11 +54,6 @@ export function ISOLayout({ clientId, children, fullWidth = false }: ISOLayoutPr
             label: "Assets",
             href: `/clients/${clientId}/iso27001/assets`,
             icon: Database,
-        },
-        {
-            label: "Audit",
-            href: `/clients/${clientId}/iso27001/audit`,
-            icon: Binary,
         },
         {
             label: "Documents",

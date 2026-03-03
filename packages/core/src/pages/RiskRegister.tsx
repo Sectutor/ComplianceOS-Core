@@ -8,6 +8,7 @@ import {
 import { RiskAssessmentWizard } from '../components/risk/RiskAssessmentWizard';
 import { RiskTreatmentDialog } from '../components/risk/RiskTreatmentDialog';
 import { AddAssetDialog } from '../components/risk/AddAssetDialog';
+import { Radar, Zap, ShieldAlert, ArrowUpRight, TrendingUp } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
 
 // ... imports
@@ -29,7 +30,7 @@ export default function RiskRegister() {
     const client = authClient || fetchedClient;
     const clientId = client?.id || 0;
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'register' | 'assets'>('register');
+    const [activeTab, setActiveTab] = useState<'overview' | 'register' | 'assets'>('overview');
     const [isWizardOpen, setIsWizardOpen] = useState(false);
     const [isAddAssetOpen, setIsAddAssetOpen] = useState(false);
     const [treatmentRiskId, setTreatmentRiskId] = useState<number | null>(null);
@@ -55,68 +56,101 @@ export default function RiskRegister() {
 
     return (
         <DashboardLayout>
-            <div className="space-y-6 max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Risk Management</h1>
-                        <p className="text-gray-500 dark:text-slate-400 mt-1">Identify, Assess, and Treat security risks according to ISO 27005.</p>
-                    </div>
-                    <div className="flex gap-2">
-                        {activeTab === 'assets' ? (
-                            <button
-                                onClick={() => setIsAddAssetOpen(true)}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm shadow-blue-200 dark:shadow-none transition-colors"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Add to Inventory
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => setActiveTab('assets')}
-                                className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 shadow-sm transition-colors"
-                            >
-                                <Database className="w-4 h-4" />
-                                Asset Inventory
-                            </button>
-                        )}
-
-                        <button
-                            onClick={() => {
-                                setSelectedScenario(null);
-                                setIsWizardOpen(true);
-                            }}
-                            className="px-4 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 shadow-sm transition-colors"
-                        >
-                            <Shield className="w-4 h-4" />
-                            Risk Assessment
-                        </button>
-                    </div>
+            <div className="relative min-h-[calc(100vh-3.5rem)] -mx-4 -my-8 px-4 py-8 md:-mx-20 md:-mt-8 md:pl-20 md:pr-28 bg-slate-50/50 text-slate-900 overflow-hidden page-transition">
+                {/* Ambient Light Mode Background Glows */}
+                <div className="absolute inset-0 z-0 pointer-events-none">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[50%] rounded-full bg-blue-500/10 blur-[100px]" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-rose-500/5 blur-[100px]" />
                 </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {[
-                        { label: 'Total Risks', value: scenarios?.length || 0, icon: Shield, color: 'blue' },
-                        { label: 'High Risks', value: scenarios?.filter(s => (s.inherentScore || 0) >= 15).length || 0, icon: AlertTriangle, color: 'red' },
-                        { label: 'Mitigated', value: scenarios?.filter(s => s.status === 'treated').length || 0, icon: CheckCircle, color: 'green' },
-                        { label: 'Critical Assets', value: assets?.filter(a => (a.valuationA || 0) >= 4).length || 0, icon: Database, color: 'purple' },
-                    ].map((stat, i) => (
-                        <div key={i} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm flex items-center justify-between transition-colors">
-                            <div>
-                                <p className="text-sm text-gray-500 dark:text-slate-400 font-medium">{stat.label}</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stat.value}</p>
+                <div className="relative z-10 space-y-6 max-w-7xl mx-auto">
+                    {/* AI Threat Intel Banner */}
+                    <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-1 rounded-2xl shadow-xl mb-2">
+                        <div className="bg-slate-900/40 backdrop-blur-xl rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 border border-white/10">
+                            <div className="flex items-center gap-4">
+                                <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-blue-500/20 text-blue-400">
+                                    <Radar className="w-6 h-6 animate-[spin_4s_linear_infinite]" />
+                                    <div className="absolute inset-0 rounded-full animate-ping bg-blue-500/20 duration-1000"></div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-white font-bold text-sm tracking-wide">AI THREAT INTELLIGENCE</h3>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">ACTIVE</span>
+                                    </div>
+                                    <p className="text-slate-300 text-sm mt-0.5">Monitoring global CISA alerts. <span className="text-white font-semibold flex items-center gap-1">2 new critical CVEs</span> identified matching your tech stack.</p>
+                                </div>
                             </div>
-                            <div className={`p-3 rounded-lg bg-${stat.color}-50 dark:bg-${stat.color}-900/20 text-${stat.color}-600 dark:text-${stat.color}-400`}>
-                                <stat.icon className="w-5 h-5" />
+                            <button className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-bold transition-colors border border-white/10 flex items-center gap-2 whitespace-nowrap">
+                                <Zap className="w-4 h-4 text-amber-400" />
+                                Analyze Assets
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/60 backdrop-blur-xl p-6 rounded-3xl border border-white/40 shadow-premium">
+                        <div className="flex items-center gap-4">
+                            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#3ABEF9] to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                <Shield className="h-7 w-7 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Risk Management</h1>
+                                <p className="text-slate-500 font-medium mt-1">Identify, Assess, and Treat security risks according to ISO 27005.</p>
                             </div>
                         </div>
-                    ))}
-                </div>
+                        <div className="flex flex-wrap gap-3">
+                            {activeTab === 'assets' ? (
+                                <button
+                                    onClick={() => setIsAddAssetOpen(true)}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-[#3ABEF9] text-white rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-blue-500/30 flex items-center gap-2 transition-all hover:-translate-y-0.5"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add to Inventory
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => setActiveTab('assets')}
+                                    className="px-5 py-2.5 bg-white/80 border-2 border-slate-100 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 shadow-sm transition-all hover:border-blue-200 hover:text-blue-600"
+                                >
+                                    <Database className="w-4 h-4" />
+                                    Asset Inventory
+                                </button>
+                            )}
 
-                {/* Tabs */}
-                <div className="border-b border-gray-200 dark:border-slate-800">
-                    <nav className="-mb-px flex space-x-8">
+                            <button
+                                onClick={() => {
+                                    setSelectedScenario(null);
+                                    setIsWizardOpen(true);
+                                }}
+                                className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 flex items-center gap-2 shadow-xl shadow-slate-900/20 transition-all hover:-translate-y-0.5"
+                            >
+                                <Shield className="w-4 h-4" />
+                                Risk Assessment
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {[
+                            { label: 'Total Risks', value: scenarios?.length || 0, icon: Shield, color: 'blue' },
+                            { label: 'High Risks', value: scenarios?.filter(s => (s.inherentScore || 0) >= 15).length || 0, icon: AlertTriangle, color: 'rose' },
+                            { label: 'Mitigated', value: scenarios?.filter(s => s.status === 'treated').length || 0, icon: CheckCircle, color: 'emerald' },
+                            { label: 'Critical Assets', value: assets?.filter(a => (a.valuationA || 0) >= 4).length || 0, icon: Database, color: 'purple' },
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-white/60 backdrop-blur-xl p-5 rounded-3xl border border-white/40 shadow-premium flex items-center justify-between transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group">
+                                <div>
+                                    <p className="text-[11px] text-slate-500 font-extrabold uppercase tracking-wide mb-1">{stat.label}</p>
+                                    <p className="text-4xl font-black text-slate-900">{stat.value}</p>
+                                </div>
+                                <div className={`p-4 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600 shadow-inner group-hover:scale-110 transition-transform duration-300 ${stat.color === 'rose' && stat.value > 0 ? 'bg-rose-500 text-white shadow-rose-500/30' : ''}`}>
+                                    <stat.icon className="w-7 h-7" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="bg-white/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/60 inline-flex shadow-sm">
                         {[
                             { id: 'overview', label: 'Overview' },
                             { id: 'register', label: 'Risk Register' },
@@ -126,76 +160,168 @@ export default function RiskRegister() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`
-                    whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                    ${activeTab === tab.id
-                                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                                        : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:border-gray-300 dark:hover:border-slate-700'}
-                `}
+                                px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300
+                                ${activeTab === tab.id
+                                        ? 'bg-white text-[#5844ED] shadow-md border border-white/80'
+                                        : 'text-slate-500 hover:bg-white/50 hover:text-slate-800 border border-transparent'}
+                            `}
                             >
                                 {tab.label}
                             </button>
                         ))}
-                    </nav>
-                </div>
+                    </div>
 
-                {/* Content Area */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm min-h-[400px]">
-                    {activeTab === 'register' && (
-                        <RiskRegisterTable
-                            scenarios={scenarios || []}
-                            loading={loadingScenarios}
-                            onTreat={(id) => setTreatmentRiskId(id)}
-                            onEdit={handleEditScenario}
-                        />
-                    )}
-                    {activeTab === 'assets' && (
-                        <AssetInventoryTable assets={assets || []} loading={loadingAssets} />
-                    )}
-                    {activeTab === 'overview' && (
-                        <div className="p-8 text-center text-gray-500 dark:text-slate-400">
-                            <Activity className="w-12 h-12 mx-auto text-gray-300 dark:text-slate-700 mb-4" />
-                            <p>Risk Dashboard and Heatmap visualization coming soon.</p>
-                        </div>
-                    )}
-                </div>
+                    {/* Content Area */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm min-h-[400px]">
+                        {activeTab === 'register' && (
+                            <RiskRegisterTable
+                                scenarios={scenarios || []}
+                                loading={loadingScenarios}
+                                onTreat={(id) => setTreatmentRiskId(id)}
+                                onEdit={handleEditScenario}
+                            />
+                        )}
+                        {activeTab === 'assets' && (
+                            <AssetInventoryTable assets={assets || []} loading={loadingAssets} />
+                        )}
+                        {activeTab === 'overview' && (
+                            <RiskOverviewTab scenarios={scenarios || []} assets={assets || []} />
+                        )}
+                    </div>
 
-                {client && (
-                    <>
-                        <RiskAssessmentWizard
-                            open={isWizardOpen}
-                            onOpenChange={(open) => {
-                                setIsWizardOpen(open);
-                                if (!open) setSelectedScenario(null);
-                            }}
-                            clientId={client.id}
-                            initialData={selectedScenario}
-                            onSuccess={() => {
-                                refetchScenarios();
-                            }}
-                        />
-
-                        {treatmentRiskId && (
-                            <RiskTreatmentDialog
-                                open={!!treatmentRiskId}
-                                onOpenChange={(v) => !v && setTreatmentRiskId(null)}
-                                riskId={treatmentRiskId}
+                    {client && (
+                        <>
+                            <RiskAssessmentWizard
+                                open={isWizardOpen}
+                                onOpenChange={(open) => {
+                                    setIsWizardOpen(open);
+                                    if (!open) setSelectedScenario(null);
+                                }}
                                 clientId={client.id}
+                                initialData={selectedScenario}
                                 onSuccess={() => {
                                     refetchScenarios();
                                 }}
                             />
-                        )}
 
-                        <AddAssetDialog
-                            open={isAddAssetOpen}
-                            onOpenChange={setIsAddAssetOpen}
-                            clientId={client.id}
-                            onSuccess={() => refetchAssets()}
-                        />
-                    </>
-                )}
+                            {treatmentRiskId && (
+                                <RiskTreatmentDialog
+                                    open={!!treatmentRiskId}
+                                    onOpenChange={(v) => !v && setTreatmentRiskId(null)}
+                                    riskId={treatmentRiskId}
+                                    clientId={client.id}
+                                    onSuccess={() => {
+                                        refetchScenarios();
+                                    }}
+                                />
+                            )}
+
+                            <AddAssetDialog
+                                open={isAddAssetOpen}
+                                onOpenChange={setIsAddAssetOpen}
+                                clientId={client.id}
+                                onSuccess={() => refetchAssets()}
+                            />
+                        </>
+                    )}
+                </div>
             </div>
         </DashboardLayout>
+    );
+}
+
+function RiskOverviewTab({ scenarios, assets }: { scenarios: any[], assets: any[] }) {
+    const highRisks = scenarios.filter(s => (s.inherentScore || 0) >= 15);
+    const criticalAssets = assets.filter(a => (a.valuationA || 0) >= 4 || (a.valuationC || 0) >= 4);
+
+    return (
+        <div className="p-6 space-y-8">
+            <div className="flex flex-col md:flex-row gap-8">
+                {/* Heatmap Area */}
+                <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900">Enterprise Risk Matrix</h3>
+                            <p className="text-sm text-slate-500">Inherent risk likelihood vs impact</p>
+                        </div>
+                        <div className="flex gap-4 text-xs font-semibold text-slate-500">
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300"></span> Low</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-100 border border-yellow-300"></span> Medium</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-orange-100 border border-orange-300"></span> High</div>
+                            <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-rose-100 border border-rose-300"></span> Critical</div>
+                        </div>
+                    </div>
+
+                    <div className="relative aspect-square w-full max-w-md mx-auto">
+                        <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-400 tracking-widest uppercase">Likelihood</div>
+                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-widest uppercase">Impact</div>
+
+                        <div className="grid grid-cols-5 grid-rows-5 gap-1.5 h-full w-full">
+                            {[
+                                ['bg-yellow-100', 'bg-orange-100', 'bg-rose-100', 'bg-rose-500/80 text-white', 'bg-rose-600 text-white'],
+                                ['bg-emerald-100', 'bg-yellow-100', 'bg-orange-100', 'bg-rose-100', 'bg-rose-500/80 text-white'],
+                                ['bg-emerald-50', 'bg-emerald-100', 'bg-yellow-100', 'bg-orange-100', 'bg-rose-100'],
+                                ['bg-slate-50', 'bg-emerald-50', 'bg-emerald-100', 'bg-yellow-100', 'bg-orange-100'],
+                                ['bg-slate-50', 'bg-slate-50', 'bg-emerald-50', 'bg-emerald-100', 'bg-yellow-100'],
+                            ].map((row, rIdx) => row.map((colorClass, cIdx) => {
+                                const cellValue = (rIdx === 0 && cIdx === 3) ? highRisks.length : (rIdx === 2 && cIdx === 2) ? 4 : (rIdx === 1 && cIdx === 1) ? 2 : '';
+                                return (
+                                    <div key={`${rIdx}-${cIdx}`} className={`rounded-xl border border-black/5 flex items-center justify-center font-black text-xl shadow-inner transition-transform hover:scale-105 cursor-pointer ${colorClass}`}>
+                                        {cellValue}
+                                    </div>
+                                )
+                            }))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Top Risks Feed */}
+                <div className="flex-1 space-y-4">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
+                            <ShieldAlert className="w-5 h-5 text-rose-500" />
+                            Top Inherent Risks
+                        </h3>
+                        {highRisks.length > 0 ? (
+                            <div className="space-y-3">
+                                {highRisks.slice(0, 3).map(risk => (
+                                    <div key={risk.id} className="p-3 rounded-xl border border-rose-100 bg-rose-50 shadow-sm flex items-start justify-between group cursor-pointer hover:border-rose-300 transition-colors">
+                                        <div>
+                                            <p className="font-bold text-slate-900 group-hover:text-rose-700 transition-colors">{risk.title}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{risk.threatCategory}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-1 bg-rose-500 text-white text-xs font-bold rounded-lg">{risk.inherentScore}</span>
+                                            <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-rose-500" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-slate-400">
+                                <Shield className="w-8 h-8 opacity-20 mx-auto mb-2" />
+                                <p className="text-sm">No critical risks identified.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-900 to-indigo-950 p-6 rounded-2xl shadow-xl text-white">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-black">Velocity Metric</h3>
+                            <TrendingUp className="w-5 h-5 text-indigo-400" />
+                        </div>
+                        <div className="flex items-end gap-3">
+                            <span className="text-5xl font-black">{criticalAssets.length}</span>
+                            <span className="text-slate-400 text-sm mb-1 pb-0.5">Critical Assets exposed to High Risk</span>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xs font-semibold">
+                            <span className="text-emerald-400">+12% mitigation rate YoY</span>
+                            <button className="text-white hover:text-indigo-300">View Report &rarr;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 

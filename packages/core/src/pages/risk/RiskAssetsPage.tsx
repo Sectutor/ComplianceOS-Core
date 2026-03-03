@@ -21,22 +21,22 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
     const routeClientId = params.id ? Number(params.id) : null;
     const { user, client: authClient } = useAuth();
 
-    // Determine effective client ID
-    const effectiveClientId = routeClientId || authClient?.id;
+    // Determine effective client ID - prefer route param, then auth context
+    const effectiveClientId = routeClientId || authClient?.id || 0;
 
     const { data: fetchedClient, isLoading: loadingClientDetails } = trpc.clients.get.useQuery(
-        { id: effectiveClientId || 0 },
-        { enabled: !!effectiveClientId && !authClient }
+        { id: effectiveClientId },
+        { enabled: !!effectiveClientId && effectiveClientId > 0 && !authClient }
     );
 
     const client = authClient || fetchedClient;
-    const clientId = client?.id || 0;
+    const clientId = client?.id || effectiveClientId || 0;
 
     const [location, setLocation] = useLocation();
 
-    const { data: assets, isLoading: loadingAssets, refetch: refetchAssets } = trpc.risks.getAssets.useQuery(
+    const { data: assets, isLoading: loadingAssets, refetch: refetchAssets, error: assetsError } = trpc.risks.getAssets.useQuery(
         { clientId },
-        { enabled: !!clientId }
+        { enabled: clientId > 0 }
     );
     const scanAllMutation = trpc.threatIntel.scanAllAssets.useMutation({
         onSuccess: (data) => {
@@ -44,7 +44,10 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
             toast.success(`Scanned ${data.results?.length || 0} assets, found ${total} suggestions`);
             refetchAssets();
         },
-        onError: (err) => toast.error(`Scan failed: ${err.message}`)
+        onError: (err) => {
+            console.error('Scan failed:', err);
+            toast.error(`Scan failed: ${err.message}`);
+        }
     });
 
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -126,6 +129,7 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
                 </div>
                 <div className="flex gap-2">
                     <button
+                        id="asset-scan-threats"
                         onClick={() => scanAllMutation.mutate({ clientId })}
                         className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 flex items-center gap-2 shadow-sm transition-colors"
                         disabled={scanAllMutation.isPending}
@@ -135,6 +139,7 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
                         {scanAllMutation.isPending ? "Scanning..." : "Scan All Assets"}
                     </button>
                     <button
+                        id="asset-add-btn"
                         onClick={handleOpenAddDialog}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-2 shadow-sm transition-colors"
                     >
@@ -142,13 +147,37 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
                         Add Asset
                     </button>
                     <PageGuide
-                        title="Asset Inventory"
+                        title="Asset Inventory Mastery"
                         description="Maintain a complete registry of your organization’s critical information assets."
-                        rationale="You cannot protect what you don't know you have. A comprehensive asset inventory is the starting point for all risk assessments."
+                        rationale="You cannot protect what you don't know you have. A comprehensive asset inventory is the starting point for all risk assessments. Auditors look for the 'Completeness' and 'Accuracy' of this list first."
                         howToUse={[
-                            { step: "Add Assets", description: "Use the 'Add Asset' button to register hardware, software, data, or people." },
-                            { step: "Value Assets", description: "Assign Confidentiality, Integrity, and Availability (CIA) scores to determine criticality." },
-                            { step: "Identify Threats", description: "Click the lightning bolt icon to see active threats relevant to that asset's technology stack." }
+                            {
+                                step: "Add Assets",
+                                description: "Use the 'Add Asset' button to register hardware, software, data, or people.",
+                                targetId: "asset-add-btn"
+                            },
+                            {
+                                step: "Asset Scan",
+                                description: "Run an automated scan to match your assets against the National Vulnerability Database (NVD).",
+                                targetId: "asset-scan-threats"
+                            },
+                            {
+                                step: "Analyze Table",
+                                description: "Review CIA scores, active risks, and vulnerability counts for each managed asset.",
+                                targetId: "asset-inventory-table"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Risk Identification Session",
+                                example: "You're starting a new risk assessment for the 'Cloud Database'.",
+                                auditTip: "Notice the 'Risks' column. If it shows '0 Risks' for a Critical asset, it's a red flag for auditors. It means you haven't performed a documented risk assessment for a known critical asset."
+                            },
+                            {
+                                title: "Threat Management",
+                                example: "You see a red badge with 'Active Threats' on your Windows Servers.",
+                                auditTip: "Click the badge. This is 'Dynamic Intelligence'—the system has found a CVE or threat intelligence report that specifically matches your server's tech stack."
+                            }
                         ]}
                         integrations={[
                             { name: "Risk Assessment", description: "Assets selected here become the targets for risk scenarios." },
@@ -158,7 +187,7 @@ export default function RiskAssetsPage({ hideLayout = false, hideBreadcrumb = fa
                 </div>
             </div>
 
-            <div className="bg-card rounded-xl border shadow-sm min-h-[400px]">
+            <div id="asset-inventory-table" className="bg-card rounded-xl border shadow-sm min-h-[400px]">
                 <AssetInventoryTable
                     assets={assets || []}
                     loading={loadingAssets}
@@ -280,7 +309,7 @@ function AssetInventoryTable({
     }, [assets, sortConfig, securityFeeds]);
 
     if (loading) return <div className="p-8 text-center text-muted-foreground">Loading assets...</div>;
-    if (assets.length === 0) return (
+    if (!assets || assets.length === 0) return (
         <div className="p-12 text-center">
             <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
                 <Database className="w-8 h-8 text-muted-foreground" />

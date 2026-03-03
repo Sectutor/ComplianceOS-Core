@@ -42,6 +42,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
+  /* Glassmorphism Utilities */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: blur(12px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
   /* Animations */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -58,6 +64,20 @@
   --animate-bounce-in: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   --animate-count-up: count-up 1s ease-out;
   --animate-progress-indeterminate: progress-indeterminate 1.5s infinite linear;
+  --animate-pulse-highlight: pulse-highlight 1.5s ease-in-out infinite;
+
+  @keyframes pulse-highlight {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6);
+      border-color: rgba(14, 165, 233, 1);
+      transform: scale(1);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(14, 165, 233, 0);
+      border-color: rgba(14, 165, 233, 0.4);
+      transform: scale(1.02);
+    }
+  }
 
   @keyframes accordion-down {
     from {
@@ -265,6 +285,9 @@
 
   --radius: 0.625rem;
 
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
   /* ========================================
      STATUS COLORS - REFINED FOR CLARITY
      ======================================== */
@@ -417,6 +440,17 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
   }
 
   button:not(:disabled),
@@ -862,5 +896,28 @@
   [data-sidebar="sidebar"][data-state="collapsed"]+[data-sidebar="inset"] {
     margin-left: 4rem;
     width: calc(100% - 4rem);
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .glass-sidebar {
+    background: var(--sidebar, rgba(2, 6, 23, 0.95));
+    backdrop-filter: blur(16px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .text-glow-blue {
+    text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  }
+
+  .shadow-glow-blue {
+    box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.4);
   }
 }

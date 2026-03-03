@@ -87,7 +87,7 @@ export function RiskHeatmap({ assessments = [], onFilterChange, activeFilter, ty
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 bg-white/70 border border-slate-200/60 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm">{title || (type === 'residual' ? 'Residual Risk' : 'Inherent Risk')}</h3>
                 {activeFilter?.type === type && (
@@ -107,7 +107,7 @@ export function RiskHeatmap({ assessments = [], onFilterChange, activeFilter, ty
                     <div className="flex flex-col gap-1">
                         {/* Heatmap Rows (Likelihood) - 5 down to 1 */}
                         {[5, 4, 3, 2, 1].map(l => (
-                            <div key={l} className="flex gap-1 h-10 md:h-12">
+                            <div key={l} className="flex gap-1 h-12 md:h-14">
                                 {/* Y-Axis Number */}
                                 <div className="w-6 flex items-center justify-center text-xs text-muted-foreground font-medium">
                                     {l}

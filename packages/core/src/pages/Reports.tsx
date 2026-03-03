@@ -19,10 +19,10 @@ import { Button } from "@complianceos/ui";
 
 export default function Reports() {
   const params = useParams();
-  const { selectedClientId, planTier } = useClientContext();
+  const { selectedClientId, isPremiumStatus } = useClientContext();
   const clientId = params.id ? parseInt(params.id, 10) : selectedClientId;
   const [activeTab, setActiveTab] = useState("dashboard");
-  const isPremium = planTier === 'pro' || planTier === 'enterprise';
+  const isPremium = isPremiumStatus;
 
   if (!clientId) return (
     <DashboardLayout>

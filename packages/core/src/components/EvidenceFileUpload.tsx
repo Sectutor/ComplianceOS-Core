@@ -1,12 +1,29 @@
 import { Button } from "@complianceos/ui/ui/button";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { trpc } from "@/lib/trpc";
-import { Upload, File, Trash2, Download, Loader2, AlertCircle, CheckCircle2, X, Search } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@complianceos/ui/ui/dialog";
+import {
+  Upload,
+  File,
+  Trash2,
+  Download,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Search,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@complianceos/ui/ui/dialog";
 import { Input } from "@complianceos/ui/ui/input";
 import { ScrollArea } from "@complianceos/ui/ui/scroll-area";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
+import { authedFetch } from "@/lib/authedFetch";
 
 // Force HMR update
 
@@ -20,30 +37,41 @@ interface UploadingFile {
   name: string;
   size: number;
   progress: number;
-  status: 'uploading' | 'success' | 'error';
+  status: "uploading" | "success" | "error";
   error?: string;
 }
 
 const ALLOWED_TYPES = [
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-  'application/pdf',
-  'text/plain', 'text/csv',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/json',
-  'application/zip',
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/json",
+  "application/zip",
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100MB for bulk upload
 
-export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFileUploadProps) {
+export default function EvidenceFileUpload({
+  evidenceId,
+  clientId,
+}: EvidenceFileUploadProps) {
   /* Defensive check for props */
   if (!evidenceId || !clientId) {
     console.warn("EvidenceFileUpload: Missing props", { evidenceId, clientId });
-    return <div className="p-4 text-red-500 text-sm">Error: Unable to load file uploader. Missing context.</div>;
+    return (
+      <div className="p-4 text-red-500 text-sm">
+        Error: Unable to load file uploader. Missing context.
+      </div>
+    );
   }
 
   console.log("EvidenceFileUpload mounted with:", { evidenceId, clientId });
@@ -55,12 +83,14 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: files, refetch } = trpc.evidenceFiles.list.useQuery({ evidenceId });
+  const { data: files, refetch } = trpc.evidenceFiles.list.useQuery({
+    evidenceId,
+  });
 
   // Library query
   const { data: libraryFiles } = trpc.evidenceFiles.listAll.useQuery(
     { clientId, search: searchQuery },
-    { enabled: libraryOpen }
+    { enabled: libraryOpen },
   );
 
   const linkMutation = trpc.evidenceFiles.linkExisting.useMutation({
@@ -73,18 +103,16 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
     onError: (error) => {
       toast.error(error.message);
       setLinkingFileId(null);
-    }
+    },
   });
 
   const handleLinkFile = (file: any) => {
     setLinkingFileId(file.id);
     linkMutation.mutate({
       targetEvidenceId: evidenceId,
-      sourceFileId: file.id
+      sourceFileId: file.id,
     });
   };
-
-
 
   const createFileMutation = trpc.evidenceFiles.create.useMutation({
     onSuccess: () => {
@@ -101,7 +129,9 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
     onError: (error) => toast.error(error.message),
   });
 
-  const validateFiles = (filesToValidate: File[]): { valid: File[], errors: string[] } => {
+  const validateFiles = (
+    filesToValidate: File[],
+  ): { valid: File[]; errors: string[] } => {
     const errors: string[] = [];
     const valid: File[] = [];
     let totalSize = 0;
@@ -137,7 +167,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
 
     // Show validation errors
     if (errors.length > 0) {
-      errors.forEach(error => toast.error(error));
+      errors.forEach((error) => toast.error(error));
       if (valid.length === 0) return;
     }
 
@@ -147,7 +177,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
       name: file.name,
       size: file.size,
       progress: 0,
-      status: 'uploading' as const,
+      status: "uploading" as const,
     }));
 
     setUploadingFiles(uploadingStates);
@@ -165,42 +195,46 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
           reader.onload = async () => {
             try {
               const base64 = reader.result as string;
-              const base64Data = base64.split(',')[1];
+              const base64Data = base64.split(",")[1];
 
               // Generate unique filename
               const timestamp = Date.now();
               const randomSuffix = Math.random().toString(36).substring(2, 8);
-              const extension = file.name.split('.').pop() || '';
+              const extension = file.name.split(".").pop() || "";
               const filename = `evidence-${evidenceId}-${timestamp}-${randomSuffix}.${extension}`;
 
               // Update progress
-              setUploadingFiles(prev =>
-                prev.map(f => f.id === uploadingFile.id ? { ...f, progress: 30 } : f)
+              setUploadingFiles((prev) =>
+                prev.map((f) =>
+                  f.id === uploadingFile.id ? { ...f, progress: 30 } : f,
+                ),
               );
 
               // Upload to server side storage via proxy
-              const response = await fetch('/api/upload', {
-                method: 'POST',
+              const response = await authedFetch("/api/upload", {
+                method: "POST",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                   filename,
                   data: base64Data,
                   contentType: file.type,
-                  folder: 'evidence'
+                  folder: "evidence",
                 }),
               });
 
               if (!response.ok) {
-                throw new Error('Upload failed');
+                throw new Error("Upload failed");
               }
 
               const { key, url } = await response.json();
 
               // Update progress
-              setUploadingFiles(prev =>
-                prev.map(f => f.id === uploadingFile.id ? { ...f, progress: 70 } : f)
+              setUploadingFiles((prev) =>
+                prev.map((f) =>
+                  f.id === uploadingFile.id ? { ...f, progress: 70 } : f,
+                ),
               );
 
               // Save file record to database
@@ -217,35 +251,52 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                   },
                   {
                     onSuccess: () => {
-                      setUploadingFiles(prev =>
-                        prev.map(f => f.id === uploadingFile.id ? { ...f, progress: 100, status: 'success' } : f)
+                      setUploadingFiles((prev) =>
+                        prev.map((f) =>
+                          f.id === uploadingFile.id
+                            ? { ...f, progress: 100, status: "success" }
+                            : f,
+                        ),
                       );
                       dbResolve();
                     },
                     onError: (error) => {
-                      setUploadingFiles(prev =>
-                        prev.map(f => f.id === uploadingFile.id ? { ...f, status: 'error', error: error.message } : f)
+                      setUploadingFiles((prev) =>
+                        prev.map((f) =>
+                          f.id === uploadingFile.id
+                            ? { ...f, status: "error", error: error.message }
+                            : f,
+                        ),
                       );
                       dbReject(error);
                     },
-                  }
+                  },
                 );
               });
 
               resolve();
             } catch (error) {
-              const errorMsg = error instanceof Error ? error.message : 'Upload failed';
-              setUploadingFiles(prev =>
-                prev.map(f => f.id === uploadingFile.id ? { ...f, status: 'error', error: errorMsg } : f)
+              const errorMsg =
+                error instanceof Error ? error.message : "Upload failed";
+              setUploadingFiles((prev) =>
+                prev.map((f) =>
+                  f.id === uploadingFile.id
+                    ? { ...f, status: "error", error: errorMsg }
+                    : f,
+                ),
               );
               reject(error);
             }
           };
 
           reader.onerror = () => {
-            const errorMsg = 'Failed to read file';
-            setUploadingFiles(prev =>
-              prev.map(f => f.id === uploadingFile.id ? { ...f, status: 'error', error: errorMsg } : f)
+            const errorMsg = "Failed to read file";
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.id === uploadingFile.id
+                  ? { ...f, status: "error", error: errorMsg }
+                  : f,
+              ),
             );
             reject(new Error(errorMsg));
           };
@@ -261,12 +312,12 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
 
     // Clear uploading files after a delay
     setTimeout(() => {
-      setUploadingFiles(prev => prev.filter(f => f.status !== 'success'));
+      setUploadingFiles((prev) => prev.filter((f) => f.status !== "success"));
     }, 2000);
 
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -304,16 +355,19 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType === 'application/pdf') return '📄';
-    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
-    if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
-    return '📎';
+    if (mimeType.startsWith("image/")) return "🖼️";
+    if (mimeType === "application/pdf") return "📄";
+    if (mimeType.includes("spreadsheet") || mimeType.includes("excel"))
+      return "📊";
+    if (mimeType.includes("word") || mimeType.includes("document")) return "📝";
+    return "📎";
   };
 
   const hasUploadingFiles = uploadingFiles.length > 0;
-  const successCount = uploadingFiles.filter(f => f.status === 'success').length;
-  const errorCount = uploadingFiles.filter(f => f.status === 'error').length;
+  const successCount = uploadingFiles.filter(
+    (f) => f.status === "success",
+  ).length;
+  const errorCount = uploadingFiles.filter((f) => f.status === "error").length;
 
   return (
     <div className="space-y-4">
@@ -326,7 +380,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
             type="file"
             className="hidden"
             onChange={handleFileSelect}
-            accept={ALLOWED_TYPES.join(',')}
+            accept={ALLOWED_TYPES.join(",")}
             multiple
           />
         </div>
@@ -362,18 +416,30 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                   onClick={() => handleLinkFile(file)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xl">{getFileIcon(file.contentType || 'application/octet-stream')}</span>
+                    <span className="text-xl">
+                      {getFileIcon(
+                        file.contentType || "application/octet-stream",
+                      )}
+                    </span>
                     <div className="min-w-0 text-left">
-                      <p className="text-sm font-medium truncate">{file.filename}</p>
+                      <p className="text-sm font-medium truncate">
+                        {file.filename}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {formatFileSize(file.fileSize || 0)} • {file.evidenceTitle || 'Uncategorized'} • {new Date(file.createdAt).toLocaleDateString()}
+                        {formatFileSize(file.fileSize || 0)} •{" "}
+                        {file.evidenceTitle || "Uncategorized"} •{" "}
+                        {new Date(file.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
                   {linkMutation.isLoading && linkingFileId === file.id ? (
                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                   ) : (
-                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100"
+                    >
                       Select
                     </Button>
                   )}
@@ -395,10 +461,11 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${isDragActive
-          ? 'border-primary bg-primary/5'
-          : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-          }`}
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+          isDragActive
+            ? "border-primary bg-primary/5"
+            : "border-muted-foreground/25 hover:border-muted-foreground/50"
+        }`}
         onClick={() => fileInputRef.current?.click()}
       >
         <Upload className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -418,9 +485,21 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
-                  Uploading {uploadingFiles.filter(f => f.status === 'uploading').length} file(s)
-                  {successCount > 0 && <span className="text-green-600"> • {successCount} complete</span>}
-                  {errorCount > 0 && <span className="text-red-600"> • {errorCount} failed</span>}
+                  Uploading{" "}
+                  {
+                    uploadingFiles.filter((f) => f.status === "uploading")
+                      .length
+                  }{" "}
+                  file(s)
+                  {successCount > 0 && (
+                    <span className="text-green-600">
+                      {" "}
+                      • {successCount} complete
+                    </span>
+                  )}
+                  {errorCount > 0 && (
+                    <span className="text-red-600"> • {errorCount} failed</span>
+                  )}
                 </p>
               </div>
 
@@ -428,13 +507,13 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                 <div key={file.id} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2 min-w-0">
-                      {file.status === 'uploading' && (
+                      {file.status === "uploading" && (
                         <Loader2 className="h-4 w-4 animate-spin text-blue-600 flex-shrink-0" />
                       )}
-                      {file.status === 'success' && (
+                      {file.status === "success" && (
                         <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                       )}
-                      {file.status === 'error' && (
+                      {file.status === "error" && (
                         <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                       )}
                       <span className="truncate">{file.name}</span>
@@ -444,7 +523,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                     </span>
                   </div>
 
-                  {file.status === 'uploading' && (
+                  {file.status === "uploading" && (
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div
                         className="bg-blue-600 h-1.5 rounded-full transition-all"
@@ -453,7 +532,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                     </div>
                   )}
 
-                  {file.status === 'error' && file.error && (
+                  {file.status === "error" && file.error && (
                     <p className="text-xs text-red-600">{file.error}</p>
                   )}
                 </div>
@@ -467,18 +546,25 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
       {files && files.length > 0 ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground font-medium">
-            {files.length} file{files.length !== 1 ? 's' : ''} uploaded
+            {files.length} file{files.length !== 1 ? "s" : ""} uploaded
           </p>
           {files.map((file) => (
             <Card key={file.id} className="bg-muted/50">
               <CardContent className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xl">{getFileIcon(file.contentType || 'application/octet-stream')}</span>
+                    <span className="text-xl">
+                      {getFileIcon(
+                        file.contentType || "application/octet-stream",
+                      )}
+                    </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{file.filename}</p>
+                      <p className="text-sm font-medium truncate">
+                        {file.filename}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(file.size)} • {new Date(file.createdAt).toLocaleDateString()}
+                        {formatFileSize(file.size)} •{" "}
+                        {new Date(file.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -487,7 +573,7 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => window.open(file.fileUrl, '_blank')}
+                      onClick={() => window.open(file.fileUrl, "_blank")}
                       title="Download file"
                     >
                       <Download className="h-4 w-4" />
@@ -511,7 +597,9 @@ export default function EvidenceFileUpload({ evidenceId, clientId }: EvidenceFil
         <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-lg">
           <File className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p>No files attached</p>
-          <p className="text-xs">Upload screenshots, logs, or documents to support this evidence</p>
+          <p className="text-xs">
+            Upload screenshots, logs, or documents to support this evidence
+          </p>
         </div>
       ) : null}
     </div>

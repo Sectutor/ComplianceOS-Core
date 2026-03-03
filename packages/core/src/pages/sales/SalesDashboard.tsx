@@ -10,6 +10,7 @@ import { trpc } from '@/lib/trpc';
 import { Badge } from '@complianceos/ui/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@complianceos/ui/ui/table';
 import { format } from 'date-fns';
+import { PageGuide } from '@/components/PageGuide';
 
 function SalesMetrics({ deals }: { deals: any[] }) {
     const totalValue = deals.reduce((sum, deal) => sum + (deal.value || 0), 0);
@@ -122,15 +123,53 @@ export default function SalesDashboard() {
                     <p className="text-muted-foreground mt-1">Manage opportunities and track revenue growth.</p>
                 </div>
                 <div className="flex gap-2">
+                    <PageGuide
+                        title="Sales Pipeline"
+                        description="Track and manage compliance consulting deals from prospect to close."
+                        rationale="For compliance consultancies and MSPs, a structured sales pipeline is critical for visibility into revenue, project capacity, and client acquisition. This module connects your compliance expertise to business growth."
+                        howToUse={[
+                            {
+                                step: "Create Deal",
+                                description: "Add a new deal when you engage a prospective client around a compliance project.",
+                                targetId: "sales-create-deal-btn"
+                            },
+                            {
+                                step: "Move Through Pipeline",
+                                description: "Drag and drop deal cards through the Kanban stages to track progress from Discovery to Closed Won.",
+                                targetId: "sales-kanban-view"
+                            },
+                            {
+                                step: "Monitor Metrics",
+                                description: "Track your total pipeline value, win rate, and average deal size at the top of the dashboard.",
+                                targetId: "sales-metrics-grid"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "NIS2 Compliance Project",
+                                example: "A prospect in the energy sector needs NIS2 Article 21 gap analysis and documentation. Create a deal at 'Qualification' stage and track it through proposal and contracting.",
+                                auditTip: "Use custom deal fields to document the specific frameworks included in your engagement. This helps forecast regulatory work and staffing needs."
+                            },
+                            {
+                                title: "Forecasting Quarterly Revenue",
+                                example: "At the end of Q3, review all deals in 'Proposal Sent' stage to forecast expected Q4 revenue from new compliance engagements.",
+                                auditTip: "Monitor your Win Rate metric. A low win rate on compliance deals may indicate pricing misalignment or competitive gaps vs. other GRC platforms."
+                            }
+                        ]}
+                    />
                     <Button variant="outline" onClick={() => window.location.href = '/sales/waitlist'}>
                         <Users className="mr-2 h-4 w-4" />
                         Waitlist
                     </Button>
-                    <CreateDealDialog />
+                    <div id="sales-create-deal-btn">
+                        <CreateDealDialog />
+                    </div>
                 </div>
             </div>
 
-            <SalesMetrics deals={deals || []} />
+            <div id="sales-metrics-grid">
+                <SalesMetrics deals={deals || []} />
+            </div>
 
             <Tabs defaultValue="kanban" className="flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
@@ -155,7 +194,7 @@ export default function SalesDashboard() {
                     </div>
                 </div>
 
-                <TabsContent value="kanban" className="flex-1 h-full min-h-[500px]">
+                <TabsContent id="sales-kanban-view" value="kanban" className="flex-1 h-full min-h-[500px]">
                     <SalesKanban />
                 </TabsContent>
 

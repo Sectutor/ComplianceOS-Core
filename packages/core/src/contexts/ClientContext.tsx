@@ -9,6 +9,8 @@ interface ClientContextType {
   setPlanTier: (tier: string | null) => void;
   userRole: string | null;
   setUserRole: (role: string | null) => void;
+  isPremiumStatus: boolean;
+  setIsPremiumStatus: (status: boolean) => void;
 }
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
@@ -41,6 +43,7 @@ export function ClientContextProvider({ children }: { children: React.ReactNode 
 
   const [planTier, setPlanTier] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isPremiumStatus, setIsPremiumStatus] = useState<boolean>(false);
 
   return (
     <ClientContext.Provider value={{
@@ -50,7 +53,9 @@ export function ClientContextProvider({ children }: { children: React.ReactNode 
       planTier,
       setPlanTier,
       userRole,
-      setUserRole
+      setUserRole,
+      isPremiumStatus,
+      setIsPremiumStatus
     }}>
       {children}
     </ClientContext.Provider>

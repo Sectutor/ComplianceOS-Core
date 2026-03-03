@@ -154,7 +154,7 @@ export default function DPIAManager() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="text-[#3ABEF9] hover:text-[#1C4D8D] hover:bg-sky-50 font-bold rounded-lg transition-all"
-                                                onClick={() => toast.info("View details coming soon")}
+                                                onClick={() => setLocation(`/clients/${clientId}/privacy/dpia/${a.id}/questionnaire`)}
                                             >
                                                 View Review
                                             </Button>

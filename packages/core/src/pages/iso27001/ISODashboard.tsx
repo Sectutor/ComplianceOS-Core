@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { ISOLayout } from "./ISOLayout";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ISODashboard() {
     const { id } = useParams<{ id: string }>();
@@ -53,7 +54,7 @@ export default function ISODashboard() {
             title: "Internal Audit",
             description: "Plan and track ISO internal audit cycles.",
             icon: FileText,
-            path: `/clients/${clientId}/iso27001/audit`,
+            path: `/clients/${clientId}/audit-manager`,
             progress: 10,
             status: "Scheduled"
         }
@@ -93,13 +94,58 @@ export default function ISODashboard() {
                                     <p className="font-bold text-amber-400 text-lg">12</p>
                                 </div>
                             </div>
+                            <div className="mt-3 flex justify-end">
+                                <PageGuide
+                                    title="ISO 27001:2022 ISMS"
+                                    description="Manage your Information Security Management System across the full Annex A control set."
+                                    rationale="ISO 27001 certification demonstrates a systematic approach to managing sensitive information. Regular audits against this standard build trust with customers, partners, and regulators."
+                                    howToUse={[
+                                        {
+                                            step: "Statement of Applicability",
+                                            description: "Start by defining which Annex A controls apply to your ISMS scope.",
+                                            targetId: "iso-statement-of-applicability-card"
+                                        },
+                                        {
+                                            step: "Risk Management",
+                                            description: "Identify and treat information security risks aligned to ISO 27005.",
+                                            targetId: "iso-risk-management-card"
+                                        },
+                                        {
+                                            step: "Asset Register",
+                                            description: "Classify all information assets and assign owners to ensure accountability.",
+                                            targetId: "iso-asset-register-card"
+                                        },
+                                        {
+                                            step: "Internal Audit",
+                                            description: "Schedule and conduct periodic internal audits to verify control effectiveness.",
+                                            targetId: "iso-internal-audit-card"
+                                        }
+                                    ]}
+                                    scenarios={[
+                                        {
+                                            title: "Stage 2 Audit Preparation",
+                                            example: "Your certification body is arriving next month. Use the 'Compliance Timeline' to verify evidence collection for all in-scope Annex A controls.",
+                                            auditTip: "Auditors sample your Statement of Applicability to check that justifications for excluded controls are documented and defensible."
+                                        },
+                                        {
+                                            title: "Annual Management Review",
+                                            example: "ISMS requires an annual Management Review. Export the readiness score and risk treatment status to present to your leadership team.",
+                                            auditTip: "ISO 27001 Clause 9.3 mandates management review. Document meeting minutes, attendees, and decisions as mandatory audit evidence."
+                                        }
+                                    ]}
+                                    integrations={[
+                                        { name: "Risk Management", description: "ISO 27005 risk treatments sync with the central risk register." },
+                                        { name: "Internal Audit", description: "Audit findings automatically generate corrective action items." }
+                                    ]}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div id="iso-modules-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {modules.map((module, i) => (
-                        <Card key={i} className="group hover:border-indigo-300 transition-all duration-300 shadow-sm hover:shadow-md border-slate-200">
+                        <Card id={`iso-${module.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-card`} key={i} className="group hover:border-indigo-300 transition-all duration-300 shadow-sm hover:shadow-md border-slate-200">
                             <CardHeader className="space-y-1">
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="p-2 bg-slate-50 rounded-lg text-slate-600 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-colors">

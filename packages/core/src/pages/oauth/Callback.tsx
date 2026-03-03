@@ -12,7 +12,8 @@ export default function OAuthCallback() {
     const exchangeMutation = trpc.integrations.exchangeCode.useMutation({
         onSuccess: () => {
             toast.success("Integration connected successfully.");
-            setLocation('/admin/integrations');
+            // Redirect to integrations page with connected=true to switch to Connections tab
+            setLocation('/settings/integrations?connected=true');
         },
         onError: (err) => {
             setStatus('Failed to connect.');

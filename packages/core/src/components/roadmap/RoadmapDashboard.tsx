@@ -43,7 +43,54 @@ import { useLocation, useParams } from "wouter";
 import { format } from "date-fns";
 import { Progress } from "@complianceos/ui/ui/progress";
 import { useClientContext } from "@/contexts/ClientContext";
+import { PageGuide } from "@/components/PageGuide";
+import { Breadcrumb } from "@/components/Breadcrumb";
 import ReportGeneratorDialog from "./ReportGeneratorDialog";
+
+// Type definition for Roadmap data
+interface RoadmapData {
+    id: number;
+    title: string;
+    description: string | null;
+    status: string;
+    progress?: number;
+    updatedAt: string | Date;
+}
+
+// Utility function to clean up descriptions that might be stored as JSON configuration strings
+// Also used for sanitizing titles to prevent XSS
+// NOTE: We intentionally escape HTML entities here as defense-in-depth against XSS.
+// React escapes text content by default, so this provides an extra layer of protection.
+const sanitizeText = (text: string | null, fallback: string): string => {
+    if (!text) return fallback;
+    const trimmed = text.trim();
+
+    // Try to parse and extract meaningful content from JSON
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            // Try to extract common display fields from JSON object
+            if (typeof parsed === 'object' && parsed !== null) {
+                const displayFields = ['title', 'name', 'description', 'summary', 'goal', 'objective'];
+                for (const field of displayFields) {
+                    if (parsed[field] && typeof parsed[field] === 'string') {
+                        return parsed[field].substring(0, 500); // Limit length
+                    }
+                }
+                // If no common fields, return the first string value found
+                const firstString = Object.values(parsed).find(v => typeof v === 'string' && v.length > 5);
+                if (firstString) return (firstString as string).substring(0, 500);
+            }
+        } catch {
+            // Invalid JSON, log for debugging but fall through to generic message
+            console.warn('Failed to parse text as JSON:', trimmed.substring(0, 100));
+        }
+        // Return generic message only if we couldn't extract meaningful content
+        return fallback;
+    }
+    // React handles HTML escaping automatically - just limit length
+    return trimmed.substring(0, 500);
+};
 
 export default function RoadmapDashboard() {
     const params = useParams();
@@ -58,7 +105,7 @@ export default function RoadmapDashboard() {
     // Fetch roadmaps
     const { data: roadmaps, isLoading, error, refetch } = trpc.roadmap.listStrategic.useQuery(
         { clientId: clientId! },
-        { 
+        {
             enabled: !!clientId,
             retry: (failureCount, error: any) => {
                 if (error?.message?.includes('JSON.parse') || error?.message?.includes('unexpected end')) {
@@ -113,9 +160,9 @@ export default function RoadmapDashboard() {
     // Show error state
     if (error) {
         console.error('❌ Error loading roadmaps:', error);
-        
+
         const isJsonParseError = error.message?.includes('JSON.parse') || error.message?.includes('unexpected end');
-        const errorMessage = isJsonParseError 
+        const errorMessage = isJsonParseError
             ? 'Connection issue detected. Please check your network and try again.'
             : error.message;
 
@@ -129,15 +176,15 @@ export default function RoadmapDashboard() {
                         <p className="text-red-600 font-medium">Failed to load roadmaps</p>
                         <p className="text-slate-500 text-sm mt-2">{errorMessage}</p>
                         <div className="flex gap-2 justify-center mt-4">
-                            <Button 
-                                onClick={() => refetch()} 
+                            <Button
+                                onClick={() => refetch()}
                                 variant="outline"
                             >
                                 Retry
                             </Button>
                             {isJsonParseError && (
-                                <Button 
-                                    onClick={() => window.location.reload()} 
+                                <Button
+                                    onClick={() => window.location.reload()}
                                     variant="default"
                                 >
                                     Refresh Page
@@ -166,6 +213,52 @@ export default function RoadmapDashboard() {
     return (
         <DashboardLayout>
             <div className="space-y-8 p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+                <div className="flex items-center justify-between">
+                    <Breadcrumb items={[{ label: "Strategic Roadmap" }]} />
+                    <PageGuide
+                        title="Strategic Roadmap"
+                        description="Align compliance initiatives with business growth and operational milestones."
+                        rationale="A roadmap transforms a static compliance list into a dynamic execution plan. It helps stakeholders understand the timeline, resource requirements, and dependencies for reaching multi-year compliance goals."
+                        howToUse={[
+                            {
+                                step: "Define Strategy",
+                                description: "Use 'Create New Roadmap' to start a new strategic cycle or project.",
+                                targetId: "roadmap-create-btn"
+                            },
+                            {
+                                step: "Monitor Execution",
+                                description: "Track active initiatives in the 'Active Execution' lane to ensure they stay on schedule.",
+                                targetId: "roadmap-active-lane"
+                            },
+                            {
+                                step: "Report Progress",
+                                description: "Generate executive-ready PDF reports to communicate roadmap status to the board.",
+                                targetId: "roadmap-report-btn"
+                            },
+                            {
+                                step: "Address Blocks",
+                                description: "Check the 'Attention Required' lane for initiatives that are behind or blocked.",
+                                targetId: "roadmap-critical-lane"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Board Meeting Preparation",
+                                example: "You need to show the board that the ISO 27001 certification project is 60% complete and on track for next quarter.",
+                                auditTip: "Auditors look for evidence of management review and oversight. A well-maintained strategic roadmap demonstrates that compliance is part of the corporate planning process."
+                            },
+                            {
+                                title: "Resource Balancing",
+                                example: "Two major initiatives (e.g., SOC 2 and GDPR) are overlapping in Q3, causing a bottleneck.",
+                                auditTip: "Prioritize roadmaps based on risk-impact. Use the report to justify budget or resource increases where critical compliance paths are blocked."
+                            }
+                        ]}
+                        integrations={[
+                            { name: "Compliance Journey", description: "Milestones here feed into your overall journey progress." },
+                            { name: "Assurance Reports", description: "Generate board-ready summaries of your strategic posture." }
+                        ]}
+                    />
+                </div>
 
                 {/* HERO SECTION - Links to Overview/Explore */}
                 <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-2xl">
@@ -206,15 +299,15 @@ export default function RoadmapDashboard() {
                                                 <DropdownMenuLabel>Select Roadmap</DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
                                                 {roadmaps.map((roadmap) => (
-                                                    <DropdownMenuItem 
+                                                    <DropdownMenuItem
                                                         key={roadmap.id}
                                                         onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}
                                                         className="cursor-pointer"
                                                     >
                                                         <div className="flex flex-col">
-                                                            <span className="font-medium">{roadmap.title}</span>
+                                                            <span className="font-medium">{sanitizeText(roadmap.title, roadmap.title)}</span>
                                                             <span className="text-xs text-slate-500 truncate">
-                                                                {roadmap.description || "No description"}
+                                                                {sanitizeText(roadmap.description, "No description")}
                                                             </span>
                                                             <div className="flex items-center justify-between mt-1">
                                                                 <Badge variant="outline" className="text-xs capitalize">
@@ -230,6 +323,7 @@ export default function RoadmapDashboard() {
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                         <Button
+                                            id="roadmap-create-btn"
                                             onClick={() => setLocation(`/clients/${clientId}/roadmap/templates`)}
                                             className="bg-blue-600 hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-500/25 h-12 px-6"
                                         >
@@ -255,6 +349,7 @@ export default function RoadmapDashboard() {
                                     Explore Methodology
                                 </Button>
                                 <Button
+                                    id="roadmap-report-btn"
                                     variant="outline"
                                     className="bg-emerald-600/20 border-emerald-500/30 text-emerald-100 hover:bg-emerald-600/30 h-12 px-6"
                                     onClick={() => setReportDialogOpen(true)}
@@ -315,15 +410,15 @@ export default function RoadmapDashboard() {
                                     <DropdownMenuLabel>Select Roadmap</DropdownMenuLabel>
                                     <DropdownMenuSeparator />
                                     {roadmaps.map((roadmap) => (
-                                        <DropdownMenuItem 
+                                        <DropdownMenuItem
                                             key={roadmap.id}
                                             onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}
                                             className="cursor-pointer"
                                         >
                                             <div className="flex flex-col">
-                                                <span className="font-medium">{roadmap.title}</span>
+                                                <span className="font-medium">{sanitizeText(roadmap.title, roadmap.title)}</span>
                                                 <span className="text-xs text-slate-500 truncate">
-                                                    {roadmap.description || "No description"}
+                                                    {sanitizeText(roadmap.description, "No description")}
                                                 </span>
                                                 <div className="flex items-center justify-between mt-1">
                                                     <Badge variant="outline" className="text-xs capitalize">
@@ -339,33 +434,36 @@ export default function RoadmapDashboard() {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {roadmaps.slice(0, 3).map((roadmap) => (
-                                <div key={roadmap.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:border-emerald-300 transition-colors">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h4 className="font-medium text-slate-900 line-clamp-1">{roadmap.title}</h4>
-                                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                                                {roadmap.description || "No description"}
-                                            </p>
-                                        </div>
-                                        <Badge variant="outline" className="capitalize">
+                                <div
+                                    key={roadmap.id}
+                                    className="group bg-white border border-slate-200 rounded-xl p-5 hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 cursor-pointer flex flex-col h-full"
+                                    onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}
+                                >
+                                    <div className="flex items-start justify-between mb-3">
+                                        <h4 className="font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-700 transition-colors">
+                                            {sanitizeText(roadmap.title, roadmap.title)}
+                                        </h4>
+                                        <Badge variant="outline" className="capitalize bg-slate-50 text-[10px] h-5 px-2 border-slate-200">
                                             {roadmap.status.replace('_', ' ')}
                                         </Badge>
                                     </div>
-                                    <div className="mt-4 flex items-center justify-between">
-                                        <span className="text-xs text-slate-500">
-                                            Updated {format(new Date(roadmap.updatedAt), 'MMM d, yyyy')}
+
+                                    <p className="text-xs text-slate-600 line-clamp-3 mb-6 flex-grow leading-relaxed">
+                                        {sanitizeText(roadmap.description, "Strategic planning and execution initiative.")}
+                                    </p>
+
+                                    <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+                                        <div className="flex items-center text-[10px] text-slate-400 font-medium">
+                                            <Calendar className="w-3 h-3 mr-1.5 opacity-60" />
+                                            {format(new Date(roadmap.updatedAt), 'MMM d, yyyy')}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-emerald-600 flex items-center group-hover:translate-x-1 transition-transform">
+                                            View Roadmap
+                                            <ArrowRight className="w-3 h-3 ml-1" />
                                         </span>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-7 text-xs"
-                                            onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}
-                                        >
-                                            View
-                                        </Button>
                                     </div>
                                 </div>
                             ))}
@@ -377,7 +475,7 @@ export default function RoadmapDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 
                     {/* Lane 1: Critical Activity */}
-                    <div className="space-y-4">
+                    <div id="roadmap-critical-lane" className="space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -403,7 +501,7 @@ export default function RoadmapDashboard() {
                     </div>
 
                     {/* Lane 2: Active Execution */}
-                    <div className="space-y-4">
+                    <div id="roadmap-active-lane" className="space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold flex items-center gap-2">
                                 <Zap className="w-5 h-5 text-blue-500" />
@@ -512,7 +610,7 @@ function EmptyLaneState({ icon: Icon, title, description, color }: { icon: any, 
     )
 }
 
-function RoadmapCard({ roadmap, clientId, onDelete, compact = false }: { roadmap: any, clientId: string, onDelete: (id: string) => void, compact?: boolean }) {
+function RoadmapCard({ roadmap, clientId, onDelete, compact = false }: { roadmap: RoadmapData, clientId: string, onDelete: (id: string) => void, compact?: boolean }) {
     const [location, setLocation] = useLocation();
 
     // Helper for colors
@@ -521,78 +619,91 @@ function RoadmapCard({ roadmap, clientId, onDelete, compact = false }: { roadmap
             case 'active': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
             case 'at_risk': return 'bg-red-500/10 text-red-600 border-red-500/20';
             case 'planning': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+            case 'in_progress': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
             default: return 'bg-slate-100 text-slate-600 border-slate-200';
         }
     };
 
     // Mock progress calculation if not available
-    const progress = Math.floor(Math.random() * 100);
+    const progress = roadmap.progress ?? 50;
 
     return (
-        <Card className="group hover:shadow-md transition-all duration-200 border-slate-200">
+        <Card className="group hover:shadow-lg transition-all duration-300 border-slate-200 hover:border-blue-400/50 overflow-hidden bg-white">
             <div className="p-5 space-y-4">
                 <div className="flex items-start justify-between">
-                    <div>
-                        <Badge variant="outline" className={`mb-2 capitalize ${getStatusColor(roadmap.status)}`}>
+                    <div className="flex-1 min-w-0">
+                        <Badge variant="outline" className={`mb-2 capitalize text-[10px] h-5 px-2 ${getStatusColor(roadmap.status)}`}>
                             {roadmap.status.replace('_', ' ')}
                         </Badge>
-                        <h4 className="font-semibold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors cursor-pointer"
+                        <h4 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors cursor-pointer truncate"
                             onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}>
-                            {roadmap.title}
+                            {sanitizeText(roadmap.title, roadmap.title)}
                         </h4>
                         {!compact && (
-                            <p className="text-xs text-slate-500 mt-1 line-clamp-2 min-h-[2.5em]">
-                                {roadmap.description || "No description provided."}
+                            <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                                {sanitizeText(roadmap.description, "No description")}
                             </p>
                         )}
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-600">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
                                 <MoreVertical className="w-4 h-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)} className="cursor-pointer">
+                                <Layout className="w-4 h-4 mr-2" />
                                 View Dashboard
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}/edit`)}>
+                            <DropdownMenuItem onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}/edit`)} className="cursor-pointer">
+                                <Zap className="w-4 h-4 mr-2" />
                                 Edit Configuration
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" onClick={() => onDelete(roadmap.id)}>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600 cursor-pointer" onClick={() => onDelete(roadmap.id)}>
+                                <Plus className="w-4 h-4 mr-2 rotate-45" />
                                 Delete Roadmap
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
 
-                <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-slate-500">
-                        <span>Progress</span>
-                        <span>{progress}%</span>
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overall Progress</span>
+                        <span className="text-xs font-bold text-slate-700">{progress}%</span>
                     </div>
-                    <Progress value={progress} className="h-1.5" />
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-1000 ease-out"
+                            style={{ width: `${progress}%` }}
+                        />
+                    </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
-                    <div className="flex -space-x-2">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-1">
+                    <div className="flex -space-x-1.5 overflow-hidden">
                         {/* Mock Avatars */}
-                        <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] text-slate-600">JD</div>
-                        <div className="w-6 h-6 rounded-full bg-slate-300 border-2 border-white flex items-center justify-center text-[10px] text-slate-600">+2</div>
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-indigo-600">JD</div>
+                        <div className="w-6 h-6 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-emerald-600">AS</div>
+                        <div className="w-6 h-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">+1</div>
                     </div>
-                    <div className="flex items-center text-xs text-slate-400">
-                        <Calendar className="w-3 h-3 mr-1" />
+                    <div className="flex items-center text-[10px] font-medium text-slate-400">
+                        <Clock className="w-3 h-3 mr-1 opacity-60" />
                         {format(new Date(roadmap.updatedAt), 'MMM d, yyyy')}
                     </div>
                 </div>
 
                 <Button
-                    variant="ghost"
-                    className="w-full text-xs h-8 bg-slate-50 hover:bg-white border border-slate-100 hover:border-blue-200 text-slate-600 hover:text-blue-600 transition-all"
+                    variant="secondary"
+                    className="w-full text-xs h-9 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-200 hover:border-blue-600 transition-all duration-300 font-semibold rounded-lg"
                     onClick={() => setLocation(`/clients/${clientId}/roadmap/${roadmap.id}`)}
                 >
-                    Open Board
-                    <ChevronRight className="w-3 h-3 ml-1 opacity-50" />
+                    Open Strategic Board
+                    <ChevronRight className="w-3 h-3 ml-1" />
                 </Button>
             </div>
         </Card>

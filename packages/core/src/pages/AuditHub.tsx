@@ -44,6 +44,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@complianceos/ui/ui/input";
 import { toast } from "sonner";
 import AuditorLayout from "@/components/AuditorLayout";
+import { authedFetch } from "@/lib/authedFetch";
 import { useAuth } from "@/contexts/AuthContext";
 import { CircularProgress } from "@complianceos/ui/ui/circular-progress";
 import {
@@ -73,6 +74,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@complianceos/ui/ui/dropdown-menu";
 import { Suspense, lazy } from 'react';
 import { Slot, SlotNames } from "@/registry";
 
@@ -91,7 +98,7 @@ export default function AuditHub() {
     const { user } = useAuth();
     // Determine if we should show the Auditor View (Restricted Clean Room)
     // Check for 'auditor' role or explicit 'view=auditor' query param for testing/admin preview
-    const isAuditorView = user?.user_metadata?.role === 'auditor' || window.location.search.includes('view=auditor');
+    const isAuditorView = user?.user_metadata?.role === 'auditor' || (typeof window !== 'undefined' ? window.location.search.includes('view=auditor') : false);
     const Layout = isAuditorView ? AuditorLayout : DashboardLayout;
 
     const [inviteOpen, setInviteOpen] = useState(false);
@@ -233,7 +240,7 @@ export default function AuditHub() {
                             const extension = file.name.split('.').pop() || '';
                             const filename = `evidence-${evidenceId}-${timestamp}-${randomSuffix}.${extension}`;
 
-                            const response = await fetch('/api/upload', {
+                            const response = await authedFetch('/api/upload', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -310,7 +317,7 @@ export default function AuditHub() {
         }
     });
 
-    const { data: clientControlsList } = trpc.clientControls.list.useQuery({ clientId }, { enabled: createRequestOpen });
+    const { data: clientControlsList } = trpc.clientControls.list.useQuery({ clientId }, { enabled: createRequestOpen && !!clientId });
 
     const handleCreateRequest = () => {
         if (!newRequestData.description || !newRequestData.clientControlId) {
@@ -318,9 +325,15 @@ export default function AuditHub() {
             return;
         }
 
+        const controlId = parseInt(newRequestData.clientControlId);
+        if (isNaN(controlId) || controlId <= 0) {
+            toast.error("Please select a valid control");
+            return;
+        }
+
         createEvidenceMutation.mutate({
             clientId,
-            clientControlId: parseInt(newRequestData.clientControlId),
+            clientControlId: controlId,
             evidenceId: newRequestData.evidenceId || `MANUAL-${Date.now().toString().slice(-4)}`,
             description: newRequestData.description,
             owner: newRequestData.owner,
@@ -643,7 +656,7 @@ export default function AuditHub() {
                         </div>
 
                         {/* Auditor Branding/Contact */}
-                        <div className="mt-auto p-6 border-t border-slate-200">
+                        <div className="mt-auto p-4 border-t border-slate-200">
                             {activeAudit ? (
                                 <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
                                     <Avatar className="h-9 w-9 border-2 border-slate-50 bg-slate-100">
@@ -656,19 +669,21 @@ export default function AuditHub() {
                                         <div className="text-[10px] text-slate-500 truncate">{activeAudit.auditFirm || "External Audit"}</div>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300 text-center">
-                                    <p className="text-[10px] text-slate-400 font-medium mb-2">No active audit detected</p>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full h-7 text-[10px] bg-white"
-                                        onClick={() => setInviteOpen(true)}
-                                    >
-                                        Invite Auditor
-                                    </Button>
-                                </div>
-                            )}
+                            ) : isAdmin ? (
+                                <button
+                                    onClick={() => setInviteOpen(true)}
+                                    className="w-full flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-dashed border-amber-300 text-left hover:bg-amber-100 transition-colors group"
+                                >
+                                    <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 border border-amber-200">
+                                        <Mail className="h-3.5 w-3.5 text-amber-600" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-bold text-amber-800">Invite Auditor</div>
+                                        <div className="text-[10px] text-amber-600">No auditor assigned yet</div>
+                                    </div>
+                                    <ArrowRight className="h-3.5 w-3.5 text-amber-400 ml-auto group-hover:translate-x-0.5 transition-transform" />
+                                </button>
+                            ) : null}
                         </div>
 
                     </nav>
@@ -797,7 +812,9 @@ export default function AuditHub() {
                                                                 "text-[10px] whitespace-nowrap",
                                                                 selectedRequest?.id === req.id ? "text-indigo-600/80" : "text-slate-400 group-hover:text-slate-500"
                                                             )}>
-                                                                {req.dueDate ? new Date(req.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
+                                                                {req.dueDate && new Date(req.dueDate).getFullYear() > 1970
+                                                                    ? new Date(req.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                                                                    : ''}
                                                             </span>
                                                             <button
                                                                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-400 hover:text-red-500"
@@ -817,27 +834,38 @@ export default function AuditHub() {
                                                     </div>
 
                                                     <div className="text-xs text-slate-500 line-clamp-1 mb-2.5 pr-4">
-                                                        <span className="text-slate-400 mr-1">{req.framework || "General"}</span>
-                                                        {req.description || "No description provided..."}
+                                                        <span className="text-slate-400 mr-1">{req.control || req.framework || "General"} ·</span>
+                                                        {req.description
+                                                            ? <span>{req.description}</span>
+                                                            : <span className="italic text-slate-300">No description</span>}
                                                     </div>
 
                                                     <div className="flex items-center justify-between">
-                                                        <Badge variant="secondary" className={cn(
-                                                            "text-[10px] h-4 px-1.5 font-normal bg-transparent border-0 p-0",
-                                                            getStatusColor(req.status).replace("bg-", "text-").replace("/10", "")
-                                                        )}>
-                                                            {req.status}
-                                                        </Badge>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className={cn(
+                                                                "h-1.5 w-1.5 rounded-full",
+                                                                req.status === 'Accepted' ? 'bg-emerald-500' :
+                                                                    req.status === 'In Review' ? 'bg-amber-400' :
+                                                                        req.status === 'Returned' ? 'bg-rose-500' : 'bg-slate-300'
+                                                            )} />
+                                                            <span className={cn(
+                                                                "text-[10px] font-medium",
+                                                                req.status === 'Accepted' ? 'text-emerald-600' :
+                                                                    req.status === 'In Review' ? 'text-amber-600' :
+                                                                        req.status === 'Returned' ? 'text-rose-600' : 'text-slate-400'
+                                                            )}>{req.status}</span>
+                                                        </div>
                                                         <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                                                            {req.evidence > 0 && (
-                                                                <div className="flex items-center gap-1">
-                                                                    <FileText className="h-3 w-3 text-slate-500" />
-                                                                    <span>{req.evidence}</span>
-                                                                </div>
-                                                            )}
+                                                            <div className={cn(
+                                                                "flex items-center gap-1",
+                                                                req.evidence > 0 ? 'text-indigo-500' : 'text-slate-300'
+                                                            )}>
+                                                                <FileText className="h-3 w-3" />
+                                                                <span>{req.evidence}</span>
+                                                            </div>
                                                             {req.comments > 0 && (
-                                                                <div className="flex items-center gap-1">
-                                                                    <MessageSquare className="h-3 w-3 text-slate-500" />
+                                                                <div className="flex items-center gap-1 text-slate-400">
+                                                                    <MessageSquare className="h-3 w-3" />
                                                                     <span>{req.comments}</span>
                                                                 </div>
                                                             )}
@@ -850,10 +878,7 @@ export default function AuditHub() {
                                 )}
                             </div>
 
-                            {/* Temporary Debug Info */}
-                            <div className="p-2 border-t border-slate-100 bg-slate-50 text-[10px] text-slate-400 font-mono">
-                                Total: {evidenceData?.length || 0} | Shown: {displayRequests.length} | Client: {clientId}
-                            </div>
+
                         </div>
                     )}
 
@@ -869,7 +894,11 @@ export default function AuditHub() {
                                                 <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 font-mono tracking-tight text-[11px]">
                                                     {selectedRequest.control}
                                                 </Badge>
-                                                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Due {new Date(selectedRequest.dueDate).toLocaleDateString()}</span>
+                                                {selectedRequest.dueDate && new Date(selectedRequest.dueDate).getFullYear() > 1970 && (
+                                                    <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">
+                                                        Due {new Date(selectedRequest.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    </span>
+                                                )}
                                             </div>
                                             <h1 className="text-xl font-bold text-slate-900 mb-3 leading-tight">{selectedRequest.title}</h1>
                                             <p className="text-slate-600 text-sm leading-relaxed max-w-xl">
@@ -911,8 +940,11 @@ export default function AuditHub() {
 
                                                 {/* Evidence Toolbar */}
                                                 <div className="flex justify-between items-center mb-6">
-                                                    <h3 className="text-lg font-semibold text-slate-900">Evidence Documentation</h3>
-                                                    <div className="flex gap-2">
+                                                    <div>
+                                                        <h3 className="text-lg font-semibold text-slate-900">Evidence Documentation</h3>
+                                                        <p className="text-xs text-slate-400 mt-0.5">{evidenceFiles?.length || 0} file{(evidenceFiles?.length || 0) !== 1 ? 's' : ''} attached</p>
+                                                    </div>
+                                                    <div className="flex gap-2 items-center">
                                                         <Slot
                                                             name={SlotNames.EVIDENCE_TOOLBAR_ACTIONS}
                                                             props={{
@@ -922,35 +954,38 @@ export default function AuditHub() {
                                                             }}
                                                         />
 
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="gap-2"
-                                                            onClick={() => setLibraryOpen(true)}
-                                                        >
-                                                            <Search className="h-4 w-4" />
-                                                            Select from Library
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="gap-2"
-                                                            onClick={() => document.getElementById('audit-hub-upload-input')?.click()}
-                                                        >
-                                                            <Upload className="h-4 w-4" />
-                                                            Upload New
-                                                        </Button>
-
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="gap-2"
-                                                            onClick={() => setLinkOpen(true)}
-                                                        >
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                            Link Integration
-                                                        </Button>
+                                                        {/* Consolidated Add Evidence dropdown */}
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button size="sm" className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+                                                                    <Plus className="h-4 w-4" />
+                                                                    Add Evidence
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-52">
+                                                                <DropdownMenuItem
+                                                                    className="gap-2 cursor-pointer"
+                                                                    onClick={() => document.getElementById('audit-hub-upload-input')?.click()}
+                                                                >
+                                                                    <Upload className="h-4 w-4 text-slate-500" />
+                                                                    Upload File
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    className="gap-2 cursor-pointer"
+                                                                    onClick={() => setLibraryOpen(true)}
+                                                                >
+                                                                    <Search className="h-4 w-4 text-slate-500" />
+                                                                    Select from Library
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    className="gap-2 cursor-pointer"
+                                                                    onClick={() => setLinkOpen(true)}
+                                                                >
+                                                                    <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                                                                    Link Integration
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
 
                                                         <input
                                                             id="audit-hub-upload-input"
@@ -1116,7 +1151,33 @@ export default function AuditHub() {
                         ) : activeSection === 'findings' ? (
                             <AuditFindings clientId={clientId} />
                         ) : activeSection === 'discussions' ? (
-                            <AuditDiscussions clientId={clientId} />
+                            <AuditDiscussions
+                                clientId={clientId}
+                                onNavigateToEvidence={(id) => {
+                                    // Try to find the evidence request by various ID formats
+                                    const idStr = String(id);
+                                    const req = auditRequests.find(r => {
+                                        // Direct match on id
+                                        if (r.id === idStr) return true;
+                                        // Match on original.id
+                                        if (r.original?.id === idStr) return true;
+                                        // Match on original.evidenceId
+                                        if (r.original?.evidenceId === idStr) return true;
+                                        // Match EV- prefix format
+                                        if (`EV-${r.id}` === idStr || `EV-${r.original?.evidenceId}` === idStr) return true;
+                                        return false;
+                                    });
+
+                                    if (req) {
+                                        console.log("[AuditHub] Navigating to evidence request:", req.id);
+                                        setActiveSection('pbc');
+                                        setSelectedRequest(req);
+                                    } else {
+                                        console.warn("[AuditHub] Evidence request not found for id:", id);
+                                        toast.error("Evidence request not found.");
+                                    }
+                                }}
+                            />
                         ) : null}
                     </div>
                 </div>
@@ -1835,7 +1896,7 @@ function AuditFindings({ clientId }: { clientId: number }) {
     );
 }
 
-function AuditDiscussions({ clientId }: { clientId: number }) {
+function AuditDiscussions({ clientId, onNavigateToEvidence }: { clientId: number, onNavigateToEvidence: (id: string | number) => void }) {
     const { data: comments, isLoading } = trpc.evidence.getAllComments.useQuery({ clientId });
 
     return (
@@ -1885,6 +1946,7 @@ function AuditDiscussions({ clientId }: { clientId: number }) {
                                                     variant="ghost"
                                                     size="sm"
                                                     className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 bg-slate-50 border border-slate-100"
+                                                    onClick={() => onNavigateToEvidence(comment.evidenceId)}
                                                 >
                                                     View Context <ArrowRight className="ml-1.5 h-3 w-3" />
                                                 </Button>

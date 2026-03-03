@@ -3,6 +3,7 @@ import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { Upload, Loader2, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
+import { authedFetch } from "@/lib/authedFetch";
 
 interface GenericFileUploaderProps {
     onUploadComplete: (file: { name: string; url: string; key: string }) => void;
@@ -103,7 +104,7 @@ export default function GenericFileUploader({
 
                             setUploadingFiles(prev => prev.map(f => f.id === uploadingFile.id ? { ...f, progress: 30 } : f));
 
-                            const response = await fetch('/api/upload', {
+                            const response = await authedFetch('/api/upload', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -192,8 +193,8 @@ export default function GenericFileUploader({
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${isDragActive
-                        ? 'border-primary bg-primary/5'
-                        : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-muted-foreground/25 hover:border-muted-foreground/50'
                     }`}
                 onClick={() => fileInputRef.current?.click()}
             >

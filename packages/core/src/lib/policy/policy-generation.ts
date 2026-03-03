@@ -23,22 +23,78 @@ interface GenerationOptions {
 
 export class PolicyGenerator {
     private llmService: LLMService;
+    // NOTE: This in-memory cache is per-instance. For multi-instance deployments (e.g., Kubernetes,
+    // multiple PM2 processes, or serverless), each instance maintains its own cache which may lead to
+    // inconsistent behavior. Consider using Redis or similar distributed cache for production environments
+    // with multiple server instances.
+    private clientCache = new Map<number, Client>();
+    private templateCache = new Map<number, any>();
+    private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    private clientCacheTime = new Map<number, number>();
+    private templateCacheTime = new Map<number, number>();
 
     constructor() {
         this.llmService = new LLMService();
     }
 
     /**
+     * Clear caches - useful for long-running processes or testing
+     */
+    clearCaches(): void {
+        this.clientCache.clear();
+        this.templateCache.clear();
+        this.clientCacheTime.clear();
+        this.templateCacheTime.clear();
+    }
+
+    private getCachedClient(clientId: number): Client | undefined {
+        const cached = this.clientCache.get(clientId);
+        const cacheTime = this.clientCacheTime.get(clientId);
+        if (cached && cacheTime && (Date.now() - cacheTime) < PolicyGenerator.CACHE_TTL_MS) {
+            return cached;
+        }
+        return undefined;
+    }
+
+    private setCachedClient(clientId: number, client: Client): void {
+        this.clientCache.set(clientId, client);
+        this.clientCacheTime.set(clientId, Date.now());
+    }
+
+    private getCachedTemplate(templateId: number): any | undefined {
+        const cached = this.templateCache.get(templateId);
+        const cacheTime = this.templateCacheTime.get(templateId);
+        if (cached && cacheTime && (Date.now() - cacheTime) < PolicyGenerator.CACHE_TTL_MS) {
+            return cached;
+        }
+        return undefined;
+    }
+
+    private setCachedTemplate(templateId: number, template: any): void {
+        this.templateCache.set(templateId, template);
+        this.templateCacheTime.set(templateId, Date.now());
+    }
+
+    /**
      * Generates a policy content string by substituting variables and optionally tailoring via LLM.
      */
     async generate(clientId: number, templateId: number, options: GenerationOptions = {}): Promise<string> {
+        const startTime = Date.now();
+        const perfMetrics: Record<string, number> = {};
+
         const db = await getDb();
         if (!db) throw new Error("Database connection failed");
 
-        // 1. Fetch Client Data
-        const client = await db.query.clients.findFirst({
-            where: eq(clients.id, clientId),
-        });
+        // 1. Fetch Client Data (with caching)
+        const clientStart = Date.now();
+        let client = this.getCachedClient(clientId);
+        if (!client) {
+            client = await db.query.clients.findFirst({
+                where: eq(clients.id, clientId),
+            });
+            if (client) this.setCachedClient(clientId, client);
+        }
+        perfMetrics.dbClientFetch = Date.now() - clientStart;
 
         if (!client) throw new Error(`Client with ID ${clientId} not found`);
 
@@ -46,14 +102,20 @@ export class PolicyGenerator {
         const language = options.language || client.policyLanguage || 'en';
         const languageName = LANGUAGE_NAMES[language] || 'English';
 
-        // 2. Fetch Template Data
-        const template = await db.query.policyTemplates.findFirst({
-            where: eq(policyTemplates.id, templateId),
-        });
+        // 2. Fetch Template Data (with caching)
+        const templateStart = Date.now();
+        let template = this.getCachedTemplate(templateId);
+        if (!template) {
+            template = await db.query.policyTemplates.findFirst({
+                where: eq(policyTemplates.id, templateId),
+            });
+            if (template) this.setCachedTemplate(templateId, template);
+        }
+        perfMetrics.dbTemplateFetch = Date.now() - templateStart;
 
         if (!template) throw new Error(`Template with ID ${templateId} not found`);
 
-        console.log("DEBUG: PolicyGenerator template:", template.templateId, "language:", language);
+        console.log("[PolicyGen] Template:", template.templateId, "language:", language);
 
         let content = "";
         const answers = options.answers || {};
@@ -80,7 +142,9 @@ export class PolicyGenerator {
         };
 
         // Check for monolithic content first
+        const sectionStart = Date.now();
         if (template.content && template.content.trim().length > 0) {
+            console.log(`[PolicyGen] Using monolithic template content (${template.content.length} chars)`);
             content = template.content;
         }
         // Fallback to modular sections
@@ -101,16 +165,24 @@ export class PolicyGenerator {
                 })
                 .join("\n\n");
         }
+        perfMetrics.sectionProcessing = Date.now() - sectionStart;
 
         // 3. Smart Variable Substitution
+        const varSubStart = Date.now();
         content = this.substituteVariables(content, client, answers);
+        perfMetrics.variableSubstitution = Date.now() - varSubStart;
 
         // 4. Industry Tailoring (LLM) with language support
-        // 4. Industry Tailoring (LLM) with language support
-        // 4. Industry Tailoring (LLM) with language support
         if ((options.tailorToIndustry || options.customInstruction)) {
+            const llmStart = Date.now();
+            console.log(`[PolicyGen] Starting LLM tailoring for policy: ${template.name}, language: ${language}`);
             content = await this.tailorContentWithLLM(content, client, template.name, options.customInstruction, language, answers);
+            perfMetrics.llmTailoring = Date.now() - llmStart;
+            console.log(`[PolicyGen] LLM tailoring finished in ${perfMetrics.llmTailoring}ms`);
         }
+
+        perfMetrics.total = Date.now() - startTime;
+        console.log('[PolicyGen] Performance metrics (ms):', perfMetrics);
 
         return content;
     }
@@ -509,7 +581,7 @@ ${content}
                 userPrompt,
                 feature: 'policy_generation_comprehensive',
                 temperature: 0.4,
-                maxTokens: 8000
+                maxTokens: 4000  // Reduced from 8000 to prevent timeouts
             }, { clientId: client.id, endpoint: 'tailor_policy_comprehensive' });
 
             return response.text;
@@ -522,4 +594,5 @@ ${content}
 }
 
 export const policyGenerator = new PolicyGenerator();
+
 

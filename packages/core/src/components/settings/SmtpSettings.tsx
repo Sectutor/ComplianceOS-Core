@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { trpc } from "../../lib/trpc";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@complianceos/ui/ui/card";
@@ -89,7 +88,6 @@ export function SmtpSettings({ clientId }: SmtpSettingsProps) {
         }
         testMutation.mutate({
             clientId,
-            email: testEmail,
             provider: 'smtp'
         });
     };

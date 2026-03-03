@@ -6,7 +6,9 @@ import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
 import {
     Shield, Target, TrendingUp, Info, ChevronRight, CheckCircle2,
-    ListChecks, FileText, ExternalLink, Filter, Search, Award
+    ListChecks, FileText, ExternalLink, Filter, Search, Award,
+    Layout, Key, Zap, Lock, ShieldCheck, Database, Globe, Bug,
+    Workflow, Folder, Network, Settings, Activity, Smartphone, Eye
 } from "lucide-react";
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
@@ -15,8 +17,43 @@ import { toast } from "sonner";
 import { PageGuide } from "@/components/PageGuide";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@complianceos/ui/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@complianceos/ui/ui/select";
+import { cn } from "@/lib/utils";
 
 type RequirementStatus = "unanswered" | "pass" | "fail" | "na";
+
+const categoryIcons: Record<string, any> = {
+    "V1": Layout,
+    "V2": Key,
+    "V3": Activity,
+    "V4": Lock,
+    "V5": ShieldCheck,
+    "V6": Database,
+    "V7": FileText,
+    "V8": Shield,
+    "V9": Globe,
+    "V10": Bug,
+    "V11": Workflow,
+    "V12": Folder,
+    "V13": Network,
+    "V14": Settings,
+};
+
+const categoryColors: Record<string, string> = {
+    "V1": "#3ABEF9",
+    "V2": "#60A5FA",
+    "V3": "#A78BFA",
+    "V4": "#FBBF24",
+    "V5": "#F87171",
+    "V6": "#2DD4BF",
+    "V7": "#FB7185",
+    "V8": "#34D399",
+    "V9": "#818CF8",
+    "V10": "#FB923C",
+    "V11": "#64748B",
+    "V12": "#EC4899",
+    "V13": "#8B5CF6",
+    "V14": "#10B981",
+};
 
 export default function ASVSView() {
     const { id } = useParams<{ id: string }>();
@@ -178,8 +215,10 @@ export default function ASVSView() {
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">
                         <h1 className="text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-                            <Shield className="w-10 h-10 text-primary" />
-                            OWASP ASVS <span className="text-primary">v4.0.3</span>
+                            <div className="p-3 bg-primary rounded-2xl shadow-lg shadow-primary/20">
+                                <Shield className="w-10 h-10 text-white" />
+                            </div>
+                            <span>OWASP ASVS <span className="text-primary">v4.0.3</span></span>
                         </h1>
                         <p className="text-slate-500 font-medium max-w-2xl">
                             Application Security Verification Standard.
@@ -195,15 +234,18 @@ export default function ASVSView() {
                             howToUse={[
                                 {
                                     step: "Select Level",
-                                    description: "Filter requirements by assurance level (L1: Basic, L2: Standard, L3: Advanced)."
+                                    description: "Filter requirements by assurance level (L1: Basic, L2: Standard, L3: Advanced).",
+                                    targetId: "asvs-level-filter"
                                 },
                                 {
-                                    step: "Assess",
-                                    description: "Review each requirement and mark as Pass, Fail, or N/A. Add evidence for verification."
+                                    step: "Navigate Domains",
+                                    description: "Use the sidebar to jump between different ASVS sections (V1-V14).",
+                                    targetId: "asvs-category-sidebar"
                                 },
                                 {
-                                    step: "Track Progress",
-                                    description: "Monitor compliance per category to identify weak areas in your application security."
+                                    step: "Search Controls",
+                                    description: "Quickly find specific technical verification requirements.",
+                                    targetId: "asvs-search"
                                 }
                             ]}
                         />
@@ -230,7 +272,7 @@ export default function ASVSView() {
                 <div className="grid grid-cols-12 gap-8">
                     {/* Sidebar Navigation */}
                     <div className="col-span-12 lg:col-span-3 space-y-4">
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-2">
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-2" id="asvs-category-sidebar">
                             <div className="p-4 border-b border-slate-100 mb-2">
                                 <h3 className="font-bold text-slate-900">Categories</h3>
                                 <p className="text-xs text-slate-500">Select a category to assess</p>
@@ -238,23 +280,29 @@ export default function ASVSView() {
                             <div className="space-y-1 max-h-[70vh] overflow-y-auto custom-scrollbar">
                                 {categories?.map((cat) => {
                                     const isActive = activeCategoryCode === cat.code;
+                                    const Icon = categoryIcons[cat.code] || Shield;
+                                    const activeColor = categoryColors[cat.code] || "#334155";
+
                                     return (
                                         <button
                                             key={cat.code}
                                             onClick={() => setActiveCategoryCode(cat.code)}
-                                            className={`w-full text-left p-3 rounded-2xl transition-all flex items-center justify-between group ${isActive
-                                                ? "bg-slate-900 text-white shadow-lg"
-                                                : "hover:bg-slate-50"
-                                                }`}
+                                            className={cn(
+                                                "w-full text-left p-3 rounded-2xl transition-all flex items-center justify-between group",
+                                                isActive ? "text-black shadow-lg" : "hover:bg-slate-50"
+                                            )}
+                                            style={isActive ? { backgroundColor: activeColor } : {}}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${isActive ? "bg-primary text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
-                                                    }`}>
-                                                    {cat.code}
+                                                <div className={cn(
+                                                    "w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs",
+                                                    isActive ? "bg-black/10 text-black" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
+                                                )}>
+                                                    <Icon className="w-4 h-4" />
                                                 </div>
                                                 <span className="text-sm font-bold truncate max-w-[180px]">{cat.name}</span>
                                             </div>
-                                            {isActive && <ChevronRight className="w-4 h-4 text-primary" />}
+                                            {isActive && <Eye className="w-4 h-4 text-black" />}
                                         </button>
                                     );
                                 })}
@@ -376,6 +424,7 @@ export default function ASVSView() {
                                             type="text"
                                             placeholder="Search requirements..."
                                             className="bg-transparent border-none outline-none text-sm font-medium w-full md:w-64"
+                                            id="asvs-search"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                         />
@@ -386,7 +435,7 @@ export default function ASVSView() {
                                             <span className="text-sm font-bold text-slate-600">Level:</span>
                                         </div>
                                         <Select value={filterLevel} onValueChange={setFilterLevel}>
-                                            <SelectTrigger className="w-[140px] bg-white border-slate-200">
+                                            <SelectTrigger className="w-[140px] bg-white border-slate-200" id="asvs-level-filter">
                                                 <SelectValue placeholder="Level" />
                                             </SelectTrigger>
                                             <SelectContent>

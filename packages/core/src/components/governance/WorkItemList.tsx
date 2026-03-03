@@ -50,8 +50,8 @@ export function WorkItemList({ clientId }: WorkItemListProps) {
         status: statusFilter as any, // Simple type bypass for demo
     });
 
-    // Fetch users for assignment (Fix: Use listAssignees instead of me)
-    const { data: assignees } = trpc.universalTasks.listAssignees.useQuery({ clientId });
+    // Fetch users for assignment
+    const { data: assignees } = trpc.actions.listAssignees.useQuery({ clientId });
 
     const updateMutation = trpc.governance.update.useMutation({
         onSuccess: () => {

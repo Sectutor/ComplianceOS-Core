@@ -8,6 +8,7 @@ import { Button } from "@complianceos/ui/ui/button";
 import { Search, Shield, Info, ArrowRight, BookOpen, Upload, Lock, HelpCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { frameworks } from "@/data/frameworks";
 
 import { trpc } from "@/lib/trpc";
@@ -33,12 +34,13 @@ const FrameworkCard = ({ fw, stats, onClick }: { fw: any, stats: any, onClick: (
     const acronym = fw.name.split(' ')[0].substring(0, 4).toUpperCase();
 
     return (
-        <Card className="group hover:border-primary/50 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md overflow-hidden flex flex-col h-full" onClick={onClick}>
-            <div className="p-6 flex h-full gap-5">
+        <Card className="group hover:border-white/60 bg-white/60 backdrop-blur-xl border border-white/40 shadow-premium transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden rounded-3xl relative flex flex-col h-full" onClick={onClick}>
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="p-6 flex h-full gap-6 relative z-10">
                 {/* Left Side: Info */}
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="flex items-start justify-between mb-4">
-                        <div className="h-12 w-12 min-w-[3rem] rounded-lg bg-white border border-slate-200 flex items-center justify-center overflow-hidden">
+                        <div className="h-12 w-16 min-w-[4rem] rounded-xl bg-white border border-slate-100 shadow-sm flex items-center justify-center group-hover:shadow-md transition-shadow overflow-hidden">
                             {!imageError && fw.logo ? (
                                 <img
                                     src={fw.logo}
@@ -47,37 +49,37 @@ const FrameworkCard = ({ fw, stats, onClick }: { fw: any, stats: any, onClick: (
                                     onError={() => setImageError(true)}
                                 />
                             ) : (
-                                <div className="text-xs font-bold text-slate-700">{acronym}</div>
+                                <div className="text-sm font-black text-slate-700">{acronym}</div>
                             )}
                         </div>
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-normal hover:bg-slate-200 text-[10px] px-2 py-0.5 whitespace-nowrap ml-2">
+                        <Badge variant="secondary" className="bg-white border border-slate-200 text-slate-700 font-semibold shadow-sm hover:bg-slate-50 px-3 py-1 text-xs uppercase tracking-wider ml-2 whitespace-nowrap">
                             {fw.type}
                         </Badge>
                     </div>
 
                     <div className="mb-auto">
-                        <h3 className="font-bold text-lg text-slate-900 group-hover:text-primary transition-colors leading-tight mb-2 truncate" title={fw.name}>
+                        <h3 className="font-black text-xl text-slate-900 group-hover:text-primary transition-colors leading-tight mb-2 truncate tracking-tight" title={fw.name}>
                             {fw.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        <p className="text-sm text-slate-500 font-medium line-clamp-3 leading-relaxed">
                             {fw.description}
                         </p>
                     </div>
 
-                    <div className="mt-4 pt-2 flex items-center text-sm font-medium text-primary group-hover:translate-x-1 transition-transform">
-                        View Controls <ArrowRight className="ml-1 h-4 w-4" />
+                    <div className="mt-5 pt-3 border-t border-slate-100 flex items-center text-sm font-bold text-primary group-hover:translate-x-1 transition-transform">
+                        View Controls <ArrowRight className="ml-1.5 h-4 w-4" />
                     </div>
                 </div>
 
                 {/* Right Side: Progress */}
-                <div className="flex flex-col items-center justify-center border-l border-dashed border-slate-100 pl-4 min-w-[100px]">
+                <div className="flex flex-col items-center justify-center border-l border-dashed border-slate-200/50 pl-6 min-w-[120px]">
                     <CircularProgress
                         value={stats.percentage}
-                        size={80}
-                        strokeWidth={8}
+                        size={100}
+                        strokeWidth={10}
                         color={progressColor(stats.percentage)}
                     />
-                    <span className={`mt-3 text-[10px] font-bold uppercase tracking-wide text-center ${stats.percentage > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                    <span className={`mt-3 text-[10px] font-black uppercase tracking-wider text-center ${stats.percentage > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
                         {stats.percentage > 0 ? `${stats.percentage}% Done` : 'Not Started'}
                     </span>
                 </div>
@@ -105,11 +107,22 @@ export default function FrameworksDashboard() {
         { id: clientId },
         { enabled: !!clientId }
     );
-    const isPremium = (client?.planTier === 'pro' || client?.planTier === 'enterprise') && import.meta.env.VITE_ENABLE_PREMIUM !== 'false';
+
+    const { user } = useAuth();
+    const { userRole: clientRole, isPremiumStatus } = useClientContext();
+    const isGlobalAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'super_admin';
+    const isClientAdmin = clientRole === 'owner' || clientRole === 'admin';
+    const hasPremiumTier = client?.planTier === 'pro' || client?.planTier === 'enterprise';
+
+    // Admins bypass the environment check
+    const isPremium = isPremiumStatus;
+
 
     const filteredFrameworks = frameworks.filter(fw =>
-        fw.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        fw.description.toLowerCase().includes(searchQuery.toLowerCase())
+        !fw.isObligation && (
+            fw.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            fw.description.toLowerCase().includes(searchQuery.toLowerCase())
+        )
     );
 
     const getStats = (fwName: string) => {
@@ -144,10 +157,38 @@ export default function FrameworksDashboard() {
                         description="Learn how to adopt and implement compliance standards efficiently."
                         rationale="Compliance frameworks provide the structure for your security program. Proper implementation ensures you meet regulatory requirements while building a robust security posture."
                         howToUse={[
-                            { step: "Browse Standards", description: "Search for frameworks like SOC 2, ISO 27001, or NIST in our library." },
-                            { step: "Adopt & Import", description: "Select a framework to import its controls into your Control Workbench." },
-                            { step: "Track Progress", description: "Monitor implementation status across all active frameworks via the dashboard." },
-                            { step: "Custom Frameworks", description: "Pro and Enterprise users can import proprietary control sets." }
+                            {
+                                step: "Browse Standards",
+                                description: "Search for frameworks like SOC 2, ISO 27001, or NIST in our library.",
+                                targetId: "fw-search-bar"
+                            },
+                            {
+                                step: "Adopt & Import",
+                                description: "Select a framework to import its controls into your Control Workbench.",
+                                targetId: "fw-import-standard-btn"
+                            },
+                            {
+                                step: "Track Progress",
+                                description: "Monitor implementation status across all active frameworks via the dashboard.",
+                                targetId: "fw-grid-container"
+                            },
+                            {
+                                step: "Custom Frameworks",
+                                description: "Pro and Enterprise users can import proprietary control sets.",
+                                targetId: "fw-import-custom-btn"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Multi-Framework Strategy",
+                                example: "You need to comply with both ISO 27001 and SOC 2.",
+                                auditTip: "Import both frameworks. ComplianceOS automatically deduplicates controls. Implementing a 'Password Complexity' control once will satisfy both frameworks simultaneously."
+                            },
+                            {
+                                title: "Handling Custom Audit Scopes",
+                                example: "Your client has a specific proprietary security questionnaire.",
+                                auditTip: "Use 'Import Custom'. Our engine converts CSV/Excel mappings into live, trackable controls, allowing you to manage custom requirements just like international standards."
+                            }
                         ]}
                         integrations={[
                             { name: "Ready Wizards", description: "Launch step-by-step readiness assessments for any standard." },
@@ -158,7 +199,7 @@ export default function FrameworksDashboard() {
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border shadow-sm flex-1 max-w-md">
+                    <div id="fw-search-bar" className="flex items-center space-x-2 bg-white p-2 rounded-lg border shadow-sm flex-1 max-w-md">
                         <Search className="h-5 w-5 text-gray-400 ml-2" />
                         <Input
                             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -168,12 +209,13 @@ export default function FrameworksDashboard() {
                         />
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setIsImportDialogOpen(true)} variant="outline" className="gap-2">
+                        <Button id="fw-import-standard-btn" onClick={() => setIsImportDialogOpen(true)} variant="outline" className="gap-2">
                             <Upload className="h-4 w-4" />
                             Import Standard
                         </Button>
                         {/* Premium Feature: Import Custom - only for pro/enterprise */}
                         <Button
+                            id="fw-import-custom-btn"
                             onClick={() => isPremium ? setIsCustomImportOpen(true) : setLocation('/upgrade-required?feature=custom-frameworks')}
                             variant={isPremium ? "default" : "secondary"}
                             className="gap-2"
@@ -209,7 +251,7 @@ export default function FrameworksDashboard() {
                     />
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div id="fw-grid-container" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredFrameworks.map((fw) => (
                         <FrameworkCard
                             key={fw.id}

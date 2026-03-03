@@ -21,7 +21,7 @@ import { createVendorRequestsRouter } from "./server/routers/vendorRequests";
 import { createThreatIntelRouter } from "./server/routers/threatIntel";
 import { createAsvsRouter } from "./server/routers/asvs";
 // Premium import placeholders
-// import { createSubprocessorsRouter } from "./server/routers/subprocessors";
+import { createSubprocessorsRouter } from "./server/routers/subprocessors";
 import { createPrivacyEnhancementsRouter } from "./server/routers/privacyEnhancements";
 // import { createManagementRouter, createReadinessRouterV2 } from "./routers/management-and-readiness";
 import * as schema from "./schema";
@@ -103,6 +103,7 @@ import { createGlobalVendorsRouter } from "./server/routers/globalVendors";
 import { integrationsRouter } from "./server/routers/integrations";
 import { createKnowledgeBaseRouter } from "./server/routers/knowledgeBase";
 import { createQuestionnaireRouter } from "./server/routers/questionnaire";
+import { createLearningRouter } from "./server/routers/learning";
 import { createTaskAssignmentsRouter } from "./server/routers/taskAssignments";
 import { createPolicyTemplatesRouter } from "./server/routers/policyTemplates";
 import { createReportsRouter } from "./server/routers/reports";
@@ -124,6 +125,9 @@ import { createStudioRouter } from "./server/routers/studio";
 import { createMaturityRouter } from "./server/routers/maturity";
 import { createGumroadRouter } from "./server/routers/gumroad";
 import { feedbackRouter } from "./server/routers/feedback";
+import { createBackupRestoreRouter } from "./server/routers/backupRestore";
+import { createRiskSettingsRouter } from "./server/routers/riskSettings";
+import { createKrisRouter } from "./server/routers/kris";
 
 
 // Procedures and Middleware are now imported from ./server/trpc
@@ -172,8 +176,11 @@ SI-4: Information System Monitoring
 
 
 import { createAuditorsRouter } from "./server/routers/auditors";
+import { createRequirementsRouter } from "./server/routers/complianceRequirements";
+import { createProgramGuidesRouter } from "./server/routers/programGuides";
 
 export const appRouter = router({
+  programGuides: createProgramGuidesRouter(t, clientProcedure),
   evidenceFiles: createEvidenceFilesRouter(t, adminProcedure, publicProcedure),
   actions: createActionsRouter(t, clientProcedure),
   auditors: createAuditorsRouter(t, adminProcedure, clientProcedure),
@@ -191,6 +198,7 @@ export const appRouter = router({
   frameworks: createFrameworksRouter(t, protectedProcedure),
   frameworkImport: createFrameworkImportRouter(t, clientProcedure),
   frameworkPlugins: createFrameworkPluginsRouter(t, protectedProcedure),
+  requirements: createRequirementsRouter(t, protectedProcedure, publicProcedure),
   autopilot: createAutopilotRouter(t, clientProcedure),
   checklist: createChecklistRouter(t, clientProcedure),
   gapAnalysis: createGapAnalysisRouter(t, clientProcedure),
@@ -213,6 +221,8 @@ export const appRouter = router({
 
   // Risk Management Module
   risks: createRisksRouter(t, clientProcedure, premiumClientProcedure),
+  riskSettings: createRiskSettingsRouter(t, protectedProcedure, premiumClientProcedure),
+  kris: createKrisRouter(t, clientProcedure),
   metrics: createMetricsRouter(t, clientProcedure),
   devProjects: createDevProjectsRouter(t, clientProcedure),
   projects: createProjectsRouter(t, clientProcedure),
@@ -242,16 +252,18 @@ export const appRouter = router({
   privacyEnhancements: createPrivacyEnhancementsRouter(t, clientProcedure, adminProcedure, publicProcedure, clientEditorProcedure),
   cyber: createCyberRouter(t, clientProcedure),
   assets: createAssetsRouter(t, clientProcedure, clientEditorProcedure),
-  integrations: integrationsRouter ? integrationsRouter(t, clientProcedure, isAuthed) : router({}),
+  integrations: integrationsRouter ? integrationsRouter(t, clientProcedure, publicProcedure, isAuthed) : router({}),
   policyManagement: createPolicyManagementRouter(t, clientProcedure, clientEditorProcedure, adminProcedure),
 
   governance: createGovernanceRouter(t, clientProcedure, adminProcedure),
+
+  learning: createLearningRouter(t, publicProcedure, adminProcedure),
   onboarding: createOnboardingRouter(t, clientProcedure, clientEditorProcedure),
   training: createTrainingRouter(t, clientProcedure, clientEditorProcedure),
   knowledgeBase: createKnowledgeBaseRouter(t, clientProcedure),
-  questionnaire: createQuestionnaireRouter(t, clientProcedure, premiumClientProcedure),
+  questionnaire: createQuestionnaireRouter(t, clientProcedure, premiumClientProcedure, publicProcedure),
   taskAssignments: createTaskAssignmentsRouter(t, clientProcedure),
-  // subprocessors: createSubprocessorsRouter(t, premiumClientProcedure, publicProcedure), // Premium: VRM subprocessor tracking
+  subprocessors: createSubprocessorsRouter(t, premiumClientProcedure, publicProcedure), // Premium: VRM subprocessor tracking
   policyTemplates: createPolicyTemplatesRouter(t, publicProcedure, isAuthed),
   reports: createReportsRouter(t, adminProcedure, clientProcedure, clientEditorProcedure, publicProcedure, isAuthed),
   // strategicReports: createStrategicReportsRouter(t, publicProcedure, adminProcedure),
@@ -263,6 +275,7 @@ export const appRouter = router({
   }),
   feedback: feedbackRouter,
   studio: createStudioRouter(t, protectedProcedure),
+  backupRestore: createBackupRestoreRouter(t, clientProcedure),
   advisor: createAdvisorRouter(t, clientProcedure.use(t.middleware(({ ctx, next, path, input }) => {
     const sig = ctx.req.headers["x-signature"] as string | undefined;
     const ts = ctx.req.headers["x-timestamp"] as string | undefined;
@@ -444,40 +457,7 @@ export const appRouter = router({
       }),
   }),
 
-  riskSettings: router({
-    get: clientProcedure
-      .input(z.object({ clientId: z.number() }))
-      .query(async ({ input }) => {
-        return await db.getRiskSettings(input.clientId);
-      }),
-    update: adminProcedure
-      .input(z.object({
-        clientId: z.number(),
-        scope: z.string().optional(),
-        context: z.string().optional(),
-        riskAppetite: z.string().optional(),
-        methodology: z.string().optional(),
-        riskTolerance: z.array(z.object({
-          category: z.string(),
-          threshold: z.string(),
-          unit: z.string()
-        })).optional(),
-        impactCriteria: z.array(z.object({
-          level: z.number(),
-          name: z.string(),
-          description: z.string()
-        })).optional(),
-        likelihoodCriteria: z.array(z.object({
-          level: z.number(),
-          name: z.string(),
-          description: z.string()
-        })).optional(),
-      }))
-      .mutation(async ({ input }) => {
-        const { clientId, ...rest } = input;
-        return await db.upsertRiskSettings({ clientId, ...rest } as any);
-      }),
-  }),
+  // Removed duplicated riskSettings router block
 
 
 
@@ -1415,6 +1395,44 @@ export const appRouter = router({
         }).returning();
 
         return draft;
+      }),
+
+    send: clientEditorProcedure
+      .input(z.object({
+        clientId: z.number(),
+        subject: z.string(),
+        to: z.array(z.string()),
+        cc: z.array(z.string()).default([]),
+        bcc: z.array(z.string()).default([]),
+        body: z.string()
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+
+        // Create the sent email record
+        const userEmail = ctx.session?.user?.email;
+        if (!userEmail) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'User email required to send emails'
+          });
+        }
+
+        const [sent] = await db.insert(schema.emailMessages).values({
+          clientId: input.clientId,
+          userId: ctx.session?.user?.id || 0,
+          folder: 'sent',
+          status: 'sent',
+          subject: input.subject,
+          body: input.body,
+          to: input.to,
+          cc: input.cc,
+          bcc: input.bcc,
+          isRead: true,
+          from: userEmail
+        }).returning();
+
+        return sent;
       }),
 
     updateDraft: clientEditorProcedure

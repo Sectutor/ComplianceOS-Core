@@ -6,11 +6,17 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { Button } from "@complianceos/ui/ui/button";
 import { Input } from "@complianceos/ui/ui/input";
 import { Label } from "@complianceos/ui/ui/label";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { QuestionTable, Section } from "./QuestionTable";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
 import { PageGuide } from "@/components/PageGuide";
+
+// Built-in template IDs from questionnaire router
+// NOTE: These must match the built-in template IDs returned by trpc.questionnaire.listTemplates
+// TODO: Fetch built-in templates dynamically from server using trpc.questionnaire.listTemplates
+//       to avoid maintaining duplicate lists in frontend and backend
+const BUILT_IN_TEMPLATES = ['sig-lite', 'caiq-v4', 'iso27001-baseline', 'nist-csf', 'soc2-type2', 'pentest-scope', 'gdpr-readiness', 'hipaa-security'];
 
 export default function TemplateEditor() {
     const { id, templateId } = useParams(); // id is clientId, templateId is template ID or 'new'
@@ -21,7 +27,8 @@ export default function TemplateEditor() {
     const clientId = selectedClientId || (id ? parseInt(id) : null);
 
     const isNew = templateId === "new";
-    const numericTemplateId = !isNew && templateId ? parseInt(templateId) : null;
+    const isBuiltIn = !isNew && templateId && BUILT_IN_TEMPLATES.includes(templateId);
+    const numericTemplateId = !isNew && !isBuiltIn && templateId ? parseInt(templateId) : null;
 
     const [templateData, setTemplateData] = useState({
         name: "",
@@ -38,14 +45,55 @@ export default function TemplateEditor() {
         } as { sections: Section[] },
     });
 
-    // Fetch existing template if editing
-    const { data: existingTemplate, isLoading: isFetching } = trpc.vendors.getTemplate.useQuery(
+    // Fetch existing template if editing (custom templates)
+    const { data: existingTemplate, isLoading: isFetchingCustom } = trpc.vendors.getTemplate.useQuery(
         { id: numericTemplateId! },
         { enabled: !!numericTemplateId }
     );
 
+    // Fetch built-in template questions if editing a built-in template
+    const { data: builtInQuestions, isLoading: isFetchingBuiltIn } = trpc.questionnaire.getTemplateQuestions.useQuery(
+        { templateId: templateId! },
+        { enabled: isBuiltIn }
+    );
+
+    const isFetching = isFetchingCustom || isFetchingBuiltIn;
+
+    // Load template data - either from custom template or built-in
     useEffect(() => {
-        if (existingTemplate) {
+        if (isBuiltIn && builtInQuestions && builtInQuestions.length > 0) {
+            // Convert built-in questions to sections format
+            const sections: Section[] = [];
+            const categoryMap = new Map<string, typeof builtInQuestions>();
+
+            builtInQuestions.forEach(q => {
+                const cat = q.category || 'General';
+                if (!categoryMap.has(cat)) {
+                    categoryMap.set(cat, []);
+                }
+                categoryMap.get(cat)!.push(q);
+            });
+
+            categoryMap.forEach((questions, category) => {
+                sections.push({
+                    title: category,
+                    questions: questions.map((q, idx) => ({
+                        id: q.questionId || `q${idx + 1}`,
+                        text: q.question,
+                        type: 'text' as const,
+                        required: false
+                    }))
+                });
+            });
+
+            setTemplateData({
+                name: builtInQuestions[0]?.questionId?.split('-')[0] ?
+                    `${builtInQuestions[0].questionId.split('-')[0]} Assessment Template` :
+                    'Compliance Assessment Template',
+                description: `Built-in template with ${builtInQuestions.length} questions`,
+                content: { sections }
+            });
+        } else if (existingTemplate) {
             setTemplateData({
                 name: existingTemplate.name,
                 description: existingTemplate.description || "",
@@ -54,7 +102,7 @@ export default function TemplateEditor() {
                     : existingTemplate.content as any
             });
         }
-    }, [existingTemplate]);
+    }, [existingTemplate, builtInQuestions, isBuiltIn]);
 
     const createMutation = trpc.vendors.createTemplate.useMutation({
         onSuccess: () => {
@@ -105,8 +153,8 @@ export default function TemplateEditor() {
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <PageGuide
-                        title={isNew ? "Create Assessment Template" : "Edit Assessment Template"}
-                        description={isNew ? "Design a new questionnaire from scratch." : `Editing "${existingTemplate?.name || '...'}"`}
+                        title={isNew ? "Create Assessment Template" : isBuiltIn ? "View Assessment Template" : "Edit Assessment Template"}
+                        description={isNew ? "Design a new questionnaire from scratch." : isBuiltIn ? `Built-in template - ${builtInQuestions?.length || 0} questions` : `Editing "${existingTemplate?.name || '...'}"`}
                         rationale="Tailor assessments to your specific risk appetite and compliance requirements."
                         howToUse={[
                             { step: "Structure", description: "Organize questions into logical sections." },
@@ -160,3 +208,4 @@ export default function TemplateEditor() {
         </div>
     );
 }
+

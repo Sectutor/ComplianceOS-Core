@@ -250,7 +250,7 @@ export default function RiskAssessmentsPage() {
                             <Download className="w-4 h-4" />
                             Export Risk Report
                         </Button>
-                        <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button onClick={handleCreateNew} className="bg-blue-600 hover:bg-blue-700 text-white" id="risk-new-assessment">
                             <Plus className="w-4 h-4 mr-2" />
                             New Assessment
                         </Button>
@@ -259,9 +259,26 @@ export default function RiskAssessmentsPage() {
                             description="Evaluate, score, and treat organizational risks."
                             rationale="Systematic risk assessments provide the data needed to make informed security investment decisions."
                             howToUse={[
-                                { step: "Identify Risks", description: "Create new assessments for specific threat scenarios." },
-                                { step: "Analyze Heatmap", description: "Use the Risk Heatmap to focus on High Impact/High Likelihood risks." },
-                                { step: "Monitor Treatments", description: "Ensure all critical risks have documented treatment plans." }
+                                {
+                                    step: "Identify Risks",
+                                    description: "Create new assessments for specific threat scenarios to begin the management process.",
+                                    targetId: "risk-new-assessment"
+                                },
+                                {
+                                    step: "Analyze Heatmap",
+                                    description: "The heatmap visualizes risks by impact and likelihood. High priority risks are in the top-right.",
+                                    targetId: "risk-heatmap-container"
+                                },
+                                {
+                                    step: "Monitor Stats",
+                                    description: "Track key risk indicators like overdue reviews and mitigation efficiency in real-time.",
+                                    targetId: "risk-stats-container"
+                                },
+                                {
+                                    step: "Manage Treatments",
+                                    description: "Review current assessments and ensure critical risks have active treatment plans.",
+                                    targetId: "risk-assessments-table"
+                                }
                             ]}
                             integrations={[
                                 { name: "Controls Library", description: "Apply controls to reduce Inherent Risk to an acceptable Residual Risk level." },
@@ -273,7 +290,7 @@ export default function RiskAssessmentsPage() {
 
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Heatmap Widget */}
-                    <div className="h-[380px]">
+                    <div className="h-[380px]" id="risk-heatmap-container">
                         <RiskHeatmap
                             assessments={assessments || []}
                             activeFilter={heatmapFilter}
@@ -282,7 +299,7 @@ export default function RiskAssessmentsPage() {
                     </div>
 
                     {/* KRI Stats Widgets */}
-                    <div className="h-[380px] grid grid-cols-2 gap-4">
+                    <div className="h-[380px] grid grid-cols-2 gap-4" id="risk-stats-container">
                         {/* 1. Overdue Reviews */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                             <div>
@@ -378,7 +395,7 @@ export default function RiskAssessmentsPage() {
                     )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden min-h-[400px]">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden min-h-[400px]" id="risk-assessments-table">
                     <div className="overflow-x-auto">
                         <table className="min-w-full">
                             <thead>

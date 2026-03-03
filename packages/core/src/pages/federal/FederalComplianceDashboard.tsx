@@ -7,6 +7,8 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { Shield, FileText, AlertTriangle, CheckCircle, ArrowRight, BookOpen, Layers, Lock, ScrollText, ClipboardList, Zap, Building2, TrendingUp, Calendar, Cloud, FilePieChart, GitBranch, Server, Key } from "lucide-react";
 import { Link } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PageGuide } from "@/components/PageGuide";
+import { Breadcrumb } from "@/components/Breadcrumb";
 
 export default function FederalComplianceDashboard() {
     const params = useParams();
@@ -189,17 +191,52 @@ export default function FederalComplianceDashboard() {
         <DashboardLayout>
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                            <Building2 className="h-8 w-8 text-blue-600" />
-                            Federal Compliance Hub
-                        </h1>
-                        <p className="text-muted-foreground mt-2">
-                            Manage your DFARS, NIST 800-171/172, and CMMC documentation requirements.
-                        </p>
-                    </div>
+                    <Breadcrumb items={[{ label: "Federal Compliance Hub" }]} />
                     <div className="flex gap-4">
-                        <Link href={`/clients/${clientId}/federal/rmf`}>
+                        <PageGuide
+                            title="Federal Compliance Hub"
+                            description="Navigate DFARS, NIST 800-171/172, CMMC, and FedRAMP requirements from a single hub."
+                            rationale="Federal compliance is a prerequisite for government contracting. Achieving ATO (Authority to Operate) or CMMC certification requires systematic documentation, assessment, and remediation across a complex set of controls."
+                            howToUse={[
+                                {
+                                    step: "Start with RMF",
+                                    description: "Begin the guided Risk Management Framework journey to structure your compliance effort.",
+                                    targetId: "fed-rmf-btn"
+                                },
+                                {
+                                    step: "Categorize System",
+                                    description: "Use FIPS 199 to define the impact level of your system before selecting controls.",
+                                    targetId: "fed-workflow-steps"
+                                },
+                                {
+                                    step: "Build the SSP",
+                                    description: "Document your System Security Plan (SSP) to describe how each control is implemented.",
+                                    targetId: "fed-modules-grid"
+                                },
+                                {
+                                    step: "Track POA&M",
+                                    description: "Use the Plan of Action & Milestones to track remediation of identified weaknesses.",
+                                    targetId: "fed-metrics-grid"
+                                }
+                            ]}
+                            scenarios={[
+                                {
+                                    title: "Pursuing Government Contract",
+                                    example: "Your company is bidding on a DoD contract that requires CMMC Level 2. Start with FIPS 199 categorization, then build your NIST 800-171 SSP.",
+                                    auditTip: "A CMMC C3PAO auditor will check that every one of the 110 NIST 800-171 controls in your SSP has documented evidence of implementation. Start evidence collection early."
+                                },
+                                {
+                                    title: "FedRAMP Cloud Authorization",
+                                    example: "Your SaaS platform needs FedRAMP authorization to sell to federal agencies. Use the FedRAMP Packages module to manage the authorization boundary and security package.",
+                                    auditTip: "FedRAMP requires continuous monitoring. Document your ConMon (Continuous Monitoring) procedures including monthly vulnerability scans and annual penetration tests."
+                                }
+                            ]}
+                            integrations={[
+                                { name: "Risk Management", description: "POA&M items are linked to your organization's risk register." },
+                                { name: "Compliance Journey", description: "CMMC/FedRAMP milestone progress feeds into your overall compliance journey." }
+                            ]}
+                        />
+                        <Link id="fed-rmf-btn" href={`/clients/${clientId}/federal/rmf`}>
                             <Button className="bg-slate-900 hover:bg-black font-bold h-10 px-6 gap-2 shadow-xl shadow-slate-200">
                                 <Zap className="h-4 w-4 text-blue-400 fill-current" />
                                 Start Guided RMF Journey
@@ -222,7 +259,7 @@ export default function FederalComplianceDashboard() {
                                 </p>
                             </div>
                         </div>
-                        <Link href={`/clients/${clientId}/federal/alignment-guide`}>
+                        <Link href={`/clients/${clientId}/federal/program-guide`}>
                             <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold whitespace-nowrap">
                                 View Guide <ArrowRight className="w-4 h-4 ml-2" />
                             </Button>
@@ -243,7 +280,7 @@ export default function FederalComplianceDashboard() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+                        <div id="fed-workflow-steps" className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
                             {/* Connector Line (Desktop) */}
                             <div className="hidden md:block absolute top-6 left-10 right-10 h-0.5 bg-slate-700 -z-10"></div>
 
@@ -269,7 +306,7 @@ export default function FederalComplianceDashboard() {
                 </Card>
 
                 {/* Metrics Grid */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div id="fed-metrics-grid" className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {/* Readiness Score */}
                     <Card className="card-enhanced border-l-4 border-l-blue-600 bg-blue-50/50">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -321,7 +358,7 @@ export default function FederalComplianceDashboard() {
                 </div>
 
                 {/* Modules Grid - Categorized */}
-                <div className="space-y-6">
+                <div id="fed-modules-grid" className="space-y-6">
                     {categories.map(category => (
                         <div key={category} className="space-y-4">
                             <h2 className="text-xl font-bold text-slate-800 border-l-4 border-blue-600 pl-3">{category}</h2>

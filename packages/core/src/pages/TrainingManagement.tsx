@@ -120,18 +120,38 @@ export default function TrainingManagement({ hideLayout = false, clientId: propC
                         <PageGuide
                             title="Training Management"
                             description="Create, assign, and track employee security training."
-                            rationale="Ensures staff awareness of security risks and compliance obligations."
+                            rationale="Ensures staff awareness of security risks and compliance obligations. ISO 27001 Clause 7.2.2 requires personnel to be aware of their security responsibilities."
                             howToUse={[
-                                { step: "Create Module", description: "Upload videos or write text-based training content." },
-                                { step: "Assign Training", description: "Target specific departments or roles." },
-                                { step: "Track Progress", description: "Monitor completion rates and audit evidence." }
+                                {
+                                    step: "Define Curriculum",
+                                    description: "Create or upload training modules for your workforce.",
+                                    targetId: "train-add-btn"
+                                },
+                                {
+                                    step: "Bulk Assignments",
+                                    description: "Target assignments by department, role, or individual status.",
+                                    targetId: "train-module-list"
+                                },
+                                {
+                                    step: "Extract Evidence",
+                                    description: "Use the reports to provide completion logs to auditors.",
+                                    targetId: "train-report-btn"
+                                }
                             ]}
-                            integrations={[
-                                { name: "Personnel Hub", description: "Syncs with employee records." },
-                                { name: "Evidence Collection", description: "Auto-generates training logs." }
+                            scenarios={[
+                                {
+                                    title: "Annual Compliance Refresh",
+                                    example: "You need to ensure every employee has completed the updated 'Phishing Awareness' training for the 2024 compliance cycle.",
+                                    auditTip: "Use the 'Assign' feature to target all departments. The 'Compliance Dashboard' here will show a real-time completion percentage, which is the primary evidence required for quarterly management reviews."
+                                },
+                                {
+                                    title: "Onboarding a New Developer",
+                                    example: "A new hire has joined the engineering team and needs to complete 'Secure Code Training'.",
+                                    auditTip: "Target the assignment to the 'Engineering' department. This ensures that only relevant staff are bothered with technical training, keeping your culture high and friction low."
+                                }
                             ]}
                         />
-                        <Button onClick={openCreateDialog}>
+                        <Button id="train-add-btn" onClick={openCreateDialog}>
                             <Plus className="mr-2 h-4 w-4" />
                             Add Module
                         </Button>
@@ -141,7 +161,7 @@ export default function TrainingManagement({ hideLayout = false, clientId: propC
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                    <div>
+                    <div id="train-module-list">
                         <CardTitle>Training Modules</CardTitle>
                         <CardDescription>
                             {hideLayout ? "Manage company training content and assign modules." : "Support for video and rich text content."}

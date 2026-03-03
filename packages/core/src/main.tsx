@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabaseClient";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink, retryLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -39,16 +39,28 @@ if (licenseValidator.isEnterpriseEdition() || licenseValidator.isTrialEdition())
 
 const queryClient = new QueryClient();
 
-const redirectToLoginIfUnauthorized = (error: unknown) => {
+const redirectToLoginIfUnauthorized = async (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
 
   const isUnauthorized =
     error.message === UNAUTHED_ERR_MSG ||
     error.data?.code === 'UNAUTHORIZED' ||
-    error.message === 'UNAUTHORIZED';
+    error.message === 'UNAUTHORIZED' ||
+    error.message?.includes('Authentication required') ||
+    error.message?.includes('sign in');
 
   if (!isUnauthorized) return;
+
+  // Check if we actually have a session still
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    console.warn("[Auth] Received UNAUTHORIZED but session exists. Possibly a transient error or DB sync issue. Not redirecting.", {
+      path: (error as any).meta?.path || error.shape?.data?.path || 'unknown',
+      message: error.message
+    });
+    return;
+  }
 
   const loginUrl = getLoginUrl();
   const isAtLogin = window.location.pathname.startsWith(loginUrl);
@@ -56,25 +68,50 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   console.warn("[Auth] Unauthorized access detected.");
 
   if (isAtLogin) {
-    console.log("[Auth] Already at login page, just clearing session.");
-    supabase.auth.signOut();
+    console.log("[Auth] Already at login page, just clearing local storage.");
+    // Clear potentially stale ID
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('selectedClientId');
+    }
     return;
   }
 
-  console.warn("[Auth] Clearing session and redirecting to login.");
-  supabase.auth.signOut().then(() => {
-    window.location.href = loginUrl;
-  });
+  console.warn("[Auth] No session found. Redirecting to login.");
+  window.location.href = loginUrl;
 };
 
 queryClient.getQueryCache().subscribe((event: any) => {
   if (event.type === "updated" && event.action?.type === "error") {
     const error = event.query.state.error;
-    redirectToLoginIfUnauthorized(error);
-    if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
+
+    // Enhanced error logging for UNAUTHORIZED errors
+    const isAuthError = error instanceof TRPCClientError &&
+      (error.message === UNAUTHED_ERR_MSG ||
+        error.data?.code === 'UNAUTHORIZED' ||
+        error.message === 'UNAUTHORIZED' ||
+        error.message?.includes('Authentication required') ||
+        error.message?.includes('sign in'));
+
+    if (isAuthError) {
+      console.error('[AUTH FAILURE DETECTED]', {
+        message: error.message,
+        code: error.data?.code,
+        path: (error as any).meta?.path || (error as any).shape?.data?.path || 'unknown',
+        stack: error.stack
+      });
+
+      redirectToLoginIfUnauthorized(error);
+    }
+
+    if (error instanceof TRPCClientError &&
+      error?.data?.code === 'PRECONDITION_FAILED' &&
+      (error.message === 'Multi-factor authentication required' || error.message.includes('Administrative access requires active Multi-factor Authentication')) &&
+      typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('require-mfa'));
     }
+
     if (error instanceof TRPCClientError && error.message === "NOT_FOUND") return;
+
     console.error("[API Query Error]", error);
   }
 });
@@ -82,19 +119,57 @@ queryClient.getQueryCache().subscribe((event: any) => {
 queryClient.getMutationCache().subscribe((event: any) => {
   if (event.type === "updated" && event.action?.type === "error") {
     const error = event.mutation.state.error;
-    redirectToLoginIfUnauthorized(error);
-    if (error instanceof TRPCClientError && error?.data?.code === 'PRECONDITION_FAILED' && error.message === 'Multi-factor authentication required' && typeof window !== 'undefined') {
+
+    const isAuthError = error instanceof TRPCClientError &&
+      (error.message === UNAUTHED_ERR_MSG ||
+        error.data?.code === 'UNAUTHORIZED' ||
+        error.message === 'UNAUTHORIZED' ||
+        error.message?.includes('Authentication required') ||
+        error.message?.includes('sign in'));
+
+    if (isAuthError) {
+      console.error('[AUTH FAILURE DETECTED IN MUTATION]', {
+        message: error.message,
+        code: error.data?.code,
+        path: (error as any).meta?.path || (error as any).shape?.data?.path || 'unknown'
+      });
+      redirectToLoginIfUnauthorized(error);
+    }
+
+    if (error instanceof TRPCClientError &&
+      error?.data?.code === 'PRECONDITION_FAILED' &&
+      (error.message === 'Multi-factor authentication required' || error.message.includes('Administrative access requires active Multi-factor Authentication')) &&
+      typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('require-mfa'));
     }
+
     console.error("[API Mutation Error]", error);
   }
 });
 
+
 const trpcTransformer = superjson;
 
 const trpcClient = trpc.createClient({
-  transformer: trpcTransformer,
   links: [
+    // Retry link to handle transient network errors
+    retryLink({
+      retry: (opts) => {
+        const { error, count } = opts;
+        // Only retry on network errors, not on HTTP errors or TRPC errors
+        const isNetworkError = error.message?.includes('fetch') ||
+          error.message?.includes('network') ||
+          error.message?.includes('unexpected end of data');
+        const maxRetries = 3;
+
+        if (isNetworkError && count < maxRetries) {
+          console.warn(`[TRPC] Retrying request (attempt ${count}/${maxRetries}):`, error.message);
+          return true;
+        }
+        return false;
+      },
+      retryDelayMs: (attemptIndex) => Math.min(1000 * (attemptIndex + 1), 3000), // Exponential backoff, max 3s
+    }),
     httpBatchLink({
       url: "/api/trpc",
       transformer: trpcTransformer,
@@ -105,8 +180,7 @@ const trpcClient = trpc.createClient({
           const { data } = await supabase.auth.getSession();
           session = data?.session;
         } catch (e) {
-          console.error('[TRPC] Anti-Gravity: Failed to fetch Supabase session for headers:', e);
-          // If we can't even get session, we might be in a corrupted state
+          console.error('[TRPC] Failed to fetch Supabase session for headers:', e);
         }
 
         const reqId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -120,6 +194,9 @@ const trpcClient = trpc.createClient({
 
         if (session?.access_token) {
           headers.Authorization = `Bearer ${session.access_token}`;
+          console.log(`[TRPC Client] Sending request with auth token (session user: ${session.user?.email})`);
+        } else {
+          console.warn(`[TRPC Client] Sending request WITHOUT auth token - session:`, session ? 'present but no token' : 'null');
         }
 
         if (selectedClientId) {
@@ -134,17 +211,17 @@ const trpcClient = trpc.createClient({
           credentials: 'include',
         }).then(async (response) => {
           if (!response.ok) {
-            // Log for debugging but do NOT throw. Let TRPC handle the error response
-            // throwing here breaks TRPC's ability to parse batched errors and metadata.
-            const clone = response.clone();
-            try {
-              const text = await clone.text();
-              console.warn('[TRPC] HTTP Error:', response.status, response.statusText, text.substring(0, 200));
-            } catch (e) {
-              console.warn('[TRPC] HTTP Error:', response.status, response.statusText);
-            }
+            // Log for debugging but do NOT consume the response body.
+            // Consuming the body with clone.text() causes "unexpected end of data" errors
+            // because TRPC's httpBatchLink also needs to read the response body.
+            console.warn('[TRPC] HTTP Error:', response.status, response.statusText, 'URL:', url);
           }
           return response;
+        }).catch((error) => {
+          // Handle network errors (ECONNREFUSED, network timeout, etc.)
+          console.error('[TRPC] Network Error - Failed to fetch:', error?.message || error);
+          // Re-throw to let TRPC handle it properly
+          throw error;
         });
       },
     }),
@@ -224,6 +301,7 @@ function AppWithMFA() {
           setShowMFAScreen(o);
           // If they close it without verifying, we might want to re-check AAL 
           // to ensure they aren't bypassing it if it's mandatory.
+          // Note: we let the modal handle the rejection logic properly 
         }}
         factorId={factorId}
       />
@@ -239,3 +317,5 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+

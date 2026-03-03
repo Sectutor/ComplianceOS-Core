@@ -14,6 +14,7 @@ import {
 import { useParams, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
 import { FileLibraryPicker } from "@/components/FileLibraryPicker";
 import { cn } from "@complianceos/ui/lib/utils";
@@ -30,6 +31,7 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
 
     // Category Icon Mapping 
     const categoryIcons: Record<string, any> = {
+        // C2M2 / Generic Mapping
         "ASSET": Database,
         "THREAT": ShieldAlert,
         "RISK": AlertTriangle,
@@ -39,7 +41,38 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
         "THIRD-PARTIES": Share2,
         "WORKFORCE": Users,
         "ARCHITECTURE": Layers,
-        "PROGRAM": ClipboardList
+        "PROGRAM": ClipboardList,
+
+        // NIST CSF 2.0 Mapping
+        "GV": Shield,        // Govern
+        "ID": Target,        // Identify
+        "PR": Lock,          // Protect
+        "DE": Eye,           // Detect
+        "RS": Zap,           // Respond
+        "RC": Activity,      // Recover
+    };
+
+    // Category Color Mapping
+    const categoryColors: Record<string, string> = {
+        // NIST CSF 2.0 colors
+        "GV": "#3ABEF9",     // Govern (Requested)
+        "ID": "#60A5FA",     // Identify - Blue 400
+        "PR": "#A78BFA",     // Protect - Violet 400
+        "DE": "#FBBF24",     // Detect - Amber 400
+        "RS": "#F87171",     // Respond - Red 400
+        "RC": "#34D399",     // Recover - Emerald 400
+
+        // C2M2 colors - Professional Multi-color palette
+        "ASSET": "#3ABEF9",         // Sky Blue
+        "THREAT": "#F87171",        // Red
+        "RISK": "#FBBF24",          // Amber
+        "ACCESS": "#A78BFA",        // Violet
+        "SITUATION": "#60A5FA",      // Blue
+        "RESPONSE": "#FB7185",      // Rose
+        "THIRD-PARTIES": "#FB923C",  // Orange
+        "WORKFORCE": "#2DD4BF",      // Teal
+        "ARCHITECTURE": "#818CF8",  // Indigo
+        "PROGRAM": "#34D399"        // Emerald
     };
 
     // State
@@ -152,7 +185,45 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <PageGuide
+                            title={`${activeFramework.name} Guidance`}
+                            description="Comprehensive maturity assessment and gap analysis."
+                            moduleId={`maturity-${frameworkId}`}
+                            isTrainingRequirement={true}
+                            howToUse={[
+                                {
+                                    step: "Assess Performance",
+                                    description: "Mark requirements as 'Achieved' or 'Not Achieved' to track current status.",
+                                    targetId: "requirements-table"
+                                },
+                                {
+                                    step: "Set Targets",
+                                    description: "Identify gap items by marking them as 'Target' for remediation.",
+                                    targetId: "requirements-table"
+                                },
+                                {
+                                    step: "Build Roadmap",
+                                    description: "Use the simulation tool to prioritize gaps based on business impact.",
+                                    targetId: "btn-build-roadmap"
+                                }
+                            ]}
+                            scenarios={[
+                                {
+                                    title: "Post-Audit Gap Update",
+                                    example: "An external auditor found that 'Access Control A.5' is partially implemented. Scale back its level and set it as a target for next quarter.",
+                                    auditTip: "Maturity assessments should show 'Continuous Improvement'. Avoid 100% achieved unless evidence is flawless."
+                                }
+                            ]}
+                            resources={[
+                                {
+                                    name: "Framework Documentation",
+                                    description: "Official source of truth for these requirements.",
+                                    href: "https://compliance.intellfence.com/docs"
+                                }
+                            ]}
+                        />
                         <Button
+                            id="btn-build-roadmap"
                             variant="outline"
                             className="gap-2 border-primary text-primary hover:bg-primary/10"
                             onClick={() => setLocation(`/clients/${clientId}/maturity/simulation/${frameworkId}`)}
@@ -245,10 +316,14 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                                             <button
                                                 onClick={() => setActiveCategoryId(parent.id)}
                                                 className={cn(
-                                                    "w-full text-left p-2.5 rounded-2xl transition-all flex items-center justify-between group relative overflow-hidden",
-                                                    isExactlyActive ? "bg-slate-900 text-white shadow-xl shadow-slate-200/50 scale-[1.02]" :
+                                                    "w-full text-left p-2.5 rounded-2xl transition-all flex items-center justify-between group relative overflow-hidden mb-1",
+                                                    isExactlyActive ? "shadow-xl shadow-slate-200/50 scale-[1.02]" :
                                                         hasActiveChild ? "bg-slate-50 border border-slate-100" : "hover:bg-slate-50"
                                                 )}
+                                                style={isExactlyActive ? {
+                                                    backgroundColor: categoryColors[parent.code] || "#0f172a", // Default to slate-900 if no color mapped
+                                                    color: "black"
+                                                } : {}}
                                             >
                                                 {isExactlyActive && (
                                                     <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
@@ -257,10 +332,10 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                                                     <div className={cn(
                                                         "w-10 h-10 rounded-xl flex flex-col items-center justify-center transition-all duration-300 border",
                                                         isExactlyActive
-                                                            ? "bg-primary/20 border-primary/30 text-white shadow-inner"
+                                                            ? "bg-black/10 border-black/20 text-black shadow-inner"
                                                             : "bg-white border-slate-100 text-slate-400 group-hover:border-slate-200 group-hover:shadow-sm"
                                                     )}>
-                                                        <CategoryIcon className={cn("w-5 h-5 mb-0.5", isExactlyActive ? "text-primary-foreground" : "text-slate-400 group-hover:text-primary")} />
+                                                        <CategoryIcon className={cn("w-5 h-5 mb-0.5", isExactlyActive ? "text-black" : "text-slate-400 group-hover:text-primary")} />
                                                         <span className="text-[7.5px] font-black uppercase tracking-tighter opacity-70">
                                                             {parent.code.length > 6 ? parent.code.substring(0, 5) + '..' : parent.code}
                                                         </span>
@@ -268,11 +343,11 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                                                     <div className="flex flex-col min-w-0">
                                                         <span className={cn(
                                                             "text-sm font-black leading-tight truncate",
-                                                            isExactlyActive ? "text-white" : "text-slate-700"
+                                                            isExactlyActive ? "text-black" : "text-slate-700"
                                                         )}>{parent.name}</span>
                                                         <span className={cn(
                                                             "text-[10px] font-bold mt-0.5",
-                                                            isExactlyActive ? "text-slate-400" : "text-slate-400"
+                                                            isExactlyActive ? "text-black/60" : "text-slate-400"
                                                         )}>
                                                             {parentAchieved} / {parentReqs.length} met
                                                         </span>
@@ -280,7 +355,8 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                                                 </div>
                                                 <ChevronRight className={cn(
                                                     "w-4 h-4 transition-transform duration-300",
-                                                    parentActive ? "rotate-90 text-primary" : "text-slate-200 group-hover:text-slate-400"
+                                                    isExactlyActive ? "text-black rotate-90" :
+                                                        parentActive ? "rotate-90 text-primary" : "text-slate-200 group-hover:text-slate-400"
                                                 )} />
                                             </button>
 
@@ -327,12 +403,18 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                             return (
                                 <div className="bg-white rounded-[2rem] p-8 border border-slate-200/60 shadow-sm mb-8">
                                     <div className="flex items-center gap-5 mb-4">
-                                        <div className="p-4 bg-slate-900 rounded-[1.25rem] shadow-xl shadow-slate-200">
-                                            <ActiveCategoryIcon className="w-8 h-8 text-white" />
+                                        <div
+                                            className="p-4 rounded-[1.25rem] shadow-xl shadow-slate-200"
+                                            style={{ backgroundColor: categoryColors[activeCategory.code] || "#0f172a" }}
+                                        >
+                                            <ActiveCategoryIcon className="w-8 h-8 text-black" />
                                         </div>
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded">
+                                                <span
+                                                    className="text-[10px] font-black uppercase tracking-[0.2em] bg-primary/10 px-2 py-0.5 rounded"
+                                                    style={{ color: categoryColors[activeCategory.code] || "var(--primary)" }}
+                                                >
                                                     {activeCategory.code}
                                                 </span>
                                             </div>
@@ -346,7 +428,7 @@ export default function MaturityAssessmentView({ frameworkId: initialFrameworkId
                             );
                         })()}
 
-                        <div className="space-y-4">
+                        <div id="requirements-table" className="space-y-4">
                             {filteredRequirements.length === 0 && activeCategoryId && (
                                 <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
                                     <Info className="w-12 h-12 text-slate-200 mx-auto mb-4" />

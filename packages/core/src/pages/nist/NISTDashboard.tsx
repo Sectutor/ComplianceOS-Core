@@ -24,6 +24,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import NISTLayout from "./NISTLayout";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function NISTDashboard() {
     const { selectedClientId } = useClientContext();
@@ -209,11 +210,50 @@ export default function NISTDashboard() {
                             </p>
                             <div className="flex flex-wrap gap-4 pt-4">
                                 <Button
+                                    id="nist-start-assessment-btn"
                                     onClick={() => setLocation(`/clients/${selectedClientId}/nist/assessment`)}
                                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-6 px-8 rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
                                 >
                                     Start Assessment <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
+                                <PageGuide
+                                    title="NIST CSF 2.0 Command Center"
+                                    description="Your unified hub for NIST Cybersecurity Framework 2.0 compliance across all six functions."
+                                    rationale="The NIST CSF 2.0 provides a structured, risk-based approach to managing cybersecurity. It's the foundational framework referenced by CISA, DoD, and most enterprise compliance programs."
+                                    howToUse={[
+                                        {
+                                            step: "Start Assessment",
+                                            description: "Begin scoring your compliance against NIST CSF 2.0 subcategories function by function.",
+                                            targetId: "nist-start-assessment-btn"
+                                        },
+                                        {
+                                            step: "Review Action Queue",
+                                            description: "Prioritize your failing controls. The 'Needs Attention' section surfaces the highest-risk gaps.",
+                                            targetId: "nist-action-queue"
+                                        },
+                                        {
+                                            step: "Monitor by Function",
+                                            description: "Track implementation progress across GOVERN, IDENTIFY, PROTECT, DETECT, RESPOND, and RECOVER.",
+                                            targetId: "nist-functions-grid"
+                                        }
+                                    ]}
+                                    scenarios={[
+                                        {
+                                            title: "Board-Level Risk Reporting",
+                                            example: "Your board requests a cybersecurity posture overview. Export the NIST CSF maturity score (e.g., 'Overall: 68%, Tier 2 - Risk Informed') as a concise one-page summary.",
+                                            auditTip: "NIST CSF is not a standard with a pass/fail; auditors assess your self-scored tiers and maturity trajectory. Document your reasoning for each tier assignment."
+                                        },
+                                        {
+                                            title: "Gap-Driven Roadmap",
+                                            example: "Your DETECT function is at 20%. Use that as input into your strategic roadmap to prioritize investments in threat detection capabilities.",
+                                            auditTip: "Regulators like CISA increasingly align cyber requirements to NIST CSF. A documented improvement trajectory from Tier 1 to Tier 3 demonstrates a mature security program."
+                                        }
+                                    ]}
+                                    integrations={[
+                                        { name: "SIEM & SOAR", description: "DETECT and RESPOND function scores are influenced by your active SIEM alert and SOAR case data." },
+                                        { name: "Risk Management", description: "IDENTIFY function gaps feed directly into the central risk register for treatment planning." }
+                                    ]}
+                                />
                             </div>
                         </div>
 
@@ -254,7 +294,7 @@ export default function NISTDashboard() {
                 </div>
 
                 {/* Action Queue */}
-                <Card className="border-rose-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 overflow-hidden relative">
+                <Card id="nist-action-queue" className="border-rose-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-2 overflow-hidden relative">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
                     <CardHeader className="bg-gradient-to-r from-rose-50/80 to-white pb-6 border-b border-rose-100/50 relative z-10">
                         <div className="flex justify-between items-center">
@@ -304,7 +344,7 @@ export default function NISTDashboard() {
                 </Card>
 
                 {/* NIST Functions Grid */}
-                <div className="space-y-4">
+                <div id="nist-functions-grid" className="space-y-4">
                     <h3 className="text-xl font-bold text-slate-900 px-1">Posture by NIST CSF Function</h3>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {functions.map((func, idx) => (

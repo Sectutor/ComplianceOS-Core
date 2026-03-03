@@ -53,7 +53,7 @@ async function getGuidance(input: { clientId: number, controlTitle: string, cont
     // or just reuse askQuestion if it's easier. Reusing askQuestion logic via direct service call is cleaner.
     const { LLMService } = await import('../../lib/llm/service');
     const llm = new LLMService();
-    
+
     try {
         const response = await llm.generate({
             userPrompt: contextPrompt,
@@ -87,7 +87,7 @@ export function createAdvisorRouter(t: any, protectedProcedure: any) {
                     });
                 }
             }),
-            
+
         analyzeRisk: protectedProcedure
             .input(z.object({
                 clientId: z.number(),
@@ -201,6 +201,32 @@ export function createAdvisorRouter(t: any, protectedProcedure: any) {
                     throw new TRPCError({
                         code: 'INTERNAL_SERVER_ERROR',
                         message: `Failed to answer question: ${error.message}`,
+                    });
+                }
+            }),
+
+        executeProposedAction: protectedProcedure
+            .input(z.object({
+                clientId: z.number(),
+                userId: z.string(),
+                action: z.object({
+                    id: z.string(),
+                    type: z.enum(['integration', 'core', 'notification']),
+                    slug: z.string(),
+                    actionId: z.string(),
+                    params: z.any(),
+                    label: z.string(),
+                    description: z.string()
+                })
+            }))
+            .mutation(async ({ input }: any) => {
+                const { AgentService } = await import('../../lib/ai/agent-service');
+                try {
+                    return await AgentService.executeAction(input.clientId, input.userId, input.action);
+                } catch (error: any) {
+                    throw new TRPCError({
+                        code: 'INTERNAL_SERVER_ERROR',
+                        message: `Failed to execute action: ${error.message}`,
                     });
                 }
             }),

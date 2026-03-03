@@ -9,6 +9,7 @@ import { Badge } from "@complianceos/ui/ui/badge";
 
 import { CheckCircle2, Circle, Plus, Trash2, X, Wand2, Paperclip, FileText, Link as LinkIcon, Sparkles, Eye, Edit2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { authedFetch } from "@/lib/authedFetch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -111,7 +112,7 @@ export function TaskDetailSheet({ task, open, onOpenChange, onUpdate }: TaskDeta
                 const base64Data = (reader.result as string).split(',')[1];
 
                 // 1. Upload File
-                const uploadRes = await fetch('/api/upload', {
+                const uploadRes = await authedFetch('/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

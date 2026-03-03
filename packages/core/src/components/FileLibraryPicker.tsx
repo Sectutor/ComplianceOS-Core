@@ -6,6 +6,7 @@ import { Input } from "@complianceos/ui/ui/input";
 import { ScrollArea } from "@complianceos/ui/ui/scroll-area";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
+import { authedFetch } from "@/lib/authedFetch";
 
 interface FileLibraryPickerProps {
   open: boolean;
@@ -63,7 +64,7 @@ export function FileLibraryPicker({ open, onOpenChange, clientId, onSelect }: Fi
       reader.onload = async () => {
         const base64Data = (reader.result as string).split(',')[1];
 
-        const res = await fetch('/api/upload', {
+        const res = await authedFetch('/api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

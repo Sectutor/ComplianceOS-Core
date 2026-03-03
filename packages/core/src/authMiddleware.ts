@@ -10,39 +10,48 @@ import path from 'path';
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY!;
 
+// Security: Validate that we don't accidentally use service role key in client-facing code
+if (!supabaseUrl || !supabaseKey) {
+    console.error('[AuthMiddleware] Missing required environment variables: VITE_SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY');
+    process.exit(1);
+}
+
 console.log('[AuthMiddleware Init] Supabase URL:', supabaseUrl);
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     console.log(`[Auth] Request: ${req.url}`);
+    
+    // Detailed auth info for downstream middleware (trpc)
+    const authInfo: any = {
+        hasAuthHeader: false,
+        supabaseUser: false,
+        dbUser: false
+    };
+    (req as any).authInfo = authInfo;
+
     try {
         const authHeader = req.headers.authorization;
         const url = req.url;
 
         if (!authHeader) {
-            if (url.includes('/ai/generate-stream')) {
-                console.log('[Auth Debug] No Authorization header for AI stream');
-            }
+            console.warn(`[Auth Debug] No Authorization header for ${url}`);
             return next();
         }
+        
+        authInfo.hasAuthHeader = true;
+        console.log(`[Auth Debug] Authorization header present for ${url}`);
 
         const token = authHeader.replace('Bearer ', '');
-        if (url.includes('/ai/generate-stream')) {
-            console.log('[Auth Debug] Attempting Supabase lookup for token...');
-        }
-
         const { data: { user }, error } = await supabase.auth.getUser(token);
 
         if (error || !user) {
-            if (url.includes('/ai/generate-stream')) {
-                console.error('[Auth Debug] Supabase error or no user:', error?.message);
-            }
+            console.error(`[Auth Debug] Supabase auth failed for ${url}:`, error?.message || 'No user returned');
             return next();
         }
-
-        if (url.includes('/ai/generate-stream')) {
-            console.log('[Auth Debug] Supabase user found:', user.id, user.email);
-        }
+        
+        authInfo.supabaseUser = true;
+        console.log(`[Auth Debug] Supabase user validated: ${user.id}`);
 
         const dbConn = await getDb();
         const dbUser = await dbConn.query.users.findFirst({
@@ -50,11 +59,13 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         });
 
         if (!dbUser) {
-            if (url.includes('/ai/generate-stream')) {
-                console.error('[Auth Debug] No dbUser found for openId:', user.id);
-            }
+            console.error(`[Auth Debug] No dbUser found for openId: ${user.id} (email: ${user.email})`);
             return next();
         }
+        
+        authInfo.dbUser = true;
+        console.log(`[Auth Debug] Database user found: ${dbUser.id} (${dbUser.email})`);
+
 
         if (url.includes('/ai/generate-stream')) {
             console.log('[Auth Debug] dbUser found:', dbUser.id, dbUser.role);
@@ -77,17 +88,37 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         next();
     } catch (error: any) {
         console.error('[AuthMiddleware] Exception:', error.message);
-        // Log details to help debug the 500 error
+        // Log sanitized error without stack trace for security
         const logFile = path.resolve(process.cwd(), 'auth_error.log');
-        const logEntry = `[${new Date().toISOString()}] ${error.stack}\n`;
+        const sanitizedMessage = error.message || 'Unknown error';
+        const logEntry = `[${new Date().toISOString()}] Auth Error: ${sanitizedMessage}\n`;
         fs.appendFile(logFile, logEntry, () => { });
 
         // If DB connection fails, we should probably fail hard for API requests
         // instead of letting it pass as unauthorized/undefined
-        if (error.name === 'DatabaseConnectionError' || error.message.includes('connect') || error.message.includes('getaddrinfo')) {
+        if (error.name === 'DatabaseConnectionError' ||
+            error.message?.includes('connect') ||
+            error.message?.includes('getaddrinfo') ||
+            error.message?.includes('timeout') ||
+            error.message?.includes('ECONNREFUSED') ||
+            error.message?.includes('ENOTFOUND')) {
             console.error('[AuthMiddleware] Database/Network Error:', error.message);
-            res.status(503).json({ error: 'Database connection failed', details: error.message });
-            return;
+
+            // For TRPC requests, return a properly formatted error that TRPC can parse
+            if (req.url.startsWith('/api/trpc')) {
+                return res.status(503).json({
+                    error: {
+                        message: 'Database connection failed',
+                        code: 'DATABASE_ERROR',
+                        data: {
+                            code: 'DATABASE_ERROR',
+                            httpStatus: 503,
+                        },
+                    },
+                });
+            }
+
+            return res.status(503).json({ error: 'Database connection failed', details: error.message });
         }
 
         // Don't just next() on error, send a proper error response if we can't authenticate

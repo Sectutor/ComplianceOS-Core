@@ -14,7 +14,8 @@ import {
     BarChart3,
     Building2,
     AlertTriangle,
-    FileText
+    FileText,
+    Info
 } from 'lucide-react';
 import { Button } from '@complianceos/ui/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@complianceos/ui/ui/card';
@@ -435,14 +436,18 @@ export default function StartHere() {
     };
 
     return (
-        <div className="min-h-screen bg-[#001e2b] text-white p-8">
-            <div className="max-w-7xl mx-auto">
-                <header className="flex justify-between items-center mb-12">
+        <div className="min-h-screen bg-[#001e2b] text-white p-8 relative overflow-hidden">
+            {/* Background ambient glows */}
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-1/4 right-1/4 w-[30rem] h-[30rem] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+            <div className="max-w-7xl mx-auto relative z-10">
+                <header className="flex justify-between items-center mb-16">
                     <div>
-                        <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                        <h1 className="text-5xl font-black bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4 tracking-tight">
                             Start Here
                         </h1>
-                        <p className="text-slate-400 text-lg">
+                        <p className="text-slate-400 text-lg font-medium">
                             Choose a workflow to begin your compliance journey.
                         </p>
                     </div>
@@ -452,33 +457,34 @@ export default function StartHere() {
                             e.preventDefault();
                             handleSkip();
                         }}
-                        className="inline-flex items-center px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center px-5 py-2.5 text-slate-300 hover:text-white bg-[#002a40]/50 hover:bg-[#003554]/80 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-sm transition-all duration-300 cursor-pointer font-semibold group hover:shadow-cyan-500/10"
                     >
-                        Skip to Dashboard <LayoutDashboard className="ml-2 h-4 w-4" />
+                        Skip to Dashboard <LayoutDashboard className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </a>
                 </header>
 
                 {!selectedWorkflow ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in zoom-in duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in zoom-in duration-700">
                         {WORKFLOWS.map((workflow) => (
                             <Card
                                 key={workflow.id}
-                                className="bg-[#002a40] border-slate-700 hover:border-emerald-500/50 hover:bg-[#003554] transition-all cursor-pointer group"
+                                className="bg-[#002a40]/40 backdrop-blur-xl border border-slate-700/50 hover:border-emerald-500/50 shadow-lg hover:shadow-emerald-500/10 rounded-3xl transition-all duration-500 cursor-pointer group hover:-translate-y-1 relative overflow-hidden"
                                 onClick={() => setSelectedWorkflow(workflow)}
                             >
-                                <CardHeader>
-                                    <div className={`p-3 rounded-lg bg-slate-900/50 w-fit mb-4 group-hover:scale-110 transition-transform ${workflow.color}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <CardHeader className="p-8 relative z-10">
+                                    <div className={`p-4 rounded-2xl bg-slate-900/50 backdrop-blur-md w-fit mb-6 group-hover:scale-110 transition-transform duration-500 shadow-inner border border-slate-700/50 ${workflow.color}`}>
                                         {workflow.icon}
                                     </div>
-                                    <CardTitle className="text-xl text-white group-hover:text-emerald-400 transition-colors">
+                                    <CardTitle className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors tracking-tight mb-2">
                                         {workflow.title}
                                     </CardTitle>
-                                    <CardDescription className="text-slate-400">
+                                    <CardDescription className="text-slate-400 font-medium leading-relaxed">
                                         {workflow.description}
                                     </CardDescription>
                                 </CardHeader>
-                                <CardFooter>
-                                    <div className="flex items-center text-sm font-medium text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CardFooter className="px-8 pb-8 relative z-10">
+                                    <div className="flex items-center text-sm font-bold text-emerald-400 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-10px] group-hover:translate-x-0">
                                         View Workflow <ArrowRight className="ml-2 h-4 w-4" />
                                     </div>
                                 </CardFooter>
@@ -497,65 +503,76 @@ export default function StartHere() {
 
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             {/* Infographic / Steps Column */}
-                            <div className="lg:col-span-2 space-y-8">
-                                <div className="bg-[#002a40] border border-slate-700 rounded-xl p-8">
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className={`p-3 rounded-lg bg-slate-900 ${selectedWorkflow.color}`}>
+                            <div className="lg:col-span-2 space-y-8 animate-in slide-in-from-left-8 duration-500">
+                                <div className="bg-[#002a40]/40 backdrop-blur-2xl border border-slate-700/50 rounded-3xl p-10 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-emerald-500/10 to-transparent blur-3xl pointer-events-none" />
+
+                                    <div className="flex items-center gap-6 mb-12 relative z-10">
+                                        <div className={`p-5 rounded-2xl bg-slate-900/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-slate-700/50 ${selectedWorkflow.color}`}>
                                             {selectedWorkflow.icon}
                                         </div>
                                         <div>
-                                            <h2 className="text-3xl font-bold text-white">{selectedWorkflow.title}</h2>
-                                            <p className="text-emerald-400 font-medium mt-1">{selectedWorkflow.goal}</p>
+                                            <h2 className="text-4xl font-black text-white tracking-tight">{selectedWorkflow.title}</h2>
+                                            <p className="text-emerald-400 font-semibold mt-2 text-lg">{selectedWorkflow.goal}</p>
                                         </div>
                                     </div>
 
                                     {/* Infographic Visualization */}
-                                    <div className="relative py-8">
+                                    <div className="relative py-4 pl-4 z-10">
                                         {/* Connector Line */}
-                                        <div className="absolute left-[27px] top-10 bottom-10 w-0.5 bg-slate-700 z-0" />
+                                        <div className="absolute left-[39px] top-6 bottom-6 w-1 bg-gradient-to-b from-emerald-500/50 via-cyan-500/30 to-slate-700/50 rounded-full z-0" />
 
-                                        <div className="space-y-12 relative z-10">
+                                        <div className="space-y-10 relative z-10">
                                             <TooltipProvider>
                                                 {selectedWorkflow.infographicSteps.map((step, index) => (
                                                     <Tooltip key={index} delayDuration={200}>
                                                         <TooltipTrigger asChild>
                                                             <div
-                                                                className="flex gap-6 group cursor-help outline-none"
+                                                                className="flex gap-8 group cursor-help outline-none"
                                                                 tabIndex={0}
                                                             >
                                                                 {/* Step Number Bubble */}
-                                                                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-[#001e2b] border-2 border-emerald-500/30 group-hover:border-emerald-500 flex items-center justify-center text-lg font-bold text-slate-300 group-hover:text-white transition-colors shadow-xl">
+                                                                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#001e2b] border-2 border-slate-700 group-hover:border-emerald-500 flex items-center justify-center text-xl font-black text-slate-400 group-hover:text-white transition-all duration-300 shadow-xl group-hover:shadow-emerald-500/20 group-hover:scale-110">
                                                                     {index + 1}
                                                                 </div>
 
                                                                 {/* Content */}
-                                                                <div className="flex-1 bg-slate-900/50 p-6 rounded-xl border border-slate-700/50 group-hover:border-emerald-500/30 transition-all hover:translate-x-1">
-                                                                    <h3 className="text-xl font-semibold text-white mb-2">{step.title}</h3>
-                                                                    <p className="text-slate-400 mb-4">{step.description}</p>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="bg-transparent text-slate-200 border-slate-600 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/50"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleNavigate(step.link);
-                                                                        }}
-                                                                    >
-                                                                        Go to {step.title}
-                                                                    </Button>
+                                                                <div className="flex-1 bg-[#001e2b]/60 backdrop-blur-md p-7 rounded-2xl border border-slate-700/50 group-hover:border-emerald-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 group-hover:-translate-y-1">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <h3 className="text-2xl font-bold text-white tracking-tight group-hover:text-emerald-400 transition-colors">{step.title}</h3>
+                                                                    </div>
+                                                                    <p className="text-slate-400 mb-6 leading-relaxed font-medium">{step.description}</p>
+                                                                    <div className="flex items-center">
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="bg-[#002a40]/50 text-slate-300 border-slate-600 hover:bg-emerald-500 hover:text-white hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-500/20 transition-all font-semibold"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleNavigate(step.link);
+                                                                            }}
+                                                                        >
+                                                                            Go to {step.title} &rarr;
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </TooltipTrigger>
                                                         {step.details && (
                                                             <TooltipContent
-                                                                side="top"
-                                                                align="start"
-                                                                className="max-w-md bg-slate-900 border-slate-600 text-slate-200 p-5 shadow-2xl z-[100]"
-                                                                sideOffset={10}
+                                                                side="right"
+                                                                align="center"
+                                                                className="max-w-md bg-[#001e2b] border border-slate-700 shadow-2xl z-[100] rounded-2xl overflow-hidden p-0"
+                                                                sideOffset={20}
                                                             >
-                                                                <div className="space-y-2">
-                                                                    <p className="font-semibold text-emerald-400 text-base">{step.title}</p>
-                                                                    <p className="leading-relaxed text-sm">{step.details}</p>
+                                                                <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex items-center gap-3">
+                                                                    <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                                                        <Info className="h-4 w-4" />
+                                                                    </div>
+                                                                    <p className="font-bold text-emerald-400 text-lg tracking-tight">{step.title}</p>
+                                                                </div>
+                                                                <div className="p-5">
+                                                                    <p className="leading-relaxed text-sm text-slate-300 font-medium">{step.details}</p>
                                                                 </div>
                                                             </TooltipContent>
                                                         )}
@@ -568,34 +585,44 @@ export default function StartHere() {
                             </div>
 
                             {/* Sidebar / Summary */}
-                            <div className="space-y-6">
-                                <Card className="bg-[#002a40] border-slate-700 sticky top-8">
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Workflow Summary</CardTitle>
+                            <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+                                <Card className="bg-[#002a40]/40 backdrop-blur-2xl border border-slate-700/50 sticky top-8 rounded-3xl shadow-2xl overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+                                    <CardHeader className="pb-4 relative z-10">
+                                        <CardTitle className="text-2xl font-bold text-white tracking-tight">Workflow Summary</CardTitle>
                                     </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <p className="text-slate-400 text-sm leading-relaxed">
+                                    <CardContent className="space-y-6 relative z-10">
+                                        <p className="text-slate-300 text-base leading-relaxed font-medium">
                                             {selectedWorkflow.description}
                                         </p>
-                                        <div className="pt-4 border-t border-slate-700">
-                                            <h4 className="text-sm font-semibold text-white mb-2 flex items-center">
-                                                <BookOpen className="h-4 w-4 mr-2 text-blue-400" />
-                                                What you'll need:
+                                        <div className="pt-6 border-t border-slate-700/50">
+                                            <h4 className="text-sm font-bold text-white mb-4 flex items-center uppercase tracking-wider">
+                                                <BookOpen className="h-4 w-4 mr-2 text-cyan-400" />
+                                                What you'll need
                                             </h4>
-                                            <ul className="text-sm text-slate-400 space-y-2 list-disc list-inside">
-                                                <li>Access to company policies</li>
-                                                <li>Understanding of internal processes</li>
-                                                <li>Stakeholder contact information</li>
+                                            <ul className="text-sm text-slate-400 space-y-3 font-medium">
+                                                <li className="flex items-start">
+                                                    <CheckCircle2 className="h-4 w-4 mr-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                                    Access to company policies
+                                                </li>
+                                                <li className="flex items-start">
+                                                    <CheckCircle2 className="h-4 w-4 mr-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                                    Understanding of internal processes
+                                                </li>
+                                                <li className="flex items-start">
+                                                    <CheckCircle2 className="h-4 w-4 mr-3 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                                    Stakeholder contact information
+                                                </li>
                                             </ul>
                                         </div>
                                     </CardContent>
-                                    <CardFooter>
+                                    <CardFooter className="pt-6 pb-8 px-6 border-t border-slate-700/50 relative z-10 bg-slate-900/30">
                                         <Button
-                                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                                            className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-xl shadow-emerald-500/20 rounded-xl h-14 text-lg font-bold transition-all hover:scale-[1.02] border-0"
                                             size="lg"
                                             onClick={() => handleNavigate(selectedWorkflow.primaryActionLink)}
                                         >
-                                            Start Workflow <PlayCircle className="ml-2 h-4 w-4" />
+                                            Start Workflow <PlayCircle className="ml-2 h-5 w-5" />
                                         </Button>
                                     </CardFooter>
                                 </Card>

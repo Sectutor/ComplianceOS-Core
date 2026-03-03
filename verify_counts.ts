@@ -13,10 +13,10 @@ async function main() {
     });
 
     if (iso) {
-        const count = await db.select({ count: sql<number>\`count(*)\` })
+        const count = await db.select({ count: sql<number>`count(*)` })
             .from(schema.frameworkRequirements)
             .where(eq(schema.frameworkRequirements.frameworkId, iso.id));
-        console.log(\`ISO 27001 Requirements: \${count[0].count}\`);
+        console.log(`ISO 27001 Requirements: ${count[0].count}`);
     }
 
     const soc2 = await db.query.complianceFrameworks.findFirst({
@@ -24,10 +24,10 @@ async function main() {
     });
     
     if (soc2) {
-        const count = await db.select({ count: sql<number>\`count(*)\` })
+        const count = await db.select({ count: sql<number>`count(*)` })
             .from(schema.frameworkRequirements)
             .where(eq(schema.frameworkRequirements.frameworkId, soc2.id));
-        console.log(\`SOC 2 Requirements: \${count[0].count}\`);
+        console.log(`SOC 2 Requirements: ${count[0].count}`);
     }
 
     process.exit(0);

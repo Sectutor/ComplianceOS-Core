@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@complianceos/ui/ui/button";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Loader2, ArrowLeft, Download, Sparkles, Mail, FileText, History, CheckCircle } from "lucide-react"; // Kept Sparkles for button icon
-
+import { PageGuide } from "@/components/PageGuide";
 import { toast } from "sonner";
 import { Progress } from "@complianceos/ui/ui/progress";
 import { Card, CardContent } from "@complianceos/ui/ui/card";
@@ -92,7 +92,7 @@ export default function GapAnalysisEditor() {
     // 2. Get unique domains and sort them (Specific to the filtered framework)
     const domains = Array.from(new Set(controlsByFramework.map(c => c.category).filter(Boolean))).sort();
 
-    // 3. Apply UI Filters (Domain & Search)
+    // 3. Apply UI Filters (Domain & Search) then sort by priority score (highest first)
     const filteredControls = controlsByFramework.filter(c => {
         // Domain Filter
         if (filterDomain !== "All" && c.category !== filterDomain) return false;
@@ -105,6 +105,11 @@ export default function GapAnalysisEditor() {
                 c.description?.toLowerCase().includes(search);
         }
         return true;
+    }).sort((a, b) => {
+        // Sort by priority score descending (scored gaps first, then unscored)
+        const scoreA = getResponse(a.controlId)?.priorityScore ?? -1;
+        const scoreB = getResponse(b.controlId)?.priorityScore ?? -1;
+        return (scoreB as number) - (scoreA as number);
     }) || [];
 
     // Reset filter if the selected domain is no longer valid for the current set
@@ -155,9 +160,8 @@ export default function GapAnalysisEditor() {
     const handlePrioritize = async () => {
         try {
             setPrioritizing(true);
-            await calculatePrioritiesMutation.mutateAsync({ assessmentId });
-            toast.success("Gaps prioritized! Refresh to see scores.");
-            // Refetch data
+            const result = await calculatePrioritiesMutation.mutateAsync({ assessmentId });
+            toast.success(`${(result as any)?.scored ?? 0} gaps prioritized by risk. Reloading...`);
             window.location.reload();
         } catch (error) {
             console.error(error);
@@ -261,17 +265,60 @@ export default function GapAnalysisEditor() {
                         <ArrowLeft className="w-4 h-4 mr-2" /> Back to Gap Assessments
                     </Button>
 
+                    <PageGuide
+                        title="Gap Analysis Workshop"
+                        description="Identify security gaps and prioritize remediation based on risk."
+                        rationale="A compliance gap is not just a 'No' answer—it's a risk to the business. This editor helps you bridge the gap between technical status and executive reporting."
+                        howToUse={[
+                            {
+                                step: "Risk Visualization",
+                                description: "The Radar Chart shows your domain coverage. Low scores represent your biggest compliance gaps.",
+                                targetId: "gap-radar-chart"
+                            },
+                            {
+                                step: "AI Prioritization",
+                                description: "Use AI to automatically score gaps based on their impact to your specific industry.",
+                                targetId: "gap-ai-prioritize"
+                            },
+                            {
+                                step: "Collaborative Fact-Finding",
+                                description: "Select specific controls and use 'Email Questions' to ask internal owners for evidence.",
+                                targetId: "gap-email-questions"
+                            },
+                            {
+                                step: "Executive Reporting",
+                                description: "Once complete, export the report for your management review or external auditors.",
+                                targetId: "gap-export-btn"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Pre-Audit Health Check",
+                                example: "You have an ISO 27001 Stage 1 audit in two weeks and want to know where you're most vulnerable.",
+                                auditTip: "Run the 'AI Prioritize' first. It will flag controls that are 'High Priority' for ISO auditors. Focus your remediation efforts on the controls with scores above 15."
+                            },
+                            {
+                                title: "Stakeholder Evidence Gathering",
+                                example: "You're unsure about the status of 'Physical Security' but the Office Manager is the one with the information.",
+                                auditTip: "Select the physical security controls and click 'Email Questions'. This formalizes the request and creates a 'History' trail which itself is evidence of a functioning compliance program."
+                            }
+                        ]}
+                    />
+
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                         {/* 1. Radar Chart showing gaps by domain */}
-                        <GapRadarChart
-                            controls={filteredControls}
-                            responses={responses}
-                            framework={assessment.framework || ''}
-                        />
+                        <div id="gap-radar-chart" className="lg:col-span-12 xl:col-span-5">
+                            <GapRadarChart
+                                controls={filteredControls}
+                                responses={responses}
+                                framework={assessment.framework || ''}
+                            />
+                        </div>
 
                         {/* 2. Export Button Card */}
-                        <Card className="lg:col-span-2 border-slate-200 shadow-sm bg-gradient-to-b from-teal-50/50 to-white flex flex-col p-4">
+                        <Card className="lg:col-span-6 xl:col-span-2 border-slate-200 shadow-sm bg-gradient-to-b from-teal-50/50 to-white flex flex-col p-4">
                             <Button
+                                id="gap-export-btn"
                                 variant="outline"
                                 onClick={handleExport}
                                 disabled={downloading}
@@ -289,10 +336,11 @@ export default function GapAnalysisEditor() {
                         </Card>
 
                         {/* 3. Report Configuration & Action Center */}
-                        <Card className="lg:col-span-5 border-slate-200 shadow-sm p-6 flex flex-col justify-between bg-slate-50/20">
+                        <Card className="lg:col-span-12 xl:col-span-5 border-slate-200 shadow-sm p-6 flex flex-col justify-between bg-slate-50/20">
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between gap-4">
                                     <Button
+                                        id="gap-report-config"
                                         variant="outline"
                                         onClick={() => setReportSettingsOpen(true)}
                                         className="flex-1 h-12 bg-white border-slate-200 shadow-sm hover:shadow-md transition-all font-bold text-slate-700 gap-2"
@@ -302,6 +350,7 @@ export default function GapAnalysisEditor() {
                                     </Button>
 
                                     <Button
+                                        id="gap-email-questions"
                                         variant="outline"
                                         onClick={() => setEmailDialogOpen(true)}
                                         disabled={selectedControlIds.length === 0}
@@ -328,6 +377,7 @@ export default function GapAnalysisEditor() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <Button
+                                        id="gap-ai-prioritize"
                                         onClick={handlePrioritize}
                                         disabled={prioritizing}
                                         className="h-12 bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-none font-bold shadow-lg shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -338,6 +388,7 @@ export default function GapAnalysisEditor() {
 
                                     {assessment.status !== 'completed' && (
                                         <Button
+                                            id="gap-complete-btn"
                                             onClick={handleComplete}
                                             disabled={progress < 100}
                                             className="h-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-none font-bold shadow-lg shadow-emerald-100 hover:scale-[1.02] active:scale-[0.98] transition-all"

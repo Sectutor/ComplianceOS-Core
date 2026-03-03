@@ -40,6 +40,7 @@ import {
 } from "@complianceos/ui/ui/table";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { authedFetch } from "@/lib/authedFetch";
 import { useParams } from "wouter";
 
 export default function EvidenceIntakeBox() {
@@ -172,7 +173,7 @@ export default function EvidenceIntakeBox() {
                 const base64 = (event.target?.result as string).split(',')[1];
 
                 // 1. Physical Upload
-                const uploadRes = await fetch('/api/upload', {
+                const uploadRes = await authedFetch('/api/upload', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

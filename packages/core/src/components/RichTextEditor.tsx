@@ -264,6 +264,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  id="rte-ai-rewrite"
                   variant="outline"
                   size="sm"
                   onMouseDown={(e) => e.preventDefault()}
@@ -283,6 +284,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  id="rte-ai-fix"
                   variant="outline"
                   size="sm"
                   onMouseDown={(e) => e.preventDefault()}

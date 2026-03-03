@@ -41,12 +41,7 @@ export function TPRMLayout({ clientId, children }: TPRMLayoutProps) {
             icon: Search,
             badge: stats?.needsReview || 0
         },
-        {
-            label: "Security reviews",
-            href: `/clients/${clientId}/vendors/reviews`,
-            icon: ShieldAlert,
-            badge: stats?.inProgress || 0
-        },
+
         {
             label: "All vendors",
             href: `/clients/${clientId}/vendors/all`,
@@ -76,6 +71,12 @@ export function TPRMLayout({ clientId, children }: TPRMLayoutProps) {
             href: `/clients/${clientId}/vendors/catalog`,
             icon: Globe,
             badge: null
+        },
+        {
+            label: "Assessment Projects",
+            href: `/clients/${clientId}/vendors/reviews`,
+            icon: ShieldAlert,
+            badge: stats?.inProgress || 0
         }
     ];
 

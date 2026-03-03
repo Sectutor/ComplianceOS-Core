@@ -31,11 +31,11 @@ import { useClientContext } from "@/contexts/ClientContext";
 
 export default function AdvisorWorkbench() {
     const [, setLocation] = useLocation();
-    const { selectedClientId, planTier } = useClientContext();
+    const { selectedClientId, isPremiumStatus } = useClientContext();
     const { data: allIntakeItems, isLoading } = trpc.intake.listAll.useQuery();
     const { data: clients, refetch: refetchClients } = trpc.clients.list.useQuery();
     const utils = trpc.useUtils();
-    const isPremium = planTier === 'pro' || planTier === 'enterprise';
+    const isPremium = isPremiumStatus;
     const updateMutation = trpc.clients.updateContactInfo.useMutation();
     const updateBrandingMutation = trpc.clients.update.useMutation({
         onSuccess: () => {

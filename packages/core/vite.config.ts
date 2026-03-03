@@ -45,6 +45,39 @@ export default defineConfig({
                 target: 'http://127.0.0.1:3002',
                 changeOrigin: true,
                 secure: false,
+                timeout: parseInt(process.env.VITE_PROXY_TIMEOUT || '60000'),
+                proxyTimeout: parseInt(process.env.VITE_PROXY_TIMEOUT || '60000'),
+                // Add error handling for proxy errors
+                configure: (proxy, _options) => {
+                    const DEBUG_PROXY = process.env.DEBUG_PROXY === 'true';
+                    
+                    proxy.on('error', (err, req, res: any) => {
+                        console.error('[Vite Proxy Error]', err.message, req.url);
+                        if (res && !res.headersSent) {
+                            res.writeHead(502, { 'Content-Type': 'application/json' });
+                            const trpcErrorPayload = {
+                                error: {
+                                    message: 'Proxy Error: ' + err.message,
+                                    code: -32603,
+                                    data: { code: 'INTERNAL_SERVER_ERROR', httpStatus: 502 }
+                                }
+                            };
+                            res.end(JSON.stringify([trpcErrorPayload]));
+                        }
+                    });
+                    proxy.on('proxyReq', (proxyReq, req, _res) => {
+                        if (DEBUG_PROXY) console.log('[Vite Proxy Request]', req.method, req.url, '->', proxyReq.path);
+                    });
+                    proxy.on('proxyRes', (proxyRes, req, _res) => {
+                        if (DEBUG_PROXY) console.log('[Vite Proxy Response]', proxyRes.statusCode, req.url);
+                    });
+                },
+                bypass: (req) => {
+                    // Do not proxy OAuth callback routes - handle them in the frontend
+                    if (req.url?.includes('/api/oauth/')) {
+                        return req.url;
+                    }
+                }
             },
             '/uploads': {
                 target: 'http://127.0.0.1:3002',

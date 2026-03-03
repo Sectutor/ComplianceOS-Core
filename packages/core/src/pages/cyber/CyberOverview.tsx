@@ -78,9 +78,33 @@ export default function CyberOverview() {
                     description="Step-by-step guidance on achieving compliance with the EU NIS2 Directive."
                     rationale="The NIS2 Directive (EU 2022/2555) requires a high common level of cybersecurity across the Union."
                     howToUse={[
-                        { step: "Classify", description: "Determine if you are an Essential or Important entity." },
-                        { step: "Assess", description: "Audit your current technical and organizational measures." },
-                        { step: "Implement", description: "Close gaps discovered during the assessment phase." }
+                        {
+                            step: "Classify Status",
+                            description: "Determine if you are an Essential or Important entity based on sector and size.",
+                            targetId: "nis2-assessment-card"
+                        },
+                        {
+                            step: "Implementation",
+                            description: "Follow the 4-step implementation journey to close security gaps.",
+                            targetId: "nis2-journey-button"
+                        },
+                        {
+                            step: "Reporting Rules",
+                            description: "Configure incident management for the mandatory 24-hour reporting window.",
+                            targetId: "nis2-incident-card"
+                        }
+                    ]}
+                    scenarios={[
+                        {
+                            title: "Pre-Deadline Compliance Internal Audit",
+                            example: "The board wants to know if the organization is ready for the October 2024 NIS2 deadline.",
+                            auditTip: "Use the 'Documentation' module to ensure all 10 minimum security measures required by Art. 21 are mapped to internal policies."
+                        },
+                        {
+                            title: "24-Hour Notification Drill",
+                            example: "The security team wants to test the incident notification workflow without notifying the actual CSIRT.",
+                            auditTip: "Run a 'Mock Incident' in the Incident Management module. Document the timestamp of discovery vs simulated notification to prove compliance with Art. 23."
+                        }
                     ]}
                 />
             </div>
@@ -143,7 +167,7 @@ export default function CyberOverview() {
             <div className="grid md:grid-cols-3 gap-8">
                 {sections.map((section, idx) => (
                     <Card key={idx} className="group overflow-hidden border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] bg-white ring-1 ring-slate-200/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-sky-900/5">
-                        <CardContent className="p-0">
+                        <CardContent className="p-0" id={idx === 0 ? "nis2-assessment-card" : idx === 1 ? "nis2-incident-card" : "nis2-documentation-card"}>
                             <div className={`h-2 bg-gradient-to-r ${section.color}`} />
                             <div className="p-10">
                                 <div className="flex justify-between items-start mb-8">
@@ -196,6 +220,7 @@ export default function CyberOverview() {
                                 </p>
                             </div>
                             <Button
+                                id="nis2-journey-button"
                                 onClick={() => setLocation(`/clients/${clientId}/cyber/assessment`)}
                                 className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold h-14 px-10 rounded-2xl shadow-lg shadow-sky-200 transition-all active:scale-95"
                             >

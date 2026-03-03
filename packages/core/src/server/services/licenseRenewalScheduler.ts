@@ -279,13 +279,19 @@ export function start() {
   stop();
 
   // Run renewal checks daily at 9 AM
-  renewalCheckInterval = setInterval(runRenewalCheckOnce, 24 * 60 * 60 * 1000);
+  renewalCheckInterval = setInterval(() => {
+    runRenewalCheckOnce().catch(err => console.error('[LicenseRenewal] Background check failed:', err));
+  }, 24 * 60 * 60 * 1000);
 
   // Run expired license checks hourly
-  expiredLicenseCheckInterval = setInterval(checkExpiredLicenses, 60 * 60 * 1000);
+  expiredLicenseCheckInterval = setInterval(() => {
+    checkExpiredLicenses().catch(err => console.error('[LicenseRenewal] Background expired check failed:', err));
+  }, 60 * 60 * 1000);
 
   // Run initial check immediately
-  setTimeout(runRenewalCheckOnce, 5000);
+  setTimeout(() => {
+    runRenewalCheckOnce().catch(err => console.error('[LicenseRenewal] Initial background check failed:', err));
+  }, 5000);
 
   console.log("[LicenseRenewal] Scheduler started");
 }

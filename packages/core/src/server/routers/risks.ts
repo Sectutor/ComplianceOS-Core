@@ -27,26 +27,87 @@ export const createRisksRouter = (t: any, procedure: any, premiumClientProcedure
             .query(async ({ input }: any) => {
                 const db = await getDb();
 
-                // Fetch assets with risk counts
-                // Fetch assets with risk counts using JSONB link to riskAssessments
+                // Fetch basic assets
                 const rawAssets = await db
-                    .select({
-                        ...schema.assets,
-                        riskCount: sql<number>`count(DISTINCT ${schema.riskAssessments.id})`.mapWith(Number),
-                        suggestionCount: sql<number>`count(DISTINCT ${schema.assetCveMatches.id}) FILTER (WHERE ${schema.assetCveMatches.status} = 'suggested')`.mapWith(Number),
-                        vulnerabilityCount: sql<number>`count(DISTINCT ${schema.vulnerabilities.id})`.mapWith(Number)
-                    })
+                    .select()
                     .from(schema.assets)
-                    .leftJoin(schema.riskAssessments, sql`${schema.riskAssessments.contextSnapshot}->>'assetId' = ${schema.assets.id}::text`)
-                    .leftJoin(schema.assetCveMatches, eq(schema.assetCveMatches.assetId, schema.assets.id))
-                    // Vulnerabilities join is tricky because it's a JSON array. 
-                    // For now, we'll join on the JSON array if possible or use a subquery if needed.
-                    // Actually, let's keep it simple for now and do the complex joins separately if performance is an issue.
-                    .leftJoin(schema.vulnerabilities, sql`${schema.vulnerabilities.affectedAssets}::jsonb @> (('["' || ${schema.assets.id} || '"]')::jsonb)`)
-                    .where(eq(schema.assets.clientId, input.clientId))
-                    .groupBy(schema.assets.id);
+                    .where(eq(schema.assets.clientId, input.clientId));
 
-                return rawAssets;
+                // Fetch risk counts separately using a subquery approach
+                const assetIds = rawAssets.map((a: typeof schema.assets.$inferSelect) => a.id);
+
+                let riskCountMap: Record<number, number> = {};
+                let vulnCountMap: Record<number, number> = {};
+                let suggestionCountMap: Record<number, number> = {};
+
+                if (assetIds.length > 0) {
+                    // Get risk counts - count assessments where asset ID is in affectedAssets
+                    const riskAssessmentsData = await db
+                        .select({
+                            id: schema.riskAssessments.id,
+                            affectedAssets: schema.riskAssessments.affectedAssets
+                        })
+                        .from(schema.riskAssessments)
+                        .where(eq(schema.riskAssessments.clientId, input.clientId));
+
+                    // Count risks per asset - convert assetId to string for consistent comparison
+                    const assetIdStrings = assetIds.map(id => String(id));
+                    for (const ra of riskAssessmentsData) {
+                        if (ra.affectedAssets && Array.isArray(ra.affectedAssets)) {
+                            for (const assetId of assetIds) {
+                                const assetIdStr = String(assetId);
+                                if (ra.affectedAssets.includes(assetIdStr) || ra.affectedAssets.includes(assetId)) {
+                                    riskCountMap[assetId] = (riskCountMap[assetId] || 0) + 1;
+                                }
+                            }
+                        }
+                    }
+
+                    // Get CVE matches counts
+                    const cveMatches = await db
+                        .select({
+                            assetId: schema.assetCveMatches.assetId,
+                            status: schema.assetCveMatches.status
+                        })
+                        .from(schema.assetCveMatches)
+                        .where(inArray(schema.assetCveMatches.assetId, assetIds));
+
+                    for (const match of cveMatches) {
+                        if (match.assetId) {
+                            if (match.status === 'suggested') {
+                                suggestionCountMap[match.assetId] = (suggestionCountMap[match.assetId] || 0) + 1;
+                            }
+                        }
+                    }
+
+                    // Get vulnerability counts - FIXED: Added clientId filter (was fetching ALL vulnerabilities)
+                    const vulns = await db
+                        .select({
+                            id: schema.vulnerabilities.id,
+                            affectedAssets: schema.vulnerabilities.affectedAssets
+                        })
+                        .from(schema.vulnerabilities)
+                        .where(eq(schema.vulnerabilities.clientId, input.clientId));
+
+                    for (const vuln of vulns) {
+                        if (vuln.affectedAssets && Array.isArray(vuln.affectedAssets)) {
+                            for (const assetId of assetIds) {
+                                const assetIdStr = String(assetId);
+                                if (vuln.affectedAssets.includes(assetIdStr) || vuln.affectedAssets.includes(assetId)) {
+                                    vulnCountMap[assetId] = (vulnCountMap[assetId] || 0) + 1;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Merge counts into assets
+                return rawAssets.map((asset: typeof schema.assets.$inferSelect) => ({
+                    ...asset,
+                    riskCount: riskCountMap[asset.id] || 0,
+                    vulnerabilityCount: vulnCountMap[asset.id] || 0,
+                    suggestionCount: suggestionCountMap[asset.id] || 0
+                }));
             }),
 
         createAsset: procedure
@@ -644,7 +705,7 @@ ${reportData.conclusion}
                         //     // ... indexing logic ...
                         // } catch (e) { console.error("Failed to index risk:", e); }
 
-                        return updated;
+                        return { id: updated.id, success: true };
                     } else {
                         data.assessmentId = `RA-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`;
                         const [created] = await tx.insert(riskAssessments)
@@ -659,7 +720,7 @@ ${reportData.conclusion}
                         //     // ... indexing logic ...
                         // } catch (e) { console.error("Failed to index new risk:", e); }
 
-                        return created;
+                        return { id: created.id, success: true };
                     }
                 });
             }),
@@ -1521,7 +1582,7 @@ Example format:
                     // 3. Recalculate Risk Score
                     await recalculateRiskScore(tx, input.riskAssessmentId);
 
-                    return treatment;
+                    return { id: treatment.id, success: true };
                 });
             }),
 

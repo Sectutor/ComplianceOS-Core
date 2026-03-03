@@ -155,13 +155,33 @@ export default function RiskOverview() {
                         description="Navigate the risk management lifecycle from identification to treatment."
                         rationale="This hub connects all components of your risk program. Use it to understand how Assets, Threats, and Controls interact to form a comprehensive risk posture."
                         howToUse={[
-                            { step: "Explore Modules", description: "Click on cards to access specific risk modules (e.g., Assets, Register)." },
-                            { step: "Follow the Lifecycle", description: "Use the 'Risk Management Lifecycle' diagram to understand the process flow." },
-                            { step: "Quick Actions", description: "Use the 'Start Here' guide if you are setting up a new program." }
+                            {
+                                step: "Register View",
+                                description: "Monitor the list of active risks and their current treatment status.",
+                                targetId: "risk-card-0"
+                            },
+                            {
+                                step: "Assessment Flow",
+                                description: "Combine assets and threats to calculate organizational risk scores.",
+                                targetId: "risk-card-4"
+                            },
+                            {
+                                step: "Lifecycle Map",
+                                description: "Track your progress through the 5-step ISO 27005 lifecycle.",
+                                targetId: "risk-lifecycle-map"
+                            }
                         ]}
-                        integrations={[
-                            { name: "ISO 27005", description: "The workflow is strictly aligned with ISO 27005 risk management standards." },
-                            { name: "Dashboard", description: "Data from all modules aggregates into the main Risk Dashboard." }
+                        scenarios={[
+                            {
+                                title: "Quarterly Risk Committee Review",
+                                example: "You need to present the top 5 changes in the risk landscape to the executive committee.",
+                                auditTip: "Focus on 'Residual Risk'. Auditors look for evidence that risks are being actively reduced by the controls you've implemented."
+                            },
+                            {
+                                title: "Assessing a New AI Project",
+                                example: "A new department wants to deploy a generative AI tool. You need to assess the privacy and security risk.",
+                                auditTip: "Start with the 'Assets' module to value the data being used. Then use 'Risk Assessments' to map AI-specific threats from the Adversary Intel feed."
+                            }
                         ]}
                     />
                 </div>
@@ -224,7 +244,7 @@ export default function RiskOverview() {
                 {/* Feature Grid */}
                 <div className="grid md:grid-cols-2 gap-8">
                     {sections.map((section, idx) => (
-                        <Card key={idx} className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.01]">
+                        <Card key={idx} id={`risk-card-${idx}`} className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.01]">
                             <CardContent className="p-0">
                                 <div className={`h-2 bg-gradient-to-r ${section.color}`} />
                                 <div className="p-8">
@@ -269,7 +289,7 @@ export default function RiskOverview() {
                 </div>
 
                 {/* Risk Management Workflow */}
-                <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-3xl p-12 border border-slate-200">
+                <div id="risk-lifecycle-map" className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-3xl p-12 border border-slate-200">
                     <div className="text-center space-y-4 mb-12">
                         <h2 className="text-3xl font-extrabold tracking-tight">The Risk Management Lifecycle</h2>
                         <p className="text-muted-foreground max-w-2xl mx-auto">

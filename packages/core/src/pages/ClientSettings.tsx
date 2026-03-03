@@ -43,7 +43,8 @@ import { Badge } from "@complianceos/ui/ui/badge";
 import { OnboardingSettingsTab } from "@/components/settings/OnboardingSettingsTab";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
 import { PersonalizationReference } from "@/components/settings/PersonalizationReference";
-import { ListTodo, ShoppingBag } from "lucide-react";
+import { ListTodo, ShoppingBag, History } from "lucide-react";
+import { BackupRestoreSettings } from "@/components/settings/BackupRestoreSettings";
 
 export default function ClientSettings() {
     const params = useParams();
@@ -57,7 +58,22 @@ export default function ClientSettings() {
     const [isDeletingClient, setIsDeletingClient] = useState(false);
     const [isImportingData, setIsImportingData] = useState(false);
 
+    const { data: dbUser } = trpc.users.me.useQuery();
     const { data: client, isLoading, refetch } = trpc.clients.get.useQuery({ id: clientId });
+
+    const userGlobalRole = dbUser?.role;
+    const userRoleInClient = client?.userRole;
+
+    const hasManagementAccess = 
+        userGlobalRole === 'admin' || 
+        userGlobalRole === 'owner' || 
+        userGlobalRole === 'super_admin' ||
+        userRoleInClient === 'admin' ||
+        userRoleInClient === 'owner';
+
+    const isPremiumOrg = client?.planTier === 'pro' || client?.planTier === 'enterprise';
+    const adminRoles = ['admin', 'owner', 'super_admin', 'super', 'enterprise_admin', 'ent_admin'];
+    const canAccessBackupRestore = isPremiumOrg || adminRoles.includes(userGlobalRole || '');
 
     const deleteClientMutation = trpc.clients.delete.useMutation({
         onSuccess: () => {
@@ -213,6 +229,15 @@ export default function ClientSettings() {
                             <Server className="mr-2 h-4 w-4" />
                             Integrations
                         </TabsTrigger>
+                        {canAccessBackupRestore && (
+                            <TabsTrigger
+                                value="backup-restore"
+                                className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
+                            >
+                                <History className="mr-2 h-4 w-4" />
+                                Backup / Restore
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger
                             value="frameworks"
                             className="data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9] transition-all font-bold border-none px-4 py-2.5 rounded-lg"
@@ -427,6 +452,13 @@ export default function ClientSettings() {
                             <TabsContent value="email-templates" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
                                 <EmailTemplatesTab clientId={clientId} />
                             </TabsContent>
+
+                            {/* Backup & Restore Tab */}
+                            {canAccessBackupRestore && (
+                                <TabsContent value="backup-restore" className="m-0 space-y-6 animate-in fade-in-50 duration-300">
+                                    <BackupRestoreSettings clientId={clientId} />
+                                </TabsContent>
+                            )}
 
                             {/* Frameworks Tab */}
                             <TabsContent value="frameworks" className="m-0 space-y-6 animate-in fade-in-50 duration-300">

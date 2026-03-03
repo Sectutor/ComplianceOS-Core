@@ -10,6 +10,8 @@ import { Link } from "wouter";
 
 import DashboardLayout from "@/components/DashboardLayout";
 import { RiskHeatMap } from "@/components/RiskHeatMap";
+import { PageGuide } from "@/components/PageGuide";
+import { Breadcrumb } from "@/components/Breadcrumb";
 
 export default function BusinessContinuityDashboard() {
     const params = useParams();
@@ -58,12 +60,50 @@ export default function BusinessContinuityDashboard() {
         <DashboardLayout>
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Business Continuity</h1>
-                        <p className="text-muted-foreground mt-2">
-                            Manage your organization's resilience, recovery strategies, and continuity plans.
-                        </p>
-                    </div>
+                    <Breadcrumb items={[{ label: "Business Continuity" }]} />
+                    <PageGuide
+                        title="Business Continuity (ISO 22301)"
+                        description="Strategize, assess, and build organizational resilience against disruptions."
+                        rationale="Business Continuity Management (BCM) ensures that your organization can respond to and recover from unforeseen events, minimizing impact on customers, employees, and stakeholders."
+                        howToUse={[
+                            {
+                                step: "Define Processes",
+                                description: "Start by registering all critical business functions and their dependencies.",
+                                targetId: "bcm-step-processes"
+                            },
+                            {
+                                step: "Assess BIA",
+                                description: "Analyze the business impact of disruptions and set Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO).",
+                                targetId: "bcm-step-assess"
+                            },
+                            {
+                                step: "Strategy & Plan",
+                                description: "Define mitigation strategies and compile them into a comprehensive Business Continuity Plan (BCP).",
+                                targetId: "bcm-step-plan"
+                            },
+                            {
+                                step: "Exercise & Validate",
+                                description: "Conduct regular drills and exercises to test your plan's effectiveness.",
+                                targetId: "bcm-exercises-card"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Total Site Outage",
+                                example: "Your primary office is inaccessible due to a fire. Use the 'Site Outage' scenario in your BCP to trigger the remote work recovery strategy.",
+                                auditTip: "Auditors check for 'Scenario Plausibility'. Ensure your scenarios cover the top 5 risks identified in your corporate risk register."
+                            },
+                            {
+                                title: "Critical Data Loss",
+                                example: "A database failure causes significant data loss. Check your 'IT Disaster Recovery' section for the RPO to ensure you can recover.",
+                                auditTip: "ISO 22301 requires that MTPD (Maximum Tolerable Period of Disruption) is strictly defined for each process to avoid catastrophic damage."
+                            }
+                        ]}
+                        integrations={[
+                            { name: "Risk Management", description: "BIA impacts feed directly into your operational risk scores." },
+                            { name: "Governance Reports", description: "BCP readiness scores contribute to your overall GRC health." }
+                        ]}
+                    />
                 </div>
 
                 {/* Program Overview Callout */}
@@ -80,7 +120,7 @@ export default function BusinessContinuityDashboard() {
                                 </p>
                             </div>
                         </div>
-                        <Link href={`/clients/${clientId}/business-continuity/overview`}>
+                        <Link href={`/clients/${clientId}/business-continuity/program-guide`}>
                             <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold whitespace-nowrap">
                                 View Program Guide <ArrowRight className="w-4 h-4 ml-2" />
                             </Button>
@@ -124,7 +164,8 @@ export default function BusinessContinuityDashboard() {
                                     icon: Database,
                                     color: "text-blue-400",
                                     bg: "bg-blue-900/50",
-                                    isComplete: (processes?.length || 0) > 0
+                                    isComplete: (processes?.length || 0) > 0,
+                                    targetId: "bcm-step-processes"
                                 },
                                 {
                                     step: "2. Assess",
@@ -134,7 +175,8 @@ export default function BusinessContinuityDashboard() {
                                     icon: Activity,
                                     color: "text-amber-400",
                                     bg: "bg-amber-900/50",
-                                    isComplete: (metrics?.totalBIAs || 0) > 0
+                                    isComplete: (metrics?.totalBIAs || 0) > 0,
+                                    targetId: "bcm-step-assess"
                                 },
                                 {
                                     step: "3. Plan",
@@ -154,7 +196,8 @@ export default function BusinessContinuityDashboard() {
                                     icon: Layers,
                                     color: "text-pink-400",
                                     bg: "bg-pink-900/50",
-                                    isComplete: (metrics?.totalPlans || 0) > 0
+                                    isComplete: (metrics?.totalPlans || 0) > 0,
+                                    targetId: "bcm-step-plan"
                                 },
                                 {
                                     step: "5. Finish",
@@ -168,7 +211,7 @@ export default function BusinessContinuityDashboard() {
                                 },
                             ].map((item, i) => (
                                 <Link key={i} href={item.link}>
-                                    <div className={`group relative flex flex-col items-center text-center p-4 rounded-xl transition-all cursor-pointer h-full border ${item.isComplete ? 'bg-white/5 border-emerald-500/30' : 'hover:bg-white/10 border-transparent hover:border-white/10'}`}>
+                                    <div id={item.targetId} className={`group relative flex flex-col items-center text-center p-4 rounded-xl transition-all cursor-pointer h-full border ${item.isComplete ? 'bg-white/5 border-emerald-500/30' : 'hover:bg-white/10 border-transparent hover:border-white/10'}`}>
                                         <div className={`w-12 h-12 rounded-full ${item.bg} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform relative`}>
                                             <item.icon className={`w-6 h-6 ${item.color}`} />
                                             {item.isComplete && (
@@ -214,7 +257,7 @@ export default function BusinessContinuityDashboard() {
                     </Card>
 
                     {/* Exercises Card - Enhanced with real data */}
-                    <Card className="card-enhanced border-l-4 border-l-purple-600 bg-purple-50/50 cursor-pointer hover:bg-purple-100/50 transition-colors" onClick={() => window.location.href = `/clients/${clientId}/business-continuity/exercises`}>
+                    <Card id="bcm-exercises-card" className="card-enhanced border-l-4 border-l-purple-600 bg-purple-50/50 cursor-pointer hover:bg-purple-100/50 transition-colors" onClick={() => window.location.href = `/clients/${clientId}/business-continuity/exercises`}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium text-purple-900">Plan Exercises</CardTitle>
                             <FlaskConical className="h-4 w-4 text-purple-600" />
@@ -288,7 +331,7 @@ export default function BusinessContinuityDashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card className="card-enhanced border-l-4 border-l-indigo-600 bg-indigo-50/50 cursor-pointer hover:bg-indigo-100/50 transition-colors group" onClick={() => window.location.href = `/clients/${clientId}/business-continuity/iso22301`}>
+                    <Card className="card-enhanced border-l-4 border-l-indigo-600 bg-indigo-50/50 cursor-pointer hover:bg-indigo-100/50 transition-colors group" onClick={() => window.location.href = `/clients/${clientId}/business-continuity/program-guide`}>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <div className="flex items-center gap-2">
                                 <CardTitle className="text-sm font-medium text-indigo-900">ISO 22301 Standards</CardTitle>

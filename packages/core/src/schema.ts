@@ -903,6 +903,10 @@ export const clients = pgTable("clients", {
   brandPrimaryColor: varchar("brand_primary_color", { length: 20 }),
   brandSecondaryColor: varchar("brand_secondary_color", { length: 20 }),
   portalTitle: varchar("portal_title", { length: 255 }),
+  sidebarBg: varchar("sidebar_bg", { length: 20 }),
+  sidebarFg: varchar("sidebar_fg", { length: 20 }),
+  headingFont: varchar("heading_font", { length: 100 }),
+  bodyFont: varchar("body_font", { length: 100 }),
 
   weeklyFocus: text("weekly_focus"), // Advisor-set goal for Model 2
 
@@ -2607,7 +2611,7 @@ export const integrationDefinitions = pgTable("integration_definitions", {
 
   id: serial("id").primaryKey(),
 
-  provider: varchar("provider", { length: 50 }).notNull().unique(), // 'jira', 'slack'
+  provider: varchar("provider", { length: 50 }).notNull(), // 'jira', 'slack'
 
   name: varchar("name", { length: 100 }).notNull(), // 'Jira Cloud', 'Slack'
 
@@ -2621,8 +2625,16 @@ export const integrationDefinitions = pgTable("integration_definitions", {
 
   isActive: boolean("is_active").default(true),
 
+  tenantId: integer("tenant_id"),
   updatedAt: timestamp("updated_at").defaultNow(),
 
+}, (table) => {
+  return {
+    providerTenantIdUnique: {
+      columns: [table.provider, table.tenantId],
+      name: "integration_definitions_provider_tenant_unique"
+    }
+  };
 });
 
 
@@ -2760,6 +2772,41 @@ export type NotificationSettings = typeof notificationSettings.$inferSelect;
 
 
 export type InsertNotificationSettings = typeof notificationSettings.$inferInsert;
+
+// Threat Intelligence Alert Settings
+export const threatAlertSettings = pgTable("threat_alert_settings", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  // Alert channels
+  emailEnabled: boolean("email_enabled").default(false),
+  webhookEnabled: boolean("webhook_enabled").default(false),
+  slackEnabled: boolean("slack_enabled").default(false),
+  // Configuration
+  webhookUrl: text("webhook_url"),
+  slackWebhookUrl: text("slack_webhook_url"),
+  slackChannel: text("slack_channel"),
+  emailRecipients: text("email_recipients"), // JSON array of emails
+  // Alert triggers
+  alertOnCritical: boolean("alert_on_critical").default(true),
+  alertOnHigh: boolean("alert_on_high").default(true),
+  alertOnMedium: boolean("alert_on_medium").default(false),
+  alertOnNewCve: boolean("alert_on_new_cve").default(true),
+  alertOnZeroDay: boolean("alert_on_zero_day").default(true),
+  alertOnRansomware: boolean("alert_on_ransomware").default(true),
+  alertOnApt: boolean("alert_on_apt").default(true),
+  // Severity threshold (CVSS score)
+  cvssThreshold: integer("cvss_threshold").default(7),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    clientIdIdx: index("idx_threat_alert_client").on(table.clientId),
+  };
+});
+
+export type ThreatAlertSettings = typeof threatAlertSettings.$inferSelect;
+export type InsertThreatAlertSettings = typeof threatAlertSettings.$inferInsert;
 
 
 
@@ -6806,7 +6853,23 @@ export type Threat = typeof threats.$inferSelect;
 
 export type InsertThreat = typeof threats.$inferInsert;
 
-
+// Threat-Asset Mappings - Links threats to affected assets with metadata
+export const threatAssetMappings = pgTable("threat_asset_mappings", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  threatId: integer("threat_id").notNull().references(() => threats.id, { onDelete: "cascade" }),
+  assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
+  confidence: integer("confidence").default(100),
+  impactLevel: varchar("impact_level", { length: 20 }).default("medium"),
+  status: varchar("status", { length: 50 }).default("active"),
+  mappedBy: integer("mapped_by"),
+  mappingMethod: varchar("mapping_method", { length: 50 }).default("manual"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export type ThreatAssetMapping = typeof threatAssetMappings.$inferSelect;
+export type InsertThreatAssetMapping = typeof threatAssetMappings.$inferInsert;
 
 
 
@@ -7361,6 +7424,130 @@ export type CisaKevCache = typeof cisaKevCache.$inferSelect;
 export type InsertCisaKevCache = typeof cisaKevCache.$inferInsert;
 
 
+// IOC (Indicators of Compromise) Records Table
+// Stores IOCs extracted from threat feeds and manually added
+
+export const iocRecords = pgTable("ioc_records", {
+
+  id: serial("id").primaryKey(),
+
+  clientId: integer("client_id").references(() => clients.id),
+
+  indicator: varchar("indicator", { length: 1000 }).notNull(),
+
+  type: varchar("type", { length: 50 }).notNull(), // ip, domain, hash, url, email, mutex, filename
+
+  // Reputation and confidence
+  reputation: varchar("reputation", { length: 20 }), // malicious, suspicious, clean, unknown
+
+  confidence: integer("confidence"), // 0-100
+
+  // Source information
+  source: varchar("source", { length: 100 }), // feed name, manual, api
+
+  sourceRef: varchar("source_ref", { length: 500 }), // link to original source
+
+  // Enrichment data (from VirusTotal, AbuseIPDB, etc.)
+  enrichment: jsonb("enrichment"),
+
+  // Related CVEs
+  cveIds: jsonb("cve_ids").$type<string[]>(),
+
+  // MITRE ATT&CK associations
+  mitreTechniques: jsonb("mitre_techniques").$type<string[]>(),
+
+  mitreGroups: jsonb("mitre_groups").$type<string[]>(),
+
+  // Tags and categorization
+  tags: jsonb("tags").$type<string[]>(),
+
+  category: varchar("category", { length: 100 }), // ransomware, apt, c2, phishing, etc.
+
+  // Tracking
+  firstSeen: timestamp("first_seen"),
+
+  lastSeen: timestamp("last_seen"),
+
+  lastEnriched: timestamp("last_enriched"),
+
+  // Status
+  status: varchar("status", { length: 20 }).default("active"), // active, expired, false-positive, contained
+
+  // Manual override
+  isManual: boolean("is_manual").default(false),
+
+  notes: text("notes"),
+
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow(),
+
+  updatedAt: timestamp("updated_at").defaultNow(),
+
+  createdBy: integer("created_by").references(() => users.id),
+
+}, (table) => {
+
+  return {
+
+    iocIndicatorIdx: index("idx_ioc_indicator").on(table.indicator),
+
+    iocTypeIdx: index("idx_ioc_type").on(table.type),
+
+    iocReputationIdx: index("idx_ioc_reputation").on(table.reputation),
+
+    iocClientIdx: index("idx_ioc_client_id").on(table.clientId),
+
+    iocStatusIdx: index("idx_ioc_status").on(table.status),
+
+  };
+
+});
+
+export type IocRecord = typeof iocRecords.$inferSelect;
+
+export type InsertIocRecord = typeof iocRecords.$inferInsert;
+
+
+// IOC Enrichment History - tracks enrichment calls
+export const iocEnrichmentHistory = pgTable("ioc_enrichment_history", {
+
+  id: serial("id").primaryKey(),
+
+  iocId: integer("ioc_id").references(() => iocRecords.id),
+
+  provider: varchar("provider", { length: 50 }), // virustotal, abuseipdb, shodan
+
+  result: jsonb("result"),
+
+  enrichedAt: timestamp("enriched_at").defaultNow(),
+
+});
+
+export type IocEnrichmentHistory = typeof iocEnrichmentHistory.$inferSelect;
+export type InsertIocEnrichmentHistory = typeof iocEnrichmentHistory.$inferInsert;
+
+
+// IOC Export History - tracks exports for audit
+export const iocExportHistory = pgTable("ioc_export_history", {
+
+  id: serial("id").primaryKey(),
+
+  clientId: integer("client_id").references(() => clients.id),
+
+  format: varchar("format", { length: 20 }), // csv, json, stix, firewall
+
+  filters: jsonb("filters"),
+
+  iocCount: integer("ioc_count"),
+
+  exportedBy: integer("exported_by").references(() => users.id),
+
+  exportedAt: timestamp("exported_at").defaultNow(),
+
+});
+
+export type IocExportHistory = typeof iocExportHistory.$inferSelect;
+export type InsertIocExportHistory = typeof iocExportHistory.$inferInsert;
 
 
 
@@ -13006,13 +13193,30 @@ export const questionnaires = pgTable("questionnaires", {
 
   productName: text("product_name"),
 
-  status: varchar("status", { length: 50 }).default("open"), // open, in_progress, completed, archived
+  status: varchar("status", { length: 50 }).default("open"), // open, in_progress, completed, archived, vendor_pending, pending_review
 
   progress: integer("progress").default(0),
 
   dueDate: timestamp("due_date"),
 
   ownerId: integer("owner_id"), // FK to users
+
+  // Vendor assessment fields
+  vendorName: text("vendor_name"),
+  vendorEmail: text("vendor_email"),
+  vendorToken: text("vendor_token"),
+  vendorLinkExpiresAt: timestamp("vendor_link_expires_at"),
+
+  // Enhanced workflow fields
+  category: varchar("category", { length: 100 }),
+  priority: varchar("priority", { length: 20 }).default('medium'),
+  controlId: text("control_id"),
+  controlFramework: varchar("control_framework", { length: 50 }),
+  remediationDeadline: timestamp("remediation_deadline"),
+  answeredBy: integer("answered_by").references(() => users.id),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  version: integer("version").default(1),
 
   createdAt: timestamp("created_at").defaultNow(),
 
@@ -13025,6 +13229,9 @@ export const questionnaires = pgTable("questionnaires", {
     clientIdx: index("idx_qn_client").on(table.clientId),
 
     statusIdx: index("idx_qn_status").on(table.status),
+
+    // Unique index for vendor token to prevent duplicates and enable efficient lookups
+    vendorTokenIdx: uniqueIndex("idx_qn_vendor_token").on(table.vendorToken),
 
   };
 
@@ -13054,15 +13261,27 @@ export const questionnaireQuestions = pgTable("questionnaire_questions", {
 
   tags: json("tags").$type<string[]>().default([]), // Tags for categorization
 
+  // New fields for enhanced workflow
+  category: varchar("category", { length: 100 }), // e.g., "Access Control", "Data Security"
+  priority: varchar("priority", { length: 20 }).default('medium'), // high, medium, low
+  controlId: text("control_id"), // Maps to compliance control
+  controlFramework: varchar("control_framework", { length: 50 }), // ISO27001, NIST, etc.
+  remediationDeadline: timestamp("remediation_deadline"),
+
   access: varchar("access", { length: 50 }).default("internal"), // internal, external, confidential
 
   assigneeId: integer("assignee_id").references(() => users.id), // Assigned user
+  answeredBy: integer("answered_by").references(() => users.id), // Who answered
+  approvedBy: integer("approved_by").references(() => users.id), // Who approved
+  approvedAt: timestamp("approved_at"), // When approved
 
   confidence: integer("confidence"),
 
   sources: json("sources").$type<any[]>().default([]),
 
-  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, flagged
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, flagged, needs_review
+
+  version: integer("version").default(1), // For versioning
 
   createdAt: timestamp("created_at").defaultNow(),
 
@@ -14098,6 +14317,26 @@ export const frameworkKnowledgeMappings = pgTable("framework_knowledge_mappings"
 export type FrameworkKnowledgeMapping = typeof frameworkKnowledgeMappings.$inferSelect;
 export type InsertFrameworkKnowledgeMapping = typeof frameworkKnowledgeMappings.$inferInsert;
 
+export const programGuideAssignments = pgTable("program_guide_assignments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  guideType: varchar("guide_type", { length: 50 }).notNull(), // 'privacy', 'risk', 'vendor', 'governance', 'business-continuity'
+  stepId: varchar("step_id", { length: 50 }).notNull(), // 'bia', 'scenarios', etc.
+  userId: integer("user_id").notNull(), // Link to users table
+  targetDate: timestamp("target_date"),
+  assignedBy: integer("assigned_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    clientIdx: index("idx_pga_client").on(table.clientId),
+    uniqueStepIdx: uniqueIndex("idx_pga_unique_step").on(table.clientId, table.guideType, table.stepId),
+  }
+});
+
+export type ProgramGuideAssignment = typeof programGuideAssignments.$inferSelect;
+export type InsertProgramGuideAssignment = typeof programGuideAssignments.$inferInsert;
+
 // ==========================================
 // TRUST CENTER & NDA GATEKEEPING
 // ==========================================
@@ -14568,3 +14807,38 @@ export const nist80030ImpactAssessments = pgTable("nist_80030_impact_assessments
 
 export type Nist80030ImpactAssessment = typeof nist80030ImpactAssessments.$inferSelect;
 export type InsertNist80030ImpactAssessment = typeof nist80030ImpactAssessments.$inferInsert;
+
+// ============================================================================
+// Learning Content - Editable learning guides stored in database
+// ============================================================================
+
+export const learningFrameworks = pgTable("learning_frameworks", {
+  id: serial("id").primaryKey(),
+  frameworkId: varchar("framework_id", { length: 50 }).notNull().unique(), // e.g., "iso-27001", "soc-2"
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 50 }).default("bg-blue-600"), // Tailwind color class
+  icon: varchar("icon", { length: 100 }), // Lucide icon name
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const learningSections = pgTable("learning_sections", {
+  id: serial("id").primaryKey(),
+  frameworkId: integer("framework_id").notNull(),
+  sectionId: varchar("section_id", { length: 100 }).notNull(), // e.g., "intro", "cia-triad"
+  title: varchar("title", { length: 255 }).notNull(),
+  icon: varchar("icon", { length: 100 }), // Lucide icon name
+  content: text("content").notNull(), // HTML content
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+  return {
+    frameworkIdx: index("idx_learning_sections_framework").on(table.frameworkId),
+    uniqueSection: uniqueIndex("idx_learning_sections_unique").on(table.frameworkId, table.sectionId),
+  };
+});

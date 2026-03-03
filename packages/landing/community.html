@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community – ComplianceOS Open Source GRC</title>
+    <meta name="description"
+        content="ComplianceOS is the open-source GRC platform built by the security community, for the security community. Self-host, contribute, and shape the future of compliance automation.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Animated gradient background */
+        .hero-bg {
+            background: linear-gradient(135deg, #0a0f1e 0%, #0d1b3e 40%, #0a1628 70%, #050d1a 100%);
+        }
+
+        /* Subtle grid overlay */
+        .grid-overlay {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Glow effects */
+        .glow-blue {
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.15);
+        }
+
+        .glow-green {
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Terminal animation */
+        .cursor-blink::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0
+            }
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Card hover */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Stat counter */
+        .stat-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Code block */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid #30363d;
+        }
+
+        /* Button pulse */
+        .btn-github {
+            background: linear-gradient(135deg, #24292e, #1a1f24);
+            border: 1px solid #444;
+            transition: all 0.2s ease;
+        }
+
+        .btn-github:hover {
+            background: linear-gradient(135deg, #2d333b, #22272e);
+            border-color: #666;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+        }
+
+        /* Comparison table */
+        .compare-check {
+            color: #34d399;
+        }
+
+        .compare-cross {
+            color: #6b7280;
+        }
+
+        /* Floating badge */
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        .float-badge {
+            animation: float 4s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-[#0a0f1e] text-white">
+
+    <!-- Navbar -->
+    <nav class="bg-[#0a0f1e]/80 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <a href="/" class="flex items-center gap-3">
+                    <img src="assets/logo.png" alt="GRCompliance" class="h-10 w-auto" />
+                </a>
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="/"
+                        class="text-slate-400 hover:text-white transition-colors text-sm font-medium">Platform</a>
+                    <a href="/community.html"
+                        class="text-white text-sm font-semibold border-b-2 border-blue-400 pb-0.5">Community</a>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                        class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        GitHub
+                    </a>
+                    <a href="https://app.grcompliance.com/waitlist"
+                        class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-bold transition-all">
+                        Get Cloud Access
+                    </a>
+                </div>
+                <div class="md:hidden">
+                    <a href="https://app.grcompliance.com/waitlist"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Get Started</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== HERO ===== -->
+    <section class="hero-bg grid-overlay relative overflow-hidden">
+        <!-- Ambient glows -->
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none">
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28 sm:py-40 relative">
+            <div class="max-w-4xl mx-auto text-center">
+                <!-- Open source badge -->
+                <div
+                    class="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400 mb-8">
+                    <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Open Source · MIT License
+                </div>
+
+                <h1 class="text-5xl sm:text-6xl lg:text-7xl font-black leading-[1.05] mb-8 tracking-tight">
+                    Built in the open.<br>
+                    <span class="gradient-text">For everyone who protects.</span>
+                </h1>
+
+                <p class="text-xl text-slate-400 leading-relaxed mb-12 max-w-2xl mx-auto">
+                    ComplianceOS is a fully open-source GRC platform. Self-host it for free, inspect every line of code,
+                    and contribute to the security community that keeps organizations safe.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                        class="btn-github flex items-center gap-3 px-8 py-4 rounded-xl text-white font-bold text-lg">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        View on GitHub
+                    </a>
+                    <a href="#self-host"
+                        class="btn-primary flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                        Self-Host in 5 Minutes
+                    </a>
+                </div>
+
+                <!-- Terminal preview -->
+                <div class="mt-16 code-block rounded-2xl overflow-hidden text-left max-w-2xl mx-auto glow-blue">
+                    <div class="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
+                        <div class="w-3 h-3 rounded-full bg-red-500/70"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/70"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/70"></div>
+                        <span class="ml-3 text-xs text-slate-500 mono">bash</span>
+                    </div>
+                    <div class="p-6 space-y-2 mono text-sm">
+                        <p><span class="text-emerald-400">$</span> <span class="text-slate-300">git clone
+                                https://github.com/Sectutor/ComplianceOS-Core</span></p>
+                        <p><span class="text-emerald-400">$</span> <span class="text-slate-300">cd complianceos</span>
+                        </p>
+                        <p><span class="text-emerald-400">$</span> <span class="text-slate-300">cp .env.example
+                                .env</span></p>
+                        <p><span class="text-emerald-400">$</span> <span class="text-slate-300">docker compose up
+                                -d</span></p>
+                        <p class="mt-2"><span class="text-slate-500">#</span> <span class="text-emerald-300">✓ Running
+                                at http://localhost:5173</span> <span class="cursor-blink text-emerald-400"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== COMMUNITY STATS ===== -->
+    <section class="bg-[#0d1117] border-y border-white/5 py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="stat-card rounded-2xl p-6 text-center card-hover">
+                    <div class="text-4xl font-black gradient-text mb-2">30+</div>
+                    <div class="text-slate-400 text-sm font-medium">Frameworks Supported</div>
+                </div>
+                <div class="stat-card rounded-2xl p-6 text-center card-hover">
+                    <div class="text-4xl font-black gradient-text mb-2">MIT</div>
+                    <div class="text-slate-400 text-sm font-medium">License — 100% Free</div>
+                </div>
+                <div class="stat-card rounded-2xl p-6 text-center card-hover">
+                    <div class="text-4xl font-black gradient-text mb-2">1000+</div>
+                    <div class="text-slate-400 text-sm font-medium">Pre-built Controls</div>
+                </div>
+                <div class="stat-card rounded-2xl p-6 text-center card-hover">
+                    <div class="text-4xl font-black gradient-text mb-2">Open</div>
+                    <div class="text-slate-400 text-sm font-medium">Issues &amp; Discussions</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== WHY OPEN SOURCE GRC ===== -->
+    <section class="py-24 sm:py-32 bg-[#0a0f1e]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-20">
+                <div class="text-emerald-400 font-bold text-sm uppercase tracking-widest mb-4">Philosophy</div>
+                <h2 class="text-4xl sm:text-5xl font-black mb-6 leading-tight">Why open source GRC matters</h2>
+                <p class="text-slate-400 text-lg leading-relaxed">Security programs built on black boxes are compliance
+                    theater. Real trust requires transparency — in your controls, your tools, and your code.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div
+                    class="bg-gradient-to-b from-white/5 to-transparent border border-white/8 rounded-2xl p-8 card-hover">
+                    <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-6">
+                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Radical Transparency</h3>
+                    <p class="text-slate-400 leading-relaxed">Every algorithm, every control mapping, every audit log —
+                        fully inspectable. No hidden logic, no vendor lock-in. Your auditors can see exactly how
+                        decisions are made.</p>
+                </div>
+                <div
+                    class="bg-gradient-to-b from-white/5 to-transparent border border-white/8 rounded-2xl p-8 card-hover">
+                    <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center mb-6">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Data Sovereignty</h3>
+                    <p class="text-slate-400 leading-relaxed">Self-host on your own infrastructure. Your compliance data
+                        — risk registers, evidence, policies — never leaves your environment unless you choose it. True
+                        data sovereignty.</p>
+                </div>
+                <div
+                    class="bg-gradient-to-b from-white/5 to-transparent border border-white/8 rounded-2xl p-8 card-hover">
+                    <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-6">
+                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Community Intelligence</h3>
+                    <p class="text-slate-400 leading-relaxed">Control frameworks, threat libraries, and policy templates
+                        built and validated by hundreds of security practitioners — not just one vendor's opinion.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== WHAT'S IN THE REPO ===== -->
+    <section class="py-24 bg-[#0d1117] border-y border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <div class="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">The Platform</div>
+                <h2 class="text-4xl font-black mb-6">Everything is open. Everything.</h2>
+                <p class="text-slate-400 text-lg">Not just the frontend. The risk engine, the policy generator, the
+                    mapping logic — all of it.</p>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-orange-400 mb-4 text-2xl">⚙️</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-orange-300 transition-colors">Risk Engine</h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">Quantitative &amp; qualitative risk assessment,
+                        heatmaps, treatment workflows</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-blue-400 mb-4 text-2xl">📝</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">Policy Generator
+                    </h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">AI-assisted policy drafting with version control,
+                        approvals, and distribution</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-emerald-400 mb-4 text-2xl">🗺️</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-emerald-300 transition-colors">Framework
+                        Library</h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">ISO 27001, SOC 2, NIST CSF, CMMC, HIPAA, GDPR, and
+                        25+ more built in</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-purple-400 mb-4 text-2xl">🏢</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">Multi-Tenant
+                    </h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">Role-based access, workspace isolation, perfect
+                        for MSPs and consultants</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-pink-400 mb-4 text-2xl">📊</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-pink-300 transition-colors">Evidence
+                        Collection</h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">Structured evidence tasks, intake forms, audit
+                        trails for every artifact</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-yellow-400 mb-4 text-2xl">🤖</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-yellow-300 transition-colors">AI Copilot</h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">Bring your own LLM key. Gap analysis, policy
+                        refinement, control suggestions</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-teal-400 mb-4 text-2xl">🔗</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-teal-300 transition-colors">Vendor Management
+                    </h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">TPRM workflows, vendor risk scoring, contract
+                        repository, DPA templates</p>
+                </div>
+                <div class="stat-card rounded-xl p-6 card-hover group">
+                    <div class="text-indigo-400 mb-4 text-2xl">🔌</div>
+                    <h4 class="font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors">Plugin SDK</h4>
+                    <p class="text-slate-500 text-sm leading-relaxed">Extend with your own modules. Public plugin
+                        registry coming Q2 2026</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== HOW TO GET INVOLVED ===== -->
+    <section class="py-24 sm:py-32 bg-[#0a0f1e]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-20">
+                <div class="text-purple-400 font-bold text-sm uppercase tracking-widest mb-4">Get Involved</div>
+                <h2 class="text-4xl font-black mb-6">Three ways to contribute</h2>
+                <p class="text-slate-400 text-lg">Whether you write code or write policies — there's a place for you
+                    here.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Star -->
+                <div
+                    class="relative bg-gradient-to-b from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-2xl p-8 text-center card-hover">
+                    <div class="float-badge text-5xl mb-6">⭐</div>
+                    <h3 class="text-xl font-bold mb-3">Star the Repo</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">The simplest way to support the project.
+                        Stars help us reach more security professionals who need a free, open alternative.</p>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                        class="inline-flex items-center gap-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-300 font-bold px-5 py-2.5 rounded-lg text-sm transition-all">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        Star on GitHub
+                    </a>
+                </div>
+
+                <!-- Issues -->
+                <div
+                    class="relative bg-gradient-to-b from-red-500/10 to-transparent border border-red-500/20 rounded-2xl p-8 text-center card-hover">
+                    <div class="float-badge text-5xl mb-6" style="animation-delay:0.8s">🐛</div>
+                    <h3 class="text-xl font-bold mb-3">Report &amp; Discuss</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">Found a bug? Have an idea for a new framework
+                        or feature? Open an issue or join a discussion — every report makes the platform better for
+                        everyone.</p>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core/issues" target="_blank" rel="noopener"
+                        class="inline-flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 font-bold px-5 py-2.5 rounded-lg text-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Open an Issue
+                    </a>
+                </div>
+
+                <!-- PR -->
+                <div
+                    class="relative bg-gradient-to-b from-emerald-500/10 to-transparent border border-emerald-500/20 rounded-2xl p-8 text-center card-hover">
+                    <div class="float-badge text-5xl mb-6" style="animation-delay:1.6s">🔧</div>
+                    <h3 class="text-xl font-bold mb-3">Submit a PR</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed mb-6">Add a new compliance framework, improve the
+                        UI, or fix a bug. Pull requests are reviewed promptly and contributors get credit in the
+                        changelog.</p>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core/pulls" target="_blank" rel="noopener"
+                        class="inline-flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 font-bold px-5 py-2.5 rounded-lg text-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Submit a Pull Request
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== SELF-HOST ===== -->
+    <section id="self-host" class="py-24 bg-[#0d1117] border-y border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <div class="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Self-Hosting</div>
+                    <h2 class="text-4xl font-black mb-6 leading-tight">Your infra. Your data.<br>Your compliance.</h2>
+                    <p class="text-slate-400 text-lg leading-relaxed mb-8">Run ComplianceOS on any server — on-premise,
+                        your own cloud, or a VPS. Full Docker support with a single compose file. No phone-home, no
+                        telemetry, no license fees.</p>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                            PostgreSQL + Supabase Auth (or your own auth)
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                            Docker Compose — up and running in minutes
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                            Bring your own LLM (OpenAI, Anthropic, local Ollama)
+                        </li>
+                        <li class="flex items-center gap-3 text-slate-300">
+                            <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 13l4 4L19 7" />
+                            </svg>
+                            Full database schema exposed via Drizzle ORM
+                        </li>
+                    </ul>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core#readme" target="_blank" rel="noopener"
+                        class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all">
+                        Read the Docs →
+                    </a>
+                </div>
+                <div class="code-block rounded-2xl overflow-hidden glow-blue">
+                    <div class="flex items-center gap-2 px-4 py-3 bg-white/5 border-b border-white/5">
+                        <div class="w-3 h-3 rounded-full bg-red-500/70"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500/70"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500/70"></div>
+                        <span class="ml-3 text-xs text-slate-500 mono">docker-compose.yml (excerpt)</span>
+                    </div>
+                    <pre class="mono text-xs text-slate-300 p-6 overflow-x-auto leading-relaxed"><code><span class="text-slate-500">version:</span> <span class="text-emerald-300">'3.9'</span>
+<span class="text-slate-500">services:</span>
+  <span class="text-blue-300">app:</span>
+    <span class="text-slate-500">image:</span> complianceos/app:latest
+    <span class="text-slate-500">ports:</span> [<span class="text-emerald-300">"5173:5173"</span>]
+    <span class="text-slate-500">environment:</span>
+      DATABASE_URL: <span class="text-yellow-300">${DATABASE_URL}</span>
+      SUPABASE_URL: <span class="text-yellow-300">${SUPABASE_URL}</span>
+      OPENAI_API_KEY: <span class="text-yellow-300">${OPENAI_API_KEY}</span>
+  <span class="text-blue-300">server:</span>
+    <span class="text-slate-500">image:</span> complianceos/server:latest
+    <span class="text-slate-500">ports:</span> [<span class="text-emerald-300">"3002:3002"</span>]
+    <span class="text-slate-500">depends_on:</span> [<span class="text-blue-300">app</span>]</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== COMMUNITY vs CLOUD ===== -->
+    <section class="py-24 sm:py-32 bg-[#0a0f1e]">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <div class="text-slate-400 font-bold text-sm uppercase tracking-widest mb-4">Compare</div>
+                <h2 class="text-4xl font-black mb-4">Community vs. Cloud</h2>
+                <p class="text-slate-400 text-lg">Self-host for full control, or let us manage it for you.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Community -->
+                <div class="bg-gradient-to-b from-white/5 to-transparent border border-white/10 rounded-2xl p-8">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-xl">🔓
+                        </div>
+                        <div>
+                            <div class="font-black text-lg">Community</div>
+                            <div class="text-emerald-400 text-sm font-bold">Free Forever · MIT License</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-3 text-sm">
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Full source code access</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Self-host on any infrastructure</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">All core GRC modules</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">30+ compliance frameworks</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Bring your own LLM key</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Unlimited workspaces &amp; users</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-cross">—</span><span
+                                class="text-slate-500">Managed hosting &amp; backups</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-cross">—</span><span
+                                class="text-slate-500">SLA &amp; enterprise support</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-cross">—</span><span
+                                class="text-slate-500">Automatic updates</span></li>
+                    </ul>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                        class="mt-8 btn-github w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                        </svg>
+                        Clone & Self-Host
+                    </a>
+                </div>
+
+                <!-- Cloud -->
+                <div
+                    class="bg-gradient-to-b from-blue-500/10 to-transparent border border-blue-500/30 rounded-2xl p-8 relative">
+                    <div
+                        class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-black px-4 py-1 rounded-full uppercase tracking-widest">
+                        Managed</div>
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-xl">☁️
+                        </div>
+                        <div>
+                            <div class="font-black text-lg">GRCompliance Cloud</div>
+                            <div class="text-blue-400 text-sm font-bold">Hosted · Fully Managed</div>
+                        </div>
+                    </div>
+                    <ul class="space-y-3 text-sm">
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Everything in Community</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Managed hosting &amp; backups</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">99.9% uptime SLA</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Automatic updates &amp; patches</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Priority support &amp; onboarding</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Pre-configured AI &amp; integrations</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">SOC 2 compliant infrastructure</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">MSP white-labeling available</span></li>
+                        <li class="flex items-center gap-3"><span class="compare-check">✓</span><span
+                                class="text-slate-300">Enterprise SSO (SAML / OIDC)</span></li>
+                    </ul>
+                    <a href="https://app.grcompliance.com/waitlist"
+                        class="mt-8 btn-primary w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-white">
+                        Request Cloud Access →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== GITHUB CTA ===== -->
+    <section class="py-24 hero-bg grid-overlay relative overflow-hidden">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="w-[600px] h-[600px] bg-blue-500/8 rounded-full blur-3xl"></div>
+        </div>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
+            <!-- GitHub logo big -->
+            <div class="flex justify-center mb-8">
+                <div class="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center">
+                    <svg class="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                    </svg>
+                </div>
+            </div>
+            <h2 class="text-4xl sm:text-5xl font-black mb-6 leading-tight">
+                The GRC platform the<br>
+                <span class="gradient-text">security community deserves.</span>
+            </h2>
+            <p class="text-slate-400 text-xl mb-12 max-w-2xl mx-auto leading-relaxed">
+                Free, open, and built by practitioners. Star the repo, fork it, contribute — or just use it. No strings
+                attached.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                    class="btn-github flex items-center gap-3 px-10 py-4 rounded-xl text-white font-black text-lg">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+                    </svg>
+                    github.com/Sectutor/ComplianceOS-Core
+                </a>
+            </div>
+            <p class="text-slate-600 text-sm mt-6">MIT Licensed · No account required · Fork it today</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-[#050d1a] border-t border-white/5 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div>
+                    <span class="text-white font-bold text-lg">GRCompliance</span>
+                    <p class="text-slate-600 text-xs mt-1">Open source GRC for the security community</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
+                    <a href="/" class="text-slate-500 hover:text-white transition-colors">Home</a>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core" target="_blank" rel="noopener"
+                        class="text-slate-500 hover:text-white transition-colors">GitHub</a>
+                    <a href="https://github.com/Sectutor/ComplianceOS-Core/issues" target="_blank" rel="noopener"
+                        class="text-slate-500 hover:text-white transition-colors">Issues</a>
+                    <a href="privacy.html" class="text-slate-500 hover:text-white transition-colors">Privacy</a>
+                    <a href="terms.html" class="text-slate-500 hover:text-white transition-colors">Terms</a>
+                    <a href="https://app.grcompliance.com/login"
+                        class="text-slate-500 hover:text-white transition-colors">Login</a>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-white/5 text-center">
+                <p class="text-slate-600 text-xs">&copy; 2026 GRCompliance, Inc. · MIT Licensed Open Source</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

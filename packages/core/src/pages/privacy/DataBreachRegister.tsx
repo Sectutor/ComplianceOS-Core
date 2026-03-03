@@ -12,10 +12,12 @@ import { toast } from "sonner";
 import { Badge } from "@complianceos/ui/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@complianceos/ui/ui/table";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
 
 export default function DataBreachRegister() {
     const { selectedClientId } = useClientContext();
     const clientId = selectedClientId || 0;
+    const [location, setLocation] = useLocation();
     const [createOpen, setCreateOpen] = useState(false);
     const [formData, setFormData] = useState({
         title: "",
@@ -134,7 +136,10 @@ export default function DataBreachRegister() {
                                             variant="ghost"
                                             size="sm"
                                             className="text-[#3ABEF9] hover:text-[#1C4D8D] hover:bg-sky-50 font-bold rounded-lg transition-all"
-                                            onClick={() => toast.info("Incident management console coming soon")}
+                                            onClick={() => {
+                                                toast.info("Incident detail view coming soon - ID: " + b.id);
+                                                setLocation(`/clients/${clientId}/privacy/breaches`);
+                                            }}
                                         >
                                             Manage Review
                                         </Button>

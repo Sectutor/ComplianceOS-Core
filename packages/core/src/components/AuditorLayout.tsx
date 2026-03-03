@@ -18,18 +18,21 @@ interface AuditorLayoutProps {
 
 export default function AuditorLayout({ children }: AuditorLayoutProps) {
     const { user, signOut } = useAuth();
-    const { appName } = useBranding();
+    const { appName, logoUrl } = useBranding();
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Simplified Auditor Header */}
-            <header className="h-16 bg-[#001B2B] text-white flex items-center justify-between px-6 shrink-0 shadow-md">
+            <header 
+                className="h-16 flex items-center justify-between px-6 shrink-0 shadow-md"
+                style={{ backgroundColor: 'var(--sidebar)', color: 'var(--sidebar-foreground)' }}
+            >
                 <div className="flex items-center gap-3">
                     <div className="bg-white/10 p-2 rounded-lg">
-                        <BrandLogo className="text-white" showText={false} />
+                        <BrandLogo showText={false} />
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg tracking-tight">{appName}</h1>
+                        {!logoUrl && <h1 className="font-bold text-lg tracking-tight">{appName}</h1>}
                         <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Auditor Portal</div>
                     </div>
                 </div>

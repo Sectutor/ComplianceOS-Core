@@ -30,7 +30,7 @@ import {
   LayoutDashboard, LogOut, PanelLeft, Users, User, Shield, FileText, Calendar,
   Link, ClipboardCheck, FileBarChart, Bell, Settings, BookOpen, ChevronRight,
   ChevronDown, Scale, Lock, History, AlertTriangle, Activity, Database, Bug,
-  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag, GraduationCap, Video, Upload, X, Loader2, ShoppingBag, Cloud, GitBranch, Server, Key
+  ClipboardList, Megaphone, Building2, ListTodo, MessageSquare, Star, LayoutGrid, Inbox, Sparkles, Briefcase, Rocket, ShieldAlert, Globe, ShieldCheck, Zap, Target, Search, Code, Radar, Brain, Compass, Flag, GraduationCap, Video, Upload, X, Loader2, Cloud, GitBranch, Server, Key, Palette
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation, Redirect } from "wouter";
@@ -45,7 +45,7 @@ import { CopilotPanel } from "@complianceos/premium/components/advisor/CopilotPa
 
 import { CopilotHelpTrigger } from "@complianceos/premium/components/advisor/CopilotHelpTrigger";
 import { TourProvider } from "./TourProvider";
-import { useBranding, BrandLogo } from "@/config/branding";
+import { useBranding, BrandLogo, CURATED_FONTS, getContrastColor } from "@/config/branding";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,7 @@ import { Slider } from "@complianceos/ui/ui/slider";
 // Force rebuild
 import { toast } from "sonner";
 import { NotificationCenter } from "./notifications/NotificationCenter";
+import { resolveNavigationPath, clientSpecificMenuItems } from "@/lib/navigation";
 
 // ... (existing imports)
 
@@ -98,41 +99,7 @@ const adminMenuItem = {
   icon: Lock, label: "Admin Console", path: "/admin", submenu: adminMenuItems
 };
 
-const clientSpecificMenuItems = [
-  { icon: Shield, label: "Controls", path: "/client-controls" },
-  { icon: FileText, label: "Policies", path: "/client-policies" },
-  { icon: BookOpen, label: "Knowledge Base", path: "/knowledge-base" },
-  { icon: Sparkles, label: "AI Questionnaires", path: "/questionnaires", isPremium: true },
-  { icon: Link, label: "Mappings", path: "/mappings" },
 
-  { icon: ClipboardCheck, label: "Evidence", path: "/evidence" },
-  { icon: AlertTriangle, label: "Risk Management", path: "/risks" },
-  { icon: Code, label: "Threat Modeling", path: "/dev/projects", isPremium: true },
-  { icon: Activity, label: "Gap Analysis", path: "/gap-analysis" },
-  { icon: Compass, label: "Compliance Journey", path: "/journey" }, // New
-  { icon: Flag, label: "Discovery Wizard", path: "/readiness/wizard" }, // New
-  { icon: Brain, label: "AI Governance", path: "/ai-governance", isPremium: true },
-
-  {
-    icon: Building2, label: "Federal Hub", path: "/federal", submenu: [
-      { label: "FIPS 199 Categorization", path: "/federal/fips-199" },
-      { label: "SSP (NIST 800-171)", path: "/federal/ssp-171" },
-      { label: "SSP (NIST 800-172)", path: "/federal/ssp-172" },
-      { label: "SAR Report", path: "/federal/sar" },
-      { label: "POA&M (NIST 171)", path: "/federal/poam" },
-    ]
-  },
-  { icon: Users, label: "People", path: "/people" },
-  { icon: FileBarChart, label: "RACI Matrix", path: "/raci-matrix" },
-  { icon: Calendar, label: "Calendar", path: "/calendar" },
-  { icon: Bell, label: "Notifications", path: "/notifications" },
-  { icon: FileBarChart, label: "Reports", path: "/reports" },
-  { icon: Settings, label: "Settings", path: "/settings" },
-  { icon: ListTodo, label: "Tasks", path: "/tasks" },
-  { icon: MessageSquare, label: "Communication", path: "/communication" },
-  { icon: History, label: "Activity Log", path: "/activity" },
-  { icon: GraduationCap, label: "Personnel Compliance", path: "/personnel-compliance" },
-];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -140,82 +107,7 @@ const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
 // Helper to resolve the actual navigation path based on client context
-function resolveNavigationPath(itemPath: string, clientId: number | null): string {
-  if (!clientId) return itemPath;
 
-  // Split path and query
-  const [purePath, query] = itemPath.split('?');
-  const queryStr = query ? `?${query}` : '';
-
-  // Handle tab-based client dashboard redirects
-  if (purePath === "/governance") return `/clients/${clientId}/governance${queryStr}`;
-  if (purePath === "/governance/workbench") return `/clients/${clientId}/governance/workbench${queryStr}`;
-  if (purePath === "/compliance") return `/clients/${clientId}/compliance${queryStr}`;
-  if (purePath === "/client-dashboard") return `/clients/${clientId}?tab=dashboard${query ? '&' + query : ''}`;
-  if (purePath === "/client-controls") return `/clients/${clientId}/controls${queryStr}`;
-  if (purePath === "/client-policies") return `/clients/${clientId}/policies${queryStr}`;
-  if (purePath === "/audit-readiness") return `/clients/${clientId}/audit-readiness${queryStr}`;
-  // if (purePath === "/crm") return `/clients/${clientId}?tab=crm${query ? '&' + query : ''}`;
-  if (purePath === "/readiness/wizard") return `/clients/${clientId}/readiness/wizard${queryStr}`;
-  if (purePath === "/intake") return `/clients/${clientId}/intake${queryStr}`;
-  if (purePath === "/board-summary") return `/clients/${clientId}/board-summary${queryStr}`;
-  if (purePath === "/communication") return `/clients/${clientId}/communication${queryStr}`;
-  if (purePath === "/ai-governance") return `/clients/${clientId}/ai-governance${queryStr}`;
-  if (purePath === "/activity") return `/clients/${clientId}/activity${queryStr}`;
-  if (purePath === "/readiness/roadmap") return `/clients/${clientId}/roadmap/dashboard${queryStr}`;
-  if (purePath === "/roadmap") return `/clients/${clientId}/roadmap/dashboard${queryStr}`;
-  if (purePath === "/implementation") return `/clients/${clientId}/implementation${queryStr}`;
-  if (purePath === "/implementation/dashboard") return `/clients/${clientId}/implementation${queryStr}`;
-  if (purePath === "/evidence") return `/clients/${clientId}/evidence${queryStr}`;
-  if (purePath === "/journey") return `/clients/${clientId}/journey${queryStr}`; // New
-  if (purePath === "/onboarding") return `/onboarding${queryStr}`; // Global, but good to handle explicitly if needed
-  if (purePath === "/gap-analysis") return `/clients/${clientId}/gap-analysis${queryStr}`;
-  if (purePath === "/training/management") return `/clients/${clientId}/training/management${queryStr}`;
-  if (purePath === "/personnel-compliance") return `/clients/${clientId}/personnel-compliance${queryStr}`;
-  if (purePath === "/audit-hub") return `/clients/${clientId}/audit-hub${queryStr}`;
-  if (purePath === "/reports") return `/clients/${clientId}/reports${queryStr}`;
-  if (purePath === "/trust-center") return `/trust-center/${clientId}${queryStr}`;
-  if (purePath === "/trust-center") return `/trust-center/${clientId}${queryStr}`;
-  if (purePath === "/projects") return `/clients/${clientId}/projects${queryStr}`;
-  if (purePath === "/marketplace") return `/clients/${clientId}/marketplace${queryStr}`;
-  if (purePath === "/essential-eight") return `/clients/${clientId}/essential-eight${queryStr}`;
-  if (purePath === "/nist-csf-2") return `/clients/${clientId}/nist-csf-2${queryStr}`;
-  if (purePath === "/cisa-ztmm-2") return `/clients/${clientId}/cisa-ztmm-2${queryStr}`;
-  if (purePath === "/cmmc-2") return `/clients/${clientId}/cmmc-2${queryStr}`;
-  if (purePath === "/c2m2-2.1") return `/clients/${clientId}/c2m2-2.1${queryStr}`;
-
-  // Handle client-specific sub-routes
-  const isClientSubRoute = clientSpecificMenuItems.some(cItem => cItem.path === purePath) ||
-    purePath.startsWith('/risks') ||
-    purePath.startsWith('/vendors') ||
-    purePath.startsWith('/business-continuity') ||
-    purePath.startsWith('/federal') ||
-    purePath.startsWith('/nist') ||
-    purePath.startsWith('/privacy') ||
-    purePath.startsWith('/workflows') ||
-    purePath.startsWith('/cyber') ||
-    purePath.startsWith('/ai-governance') ||
-    purePath.startsWith('/iso27001') ||
-    purePath.startsWith('/roadmap') ||
-    purePath.startsWith('/readiness') ||
-    purePath.startsWith('/compliance-journey') ||
-    purePath.startsWith('/assurance') ||
-    purePath.startsWith('/implementation') ||
-    purePath === '/asvs' ||
-    purePath === '/samm' ||
-    purePath === '/nist-csf-2' ||
-    purePath === '/cisa-ztmm-2' ||
-    purePath === '/cmmc-2' ||
-    purePath === '/metrics';
-
-
-
-  if (isClientSubRoute) {
-    return `/clients/${clientId}${purePath}${queryStr}`;
-  }
-
-  return itemPath;
-}
 
 // Helper to check if a navigation path is active given the current location
 function isPathActive(navPath: string, currentPath: string, currentSearch: string): boolean {
@@ -275,7 +167,8 @@ export default function DashboardLayout({
   });
   const { loading, user, signOut } = useAuth();
   const { selectedClientId } = useClientContext();
-  const { appName } = useBranding();
+  const branding = useBranding();
+  const { appName } = branding;
 
   // Redirect Auditors to their clean room
   if (user?.user_metadata?.role === 'auditor' && selectedClientId) {
@@ -323,6 +216,9 @@ export default function DashboardLayout({
       style={
         {
           "--sidebar-width": `${sidebarWidth}px`,
+          "--sidebar": branding.sidebarBg,
+          "--sidebar-foreground": getContrastColor(branding.sidebarBg),
+          "--primary": branding.primaryColor,
         } as CSSProperties
       }
     >
@@ -352,7 +248,17 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [menuSearch, setMenuSearch] = useState("");
-  const { appName, logoUrl, primaryColor, updateBranding, resetBranding, logoSize } = useBranding();
+  const {
+    appName,
+    logoUrl,
+    primaryColor,
+    updateBranding,
+    resetBranding,
+    logoSize,
+    sidebarBg,
+    headingFont,
+    bodyFont
+  } = useBranding();
   const [brandingOpen, setBrandingOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -392,7 +298,7 @@ function DashboardLayoutContent({
   const activeClientId = clientIdMatch ? parseInt(clientIdMatch[1], 10) : null;
 
   // Use persistent client context
-  const { selectedClientId, clearSelectedClient } = useClientContext();
+  const { selectedClientId, clearSelectedClient, userRole: clientRole } = useClientContext();
 
   // Use selectedClientId from context if available, otherwise fall back to URL
   const persistentClientId = selectedClientId || activeClientId;
@@ -446,15 +352,20 @@ function DashboardLayoutContent({
     }
   }, [clientInfo, setPlanTier, isClientSpecificPage]);
 
+  const finalSidebarBg = clientInfo?.sidebarBg || clientInfo?.brandSecondaryColor || sidebarBg;
+  const finalSidebarFg = getContrastColor(finalSidebarBg);
+  const finalPrimary = clientInfo?.brandPrimaryColor || primaryColor;
+
   const brandStyles: CSSProperties = {
-    "--sidebar-background": clientInfo?.brandPrimaryColor || "#0f172a",
-    "--sidebar-foreground": "#ffffff",
-    "--sidebar-primary": clientInfo?.brandSecondaryColor || "#0ea5e9",
-    "--sidebar-primary-foreground": "#ffffff",
-    "--sidebar-accent": "rgba(255, 255, 255, 0.1)",
-    "--sidebar-accent-foreground": "#ffffff",
-    "--sidebar-border": "rgba(255, 255, 255, 0.1)",
-    "--sidebar-ring": clientInfo?.brandSecondaryColor || "#0ea5e9",
+    "--sidebar": finalSidebarBg,
+    "--sidebar-background": finalSidebarBg, // Compatibility with glass-sidebar
+    "--sidebar-foreground": finalSidebarFg,
+    "--sidebar-primary": finalPrimary,
+    "--sidebar-primary-foreground": getContrastColor(finalPrimary),
+    "--sidebar-accent": finalSidebarFg === '#ffffff' ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)",
+    "--sidebar-accent-foreground": finalSidebarFg,
+    "--sidebar-border": finalSidebarFg === '#ffffff' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    "--sidebar-ring": finalPrimary,
   } as CSSProperties;
 
   const highlightMatch = (text: string, search: string) => {
@@ -587,7 +498,9 @@ function DashboardLayoutContent({
 
   // Robust role check: use DB user if available, otherwise fall back to auth metadata
   const userRole = dbUser?.role || user?.user_metadata?.role || user?.app_metadata?.role;
-  const isAdminOrOwner = userRole === 'admin' || userRole === 'owner' || userRole === 'super_admin';
+  const adminRoles = ['admin', 'owner', 'super_admin', 'super', 'enterprise_admin', 'ent_admin'];
+  const isAdminOrOwner = adminRoles.includes(userRole) || ['owner', 'admin'].includes(clientRole);
+
 
   // Group Definition
   const groups = [
@@ -598,42 +511,8 @@ function DashboardLayoutContent({
         { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
         { icon: Users, label: "Clients", path: "/clients" },
         { icon: Settings, label: "Settings", path: "/settings" },
+        ...(isAdminOrOwner && persistentClientId ? [{ icon: Palette, label: "Branding", path: "/settings?tab=branding" }] : []),
         { icon: GraduationCap, label: "Employee Onboarding", path: "/onboarding" },
-      ]
-    },
-    {
-      label: "Assessments & Questionnaires",
-      items: [
-        { icon: Sparkles, label: "AI Questionnaires", path: "/questionnaires", isPremium: true },
-        { icon: Activity, label: "Gap Analysis", path: "/gap-analysis" },
-        {
-          icon: ShieldCheck,
-          label: "Security Assessments",
-          path: "/assurance",
-          submenu: [
-            { label: "Assurance Overview", path: "/assurance" },
-            { label: "NIST CSF 2.0", path: "/nist-csf-2" },
-            { label: "ISO 27001", path: "/assurance/iso-27001" },
-            { label: "Cloud Controls (CCM)", path: "/assurance/ccm" },
-            { label: "C2M2 V2.1", path: "/c2m2-2.1" },
-            { label: "CISA Zero Trust", path: "/cisa-ztmm-2" },
-            { label: "CMMC 2.0", path: "/cmmc-2" },
-            { label: "Essential Eight", path: "/essential-eight" },
-            { label: "SAMM Maturity", path: "/samm" },
-            { label: "App Security (ASVS)", path: "/asvs" },
-          ]
-        },
-        { icon: ShieldAlert, label: "Vendor Assessments", path: "/vendors/reviews" },
-        {
-          icon: Target,
-          label: "Specialized Surveys",
-          path: "/assessments/specialized",
-          submenu: [
-            { label: "NIS2 Assessment", path: "/cyber/assessment" },
-            { label: "DPI Assessment", path: "/privacy/dpia" },
-            { label: "Business Impact (BIA)", path: "/business-continuity/bia" },
-          ]
-        },
       ]
     },
     {
@@ -642,7 +521,6 @@ function DashboardLayoutContent({
         { icon: Shield, label: "Global Control Library", path: "/controls" },
         ...(persistentClientId ? [
           { icon: Scale, label: "Compliance Obligations", path: `/clients/${persistentClientId}/compliance-obligations` },
-          { icon: ShoppingBag, label: "Marketplace", path: "/marketplace" },
         ] : []),
         { icon: LayoutGrid, label: "Frameworks Library", path: "/frameworks" },
         learningZoneMenuItem
@@ -685,7 +563,6 @@ function DashboardLayoutContent({
           { icon: ClipboardList, label: "Statement of Applicability", path: "/iso27001/soa" },
           { icon: AlertTriangle, label: "Risk Management", path: "/iso27001/risks" },
           { icon: Database, label: "Asset Register", path: "/iso27001/assets" },
-          { icon: FileText, label: "Internal Audit", path: "/iso27001/audit" },
           { icon: ShieldCheck, label: "Governance Review", path: "/iso27001/governance" },
         ]
       },
@@ -717,22 +594,23 @@ function DashboardLayoutContent({
           },
           { icon: Users, label: "People & Org", path: "/people" },
           { icon: FileBarChart, label: "RACI Matrix", path: "/raci-matrix" },
+          { icon: Palette, label: "Client Branding", path: "/settings?tab=branding" },
         ]
       },
       {
         label: "Risk Management",
         items: [
           { icon: LayoutDashboard, label: "Dashboard", path: "/risks" },
-          { icon: ClipboardCheck, label: "Risk Assessments", path: "/risks/assessments" },
-          { icon: ListTodo, label: "Risk Register", path: "/risks/register" },
-          { icon: FileText, label: "Risk Reports", path: "/risks/report" },
           { icon: LayoutGrid, label: "Risk Framework", path: "/risks/framework" },
+          { icon: ClipboardCheck, label: "Risk Assessments", path: "/risks/assessments" },
+          { icon: Compass, label: "Guided Assessment", path: "/risks/guided" },
+          { icon: ListTodo, label: "Risk Register", path: "/risks/register" },
           { icon: Database, label: "Assets", path: "/risks/assets" },
           { icon: AlertTriangle, label: "Threats", path: "/risks/threats" },
           { icon: Bug, label: "Vulnerabilities", path: "/risks/vulnerabilities" },
-          { icon: Compass, label: "Guided Assessment", path: "/risks/guided" },
           { icon: ShieldCheck, label: "Treatment Plan", path: "/risks/treatment-plan" },
           { icon: BookOpen, label: "Alignment Guide", path: "/risks/alignment-guide" },
+          { icon: FileText, label: "Risk Reports", path: "/risks/report" },
           // Premium: Adversary Intelligence (conditionally added below)
         ]
       }
@@ -753,7 +631,8 @@ function DashboardLayoutContent({
     // Premium Feature: Vendor Management
     // Show when a client is selected (premium check happens at route level)
     const enabledInBuild = import.meta.env.VITE_ENABLE_PREMIUM !== 'false';
-    const isPremium = (clientInfo?.planTier === 'pro' || clientInfo?.planTier === 'enterprise') && enabledInBuild;
+    const { isPremiumStatus } = useClientContext();
+    const isPremium = isPremiumStatus && enabledInBuild;
 
 
 
@@ -776,6 +655,8 @@ function DashboardLayoutContent({
           { icon: Building2, label: "All Vendors", path: "/vendors/all" },
           { icon: Search, label: "Discovery", path: "/vendors/discovery" },
           { icon: FileText, label: "Contract Templates", path: "/vendors/contracts" },
+          { icon: ClipboardList, label: "Questionnaires", path: "/questionnaires" },
+          { icon: Target, label: "Assessment Templates", path: "/vendors/templates" },
         ]
       });
     }
@@ -852,10 +733,16 @@ function DashboardLayoutContent({
           ...(clientInfo?.serviceModel === 'managed' && enabledInBuild ? [{ icon: Inbox, label: "Evidence Intake Box", path: "/intake" }] : []),
           { icon: LayoutDashboard, label: "Board Summary", path: "/board-summary" },
           { icon: ClipboardCheck, label: "Evidence Collection", path: "/evidence" },
-          { icon: Briefcase, label: "Audit Preparation", path: "/audit-hub" },
           { icon: Zap, label: "Supply Chain (SCVS)", path: "/assurance/scvs" },
           { icon: ShieldCheck, label: "OpenSSF Hygiene", path: "/assurance/openssf" },
           { icon: Radar, label: "Mobile App Sec", path: "/assurance/masvs" },
+        ]
+      },
+      {
+        label: "Audit Hub",
+        items: [
+          { icon: ShieldCheck, label: "Audit Manager", path: `/clients/${persistentClientId}/audit-manager` },
+          { icon: Briefcase, label: "Audit Preparation", path: `/clients/${persistentClientId}/audit-hub` },
         ]
       },
       {
@@ -872,7 +759,10 @@ function DashboardLayoutContent({
               { label: "Onboarding", path: "/settings/onboarding" },
               { label: "Users", path: "/settings/users" },
               { label: "Organization", path: "/settings/organization" },
+              { label: "Branding", path: "/settings?tab=branding" },
               { label: "Invitations", path: "/settings/invitations" },
+              { label: "Integrations", path: "/settings/integrations" },
+              { label: "Backup / Restore", path: "/settings?tab=backup-restore" },
             ]
           },
           ...(isAdminOrOwner ? [{ icon: GraduationCap, label: "Personnel Compliance", path: "/personnel-compliance" }] : []),
@@ -996,18 +886,19 @@ function DashboardLayoutContent({
 
 
   return (
-    <SidebarProvider style={brandStyles}>
+    <div style={brandStyles} className="contents">
       <div className="relative" ref={sidebarRef}>
         <Sidebar
           collapsible="icon"
-          className="border-r-0"
+          className={`border-r-0 ${finalSidebarBg === '#020617' || finalSidebarBg === '#000000' ? 'glass-sidebar' : ''}`}
+          style={{ '--sidebar-background': finalSidebarBg } as CSSProperties}
           disableTransition={isResizing}
         >
-          <SidebarHeader className="p-4 border-b border-white/5 bg-[var(--sidebar-background)] h-20 flex flex-col justify-center">
+          <SidebarHeader className="p-4 border-b border-white/5 bg-[var(--sidebar-background)] h-20 flex flex-col justify-center backdrop-blur-xl">
             <Dialog open={brandingOpen} onOpenChange={setBrandingOpen}>
               <DialogTrigger asChild>
                 <div className="cursor-pointer hover:opacity-80 transition-opacity w-full h-full flex items-center">
-                  <BrandLogo className="text-white origin-left" showText={!isCollapsed} />
+                  <BrandLogo className="origin-left" showText={!isCollapsed} />
                 </div>
               </DialogTrigger>
               <DialogContent>
@@ -1095,20 +986,67 @@ function DashboardLayoutContent({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Primary Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={primaryColor}
-                        onChange={(e) => updateBranding({ primaryColor: e.target.value })}
-                        className="w-12 h-10 p-1"
-                      />
-                      <Input
-                        value={primaryColor}
-                        onChange={(e) => updateBranding({ primaryColor: e.target.value })}
-                        className="flex-1"
-                      />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Primary Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="color"
+                          value={primaryColor}
+                          onChange={(e) => updateBranding({ primaryColor: e.target.value })}
+                          className="w-12 h-10 p-1 cursor-pointer"
+                        />
+                        <Input
+                          value={primaryColor}
+                          onChange={(e) => updateBranding({ primaryColor: e.target.value })}
+                          className="flex-1 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Sidebar Background</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="color"
+                          value={sidebarBg}
+                          onChange={(e) => updateBranding({ sidebarBg: e.target.value })}
+                          className="w-12 h-10 p-1 cursor-pointer"
+                        />
+                        <Input
+                          value={sidebarBg}
+                          onChange={(e) => updateBranding({ sidebarBg: e.target.value })}
+                          className="flex-1 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Heading Font</Label>
+                      <select
+                        value={headingFont}
+                        onChange={(e) => updateBranding({ headingFont: e.target.value })}
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        {CURATED_FONTS.map(font => (
+                          <option key={font.name} value={font.name}>{font.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Body Font</Label>
+                      <select
+                        value={bodyFont}
+                        onChange={(e) => updateBranding({ bodyFont: e.target.value })}
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        {CURATED_FONTS.map(font => (
+                          <option key={font.name} value={font.name}>{font.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div className="pt-4 flex justify-end gap-2">
@@ -1251,7 +1189,7 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        <div className="flex border-b h-14 items-center justify-between bg-white/80 pl-4 pr-4 md:pl-20 md:pr-8 backdrop-blur-md sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0,03)]">
+        <div className="flex border-b h-14 items-center justify-between bg-white/80 pl-4 pr-4 md:pl-8 md:pr-8 backdrop-blur-md sticky top-0 z-40 shadow-[0_1px_2px_rgba(0,0,0,0,03)]">
           <div className="flex items-center gap-3">
             {isMobile && <SidebarTrigger className="h-9 w-9 rounded-lg bg-background shadow-sm border" />}
             <div className="flex items-center gap-2">
@@ -1268,13 +1206,13 @@ function DashboardLayoutContent({
             <NotificationCenter />
           </div>
         </div>
-        <div className="flex-1 pl-4 pr-4 py-8 md:pl-20 md:pr-8">{children}</div>
+        <div className="flex-1 pl-4 pr-4 py-8 md:pl-8 md:pr-8">{children}</div>
 
         {/* AI Copilot Button - Global Access */}
         <CopilotButton clientId={persistentClientId || undefined} />
         <CopilotPanel />
       </SidebarInset>
-    </SidebarProvider>
+    </div>
   );
 }
 
@@ -1323,9 +1261,9 @@ function CollapsibleGroup({
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group/collapsible">
       <SidebarGroup className="py-1">
         <SidebarGroupLabel asChild>
-          <CollapsibleTrigger className="flex w-full items-center text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors px-4 py-2 mt-4">
-            {highlightMatch(group.label, menuSearch)}
-            <ChevronRight className="ml-auto h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-90 opacity-40" />
+          <CollapsibleTrigger className="flex w-full justify-start items-center text-left text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors px-4 py-2 mt-4 overflow-hidden">
+            <span className="truncate whitespace-nowrap flex-1">{highlightMatch(group.label, menuSearch)}</span>
+            <ChevronRight className="ml-1 h-3 w-3 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-90 opacity-40" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>
         <CollapsibleContent className="mt-1">
@@ -1350,7 +1288,7 @@ function CollapsibleGroup({
                         <item.icon
                           className={`h-4.5 w-4.5 min-w-[1.125rem] ${isActive ? "text-white" : "text-slate-400 group-hover:text-white"}`}
                         />
-                        <span className="ml-2 uppercase text-[11px] tracking-wide flex-1">{highlightMatch(item.label, menuSearch)}</span>
+                        <span className="ml-2 uppercase text-[11px] tracking-wide flex-1 truncate">{highlightMatch(item.label, menuSearch)}</span>
                         {item.isPremium && (
                           <Badge className="ml-auto bg-indigo-500/20 text-indigo-400 border-none px-1.5 py-0 text-[8px] font-bold uppercase tracking-tight">
                             Pro
@@ -1423,9 +1361,9 @@ function CollapsibleMenuItem({
           : "text-slate-300 hover:text-white hover:bg-white/5"
           }`}
       >
-        <div className="flex items-center gap-2">
-          <item.icon className={`h-4.5 w-4.5 min-w-[1.125rem] ${isVisuallyActive ? "text-white" : "text-slate-400"}`} />
-          <span className="ml-2">{highlightMatch(item.label, currentSearch)}</span>
+        <div className="flex items-center gap-2 overflow-hidden">
+          <item.icon className={`h-4.5 w-4.5 min-w-[1.125rem] shrink-0 ${isVisuallyActive ? "text-white" : "text-slate-400"}`} />
+          <span className="ml-2 uppercase text-[11px] tracking-wide truncate flex-1">{highlightMatch(item.label, currentSearch)}</span>
         </div>
         {!isCollapsed && (
           <div className="ml-auto opacity-60">
@@ -1450,7 +1388,7 @@ function CollapsibleMenuItem({
                   : "text-slate-400 hover:text-white hover:bg-white/5"
                   }`}
               >
-                <span className="ml-1">{highlightMatch(subItem.label, currentSearch)}</span>
+                <span className="ml-1 truncate text-[11px] uppercase tracking-wide">{highlightMatch(subItem.label, currentSearch)}</span>
               </SidebarMenuButton>
             );
           })}

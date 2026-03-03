@@ -6,6 +6,7 @@ export const frameworks: Framework[] = [
         name: "ISO 27001:2022",
         description: "The leading international standard for information security management systems (ISMS).",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/iso27001.svg"
     },
     {
@@ -13,6 +14,7 @@ export const frameworks: Framework[] = [
         name: "ISO 22301:2019",
         description: "International standard for Business Continuity Management Systems (BCMS).",
         type: "Business Continuity",
+        isObligation: true,
         logo: "/frameworks/iso27001.svg"
     },
     {
@@ -20,6 +22,7 @@ export const frameworks: Framework[] = [
         name: "HITRUST-Aligned (Representative)",
         description: "Representative control set aligned with HITRUST domains (e1, i1, r2) for readiness and simulation. Not the official licensed CSF text.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/hitrust.svg"
     },
     {
@@ -27,6 +30,7 @@ export const frameworks: Framework[] = [
         name: "SOC 2 Type II",
         description: "Service Organization Control 2 - Trust Services Criteria for security, availability, processing integrity, confidentiality and privacy.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/soc2.svg"
     },
     {
@@ -34,6 +38,7 @@ export const frameworks: Framework[] = [
         name: "NIST CSF 2.0",
         description: "National Institute of Standards and Technology Cybersecurity Framework. Voluntary guidance based on existing standards.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/nist.svg"
     },
     {
@@ -41,6 +46,7 @@ export const frameworks: Framework[] = [
         name: "NIST SP 800-171 r2",
         description: "Protecting Controlled Unclassified Information in Nonfederal Systems and Organizations.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/nist.svg"
     },
     {
@@ -48,6 +54,7 @@ export const frameworks: Framework[] = [
         name: "PCI DSS v4.0",
         description: "Payment Card Industry Data Security Standard v4.0.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/pci.svg"
     },
     {
@@ -69,6 +76,7 @@ export const frameworks: Framework[] = [
         name: "NIST SP 800-53 Rev 5",
         description: "Security and Privacy Controls for Information Systems and Organizations.",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/nist.svg"
     },
     {
@@ -76,6 +84,7 @@ export const frameworks: Framework[] = [
         name: "FedRAMP Moderate",
         description: "Federal Risk and Authorization Management Program - Moderate Baseline (Representative).",
         type: "Security",
+        isObligation: true,
         logo: "/frameworks/fedramp.svg"
     },
     {
@@ -149,6 +158,45 @@ export const frameworks: Framework[] = [
         description: "Eight prioritized mitigation strategies for cyber resilience with maturity levels 0–3.",
         type: "Security",
         logo: "/frameworks/australia.svg"
+    },
+    {
+        id: "cmmc-2",
+        name: "CMMC 2.0",
+        description: "Cybersecurity Maturity Model Certification for Defense Industrial Base (DIB).",
+        type: "Security",
+        isObligation: true,
+        logo: "/frameworks/cmmc.svg"
+    },
+    {
+        id: "soc-1",
+        name: "SOC 1 Type II",
+        description: "Service Organization Control 1 - Internal Control over Financial Reporting (ICFR).",
+        type: "Security",
+        isObligation: true,
+        logo: "/frameworks/soc1.svg"
+    },
+    {
+        id: "tisax",
+        name: "TISAX",
+        description: "Trusted Information Security Assessment Exchange - Automotive industry standard.",
+        type: "Security",
+        isObligation: true,
+        logo: "/frameworks/tisax.svg"
+    },
+    {
+        id: "nist-800-161",
+        name: "NIST SP 800-161",
+        description: "Cybersecurity Supply Chain Risk Management (SCRM) Practices.",
+        type: "Security",
+        isObligation: true,
+        logo: "/frameworks/nist.svg"
+    },
+    {
+        id: "scf",
+        name: "Secure Controls Framework (SCF)",
+        description: "A comprehensive library of cybersecurity and privacy control meta-framework.",
+        type: "Security",
+        logo: "/frameworks/scf.svg"
     },
     {
         id: "owasp_ml_top10",

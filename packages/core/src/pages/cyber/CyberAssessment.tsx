@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useRoute } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { Button } from "@complianceos/ui/ui/button";
@@ -106,7 +107,20 @@ const NIS2_CHECKLIST = [
 ];
 
 export default function CyberAssessment() {
-    const { selectedClientId } = useClientContext();
+    const [match, params] = useRoute("/clients/:clientId/cyber/assessment");
+    const urlClientId = params?.clientId ? parseInt(params.clientId) : null;
+    const { selectedClientId: contextClientId, setSelectedClientId } = useClientContext();
+    
+    // Use URL clientId if available, otherwise fall back to context
+    const selectedClientId = urlClientId || contextClientId;
+    
+    // Sync URL clientId to context when it changes
+    useEffect(() => {
+        if (urlClientId && urlClientId !== contextClientId) {
+            setSelectedClientId(urlClientId);
+        }
+    }, [urlClientId, contextClientId, setSelectedClientId]);
+    
     const [responses, setResponses] = useState<Record<string, { answer: string; notes?: string; owner?: string; dueDate?: string }>>({});
     const [score, setScore] = useState(0);
 
@@ -125,12 +139,23 @@ export default function CyberAssessment() {
 
     // Mutation
     const saveMutation = trpc.cyber.saveAssessment.useMutation({
-        onSuccess: () => {
+        onSuccess: (data) => {
+            console.log('[NIS2 Save] Success:', data);
             toast.success("Assessment saved successfully");
             refetch();
         },
-        onError: (e) => toast.error(e.message)
+        onError: (e) => {
+            console.error('[NIS2 Save] Error:', e);
+            toast.error(e.message || 'Failed to save assessment');
+        }
     });
+
+    // Debug logging
+    useEffect(() => {
+        console.log('[NIS2 Debug] selectedClientId:', selectedClientId);
+        console.log('[NIS2 Debug] assessment data:', assessment);
+        console.log('[NIS2 Debug] responses:', responses);
+    }, [selectedClientId, assessment, responses]);
 
     // Calculate score
     useEffect(() => {
@@ -164,14 +189,21 @@ export default function CyberAssessment() {
     };
 
     const handleSave = () => {
-        if (!selectedClientId) return;
+        console.log('[NIS2 Save] handleSave called, selectedClientId:', selectedClientId);
+        if (!selectedClientId) {
+            console.error('[NIS2 Save] No clientId, aborting');
+            toast.error('No client selected');
+            return;
+        }
         const status = score === 100 ? "completed" : score > 0 ? "in_progress" : "not_started";
-        saveMutation.mutate({
-            clientId: selectedClientId || 0,
+        const payload = {
+            clientId: selectedClientId,
             responses,
             score,
             status
-        });
+        };
+        console.log('[NIS2 Save] Sending payload:', payload);
+        saveMutation.mutate(payload);
     };
 
     if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;

@@ -10,11 +10,52 @@ export { router, publicProcedure, middleware, t };
 // Import enterprise middlewares after defining base exports to avoid circular dependency issues
 import { performanceTracker, auditLogger } from "./enterprise-middleware";
 
+// Debug flag for auth logging - disabled in production by default
+const DEBUG_AUTH = process.env.DEBUG_AUTH === 'true';
 
-export const isAuthed = middleware(async ({ ctx, next }) => {
-    if (!ctx.user) {
-        throw new TRPCError({ code: "UNAUTHORIZED" });
+export const PLATFORM_ADMIN_ROLES = ['admin', 'owner', 'super_admin', 'super', 'enterprise_admin', 'ent_admin'];
+
+// Helper function for conditional debug logging
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG_AUTH) {
+        console.log(message, ...args);
     }
+};
+
+// Helper function for conditional debug error logging
+const debugError = (message: string, ...args: any[]) => {
+    if (DEBUG_AUTH) {
+        console.error(message, ...args);
+    }
+};
+
+export const isAuthed = middleware(async ({ ctx, next, path }) => {
+    debugLog(`[isAuthed Debug] Checking auth for path: ${path}, user present: ${!!ctx.user}`);
+
+    if (!ctx.user) {
+        debugError(`[isAuthed Debug] UNAUTHORIZED for path: ${path}`);
+
+        // Provide specific error message based on auth header presence
+        const authInfo = (ctx as any).authInfo;
+        let message = "Authentication required. Please sign in.";
+
+        if (authInfo) {
+            if (!authInfo.hasAuthHeader) {
+                message = "No authentication token provided. Please sign in.";
+            } else if (!authInfo.supabaseUser) {
+                message = "Invalid or expired session. Please sign in again.";
+            } else if (!authInfo.dbUser) {
+                message = "Your account was not found in our database. Please contact support.";
+            }
+        }
+
+        throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: message
+        });
+    }
+
+    debugLog(`[isAuthed Debug] Auth successful for user: ${ctx.user.id}`);
 
     if (ctx.user.accessExpiresAt && new Date() > ctx.user.accessExpiresAt) {
         throw new TRPCError({
@@ -66,31 +107,35 @@ export const rateLimit = middleware(async ({ ctx, next, path }) => {
     return next();
 });
 
-export const isAdmin = middleware(async ({ ctx, next }) => {
-    if (ctx.user?.role !== 'admin' && ctx.user?.role !== 'owner' && ctx.user?.role !== 'super_admin') {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+export const isAdmin = middleware(async ({ ctx, next, path }) => {
+    if (!PLATFORM_ADMIN_ROLES.includes(ctx.user?.role || '')) {
+        debugLog(`[isAdmin Debug] Forbidden access attempt for path ${path} by user ${ctx.user?.id} (${ctx.user?.role})`);
+        throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required. Current role: " + (ctx.user?.role || 'none') });
     }
     return next();
 });
 
 export const checkClientAccess = middleware(async (opts) => {
-    const { ctx, next } = opts;
+    const { ctx, next, path } = opts;
     const rawInput = (opts as any).rawInput;
     const typedInput = (opts as any).input; // Try to get parsed input
 
-    if (!ctx.user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+    if (!ctx.user) {
+        debugError(`[checkClientAccess Debug] UNAUTHORIZED for path: ${path}`);
+        throw new TRPCError({ code: 'UNAUTHORIZED', message: "Authentication required for client access." });
+    }
 
     const input = typedInput || rawInput || {};
     const clientId = input?.clientId || input?.id || ctx.clientId;
 
     // Admins have implicit access
-    if (ctx.user.role === 'admin' || ctx.user.role === 'owner' || ctx.user.role === 'super_admin') {
-        console.log('[DEBUG checkClientAccess] Admin access granted');
+    if (PLATFORM_ADMIN_ROLES.includes(ctx.user.role || '')) {
+        debugLog('[DEBUG checkClientAccess] Admin access granted to clientId:', clientId);
         return next({ ctx: { ...ctx, clientId, clientRole: 'owner' } });
     }
 
     if (!clientId) {
-        console.log('[DEBUG checkClientAccess] No clientId found - THROWING FORBIDDEN');
+        debugLog('[DEBUG checkClientAccess] No clientId found for path:', path);
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Client ID is required for this operation' });
     }
 
@@ -99,20 +144,27 @@ export const checkClientAccess = middleware(async (opts) => {
         .where(and(eq(userClients.userId, ctx.user.id), eq(userClients.clientId, clientId)))
         .limit(1);
 
-    console.log('[DEBUG checkClientAccess] Membership check:', { userId: ctx.user.id, clientId, found: membership.length > 0 });
+    debugLog('[DEBUG checkClientAccess] Membership check:', { userId: ctx.user.id, clientId, found: membership.length > 0 });
 
-    if (membership.length === 0) {
-        console.log('[DEBUG checkClientAccess] No membership found');
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this client workspace' });
+    // SECURITY: Allow admin/super_admin users to access any client workspace without membership.
+    // This is intentional - admins need cross-client access for platform management.
+    if (membership.length === 0 && !PLATFORM_ADMIN_ROLES.includes(ctx.user.role || '')) {
+        debugLog('[DEBUG checkClientAccess] No membership found and not admin');
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'No access to this client workspace. Membership required.' });
     }
 
-    const member = membership[0];
-    if (member.accessExpiresAt && new Date() > member.accessExpiresAt) {
-        throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Your access to this workspace has expired."
-        });
+
+    if (membership.length > 0) {
+        if (membership[0].accessExpiresAt && new Date() > membership[0].accessExpiresAt) {
+            throw new TRPCError({
+                code: "FORBIDDEN",
+                message: "Your access to this workspace has expired."
+            });
+        }
     }
+
+    // Get member for later use (may be null for admins)
+    const member = membership.length > 0 ? membership[0] : null;
 
     // ARCHITECTURE ENFORCEMENT: Community Edition Single-Tenancy
     // This cannot be overridden by database values.
@@ -134,7 +186,8 @@ export const checkClientAccess = middleware(async (opts) => {
     }
 
     // Enforce maxClients limit for owned clients (Premium/Standard limits)
-    if (member.role === 'owner' && process.env.VITE_ENABLE_PREMIUM !== 'false') {
+    // Only check if user has a membership record (non-admin users)
+    if (member && member.role === 'owner' && process.env.VITE_ENABLE_PREMIUM !== 'false') {
         const fullUser = await db.getUserById(ctx.user.id);
         const maxClients = fullUser?.maxClients || 2;
 
@@ -174,6 +227,12 @@ export const checkPremiumAccess = middleware(async (opts) => {
     const input = rawInput as any;
     const clientId = input?.clientId || ctx.clientId;
 
+    // Allow global admins or client admins/owners to bypass all checks including environment flags
+    const clientRole = (ctx as any).clientRole;
+    if (PLATFORM_ADMIN_ROLES.includes(ctx.user?.role || '') || clientRole === 'owner' || clientRole === 'admin') {
+        return next({ ctx: { ...ctx, isPremium: true } });
+    }
+
     // STRICT CHECK: Premium must be enabled in environment
     // Note: process.env.VITE_ENABLE_PREMIUM works in Node/Server environment if loaded via dotenv
     if (process.env.VITE_ENABLE_PREMIUM === 'false') {
@@ -181,10 +240,6 @@ export const checkPremiumAccess = middleware(async (opts) => {
             code: 'FORBIDDEN',
             message: 'Premium features are disabled in this environment. Please upgrade to the Enterprise Edition.'
         });
-    }
-
-    if (ctx.user?.role === 'admin' || ctx.user?.role === 'owner' || ctx.user?.role === 'super_admin') {
-        return next({ ctx: { ...ctx, isPremium: true } });
     }
 
     if (!clientId) {
@@ -228,7 +283,7 @@ export const requiresMFA = middleware(async ({ ctx, next, path }) => {
     if (!dbUser) return next();
 
     // AL 3: Mandatory MFA for all Global Admins and Owners
-    const isPrivilegedRole = dbUser.role === 'admin' || dbUser.role === 'super_admin' || dbUser.role === 'owner';
+    const isPrivilegedRole = PLATFORM_ADMIN_ROLES.includes(dbUser.role || '');
 
     if (aal === 'aal2') return next(); // Already at max level
 
@@ -240,6 +295,7 @@ export const requiresMFA = middleware(async ({ ctx, next, path }) => {
         let must = isPrivilegedRole; // Forced for admins
 
         if (!must && clientId) {
+            console.log('[DEBUG requiresMFA] Checking client MFA req for clientId:', clientId);
             // Check specific client's requirement for standard users
             const [client] = await dbConn.select({ requireMfa: schema.clients.requireMfa })
                 .from(schema.clients)
@@ -259,6 +315,11 @@ export const requiresMFA = middleware(async ({ ctx, next, path }) => {
     } catch (err) {
         if (err instanceof TRPCError) throw err;
         console.error('[MFA Middleware Error]', err);
+        // Don't proceed if there was a database error - fail secure
+        throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to verify MFA requirements'
+        });
     }
 
     return next();

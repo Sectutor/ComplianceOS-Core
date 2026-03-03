@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@comp
 import { trpc } from "@/lib/trpc";
 import { Upload, X, Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { authedFetch } from "@/lib/authedFetch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,7 +80,7 @@ export default function ClientLogoUpload({ clientId, currentLogoUrl, clientName 
           const base64Data = base64.split(",")[1];
 
           // Upload to server using the correct endpoint
-          const response = await fetch("/api/upload", {
+          const response = await authedFetch("/api/upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

@@ -84,10 +84,7 @@ export default function BillingSettings({ client }: { client: Client }) {
                                 </CardTitle>
                                 <CardDescription>Expert guidance for your security roadmap.</CardDescription>
                             </div>
-                            <div className="text-right">
-                                <span className="text-xl font-bold">$49</span>
-                                <span className="text-muted-foreground">/mo</span>
-                            </div>
+
                         </div>
                     </CardHeader>
                     <CardContent className="grid gap-2">
@@ -122,10 +119,7 @@ export default function BillingSettings({ client }: { client: Client }) {
                                 </CardTitle>
                                 <CardDescription className={client.planTier === 'enterprise' ? "" : "text-slate-400"}>We handle everything for you.</CardDescription>
                             </div>
-                            <div className="text-right">
-                                <span className="text-xl font-bold">$499</span>
-                                <span className="text-muted-foreground">/mo</span>
-                            </div>
+
                         </div>
                     </CardHeader>
                     <CardContent className="grid gap-2">

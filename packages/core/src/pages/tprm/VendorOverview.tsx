@@ -54,7 +54,7 @@ export default function VendorOverview() {
             ]
         },
         {
-            title: "Security Reviews",
+            title: "Assessment Projects",
             headerTitle: "SIG & CAIQ Questionnaires",
             description: "Send standardized security questionnaires (SIG, CAIQ, custom) to vendors and track response completion and risk findings.",
             icon: ShieldAlert,

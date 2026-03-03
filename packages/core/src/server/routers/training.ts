@@ -141,8 +141,6 @@ export const createTrainingRouter = (t: any, clientProcedure: any, clientEditorP
                     return { success: true, count: newEmployeeIds.length };
                 } catch (error: any) {
                     console.error("[TrainingAssign] Error:", error);
-                    // Also log to a file we can definitely read
-                    fs.appendFileSync('trpc-debug.log', `[${new Date().toISOString()}] training.assign Error: ${error.message}\n${error.stack}\n`);
                     throw error;
                 }
             }),

@@ -51,16 +51,36 @@ export default function PersonnelComplianceHub() {
                     </div>
                     <PageGuide
                         title="Personnel Compliance"
-                        description="360-degree view of employee security status."
-                        rationale="Centralizes tracking of background checks, training, and policy acceptance."
+                        description="360-degree view of employee security status and training completion."
+                        rationale="Centralizes tracking of background checks, training, and policy acceptance. Essential for proving that your workforce is qualified and aware of security protocols (ISO 27001 Clause 7.2)."
                         howToUse={[
-                            { step: "Onboard Employees", description: "Manage document signing workflows." },
-                            { step: "Monitor Status", description: "Identify non-compliant staff at a glance." },
-                            { step: "Asset Management", description: "Track assigned devices and access." }
+                            {
+                                step: "Personnel Training",
+                                description: "Manage the list of available modules and their content.",
+                                targetId: "personnel-tab-training"
+                            },
+                            {
+                                step: "Document Hub",
+                                description: "Automate onboarding signatures for policies and agreements.",
+                                targetId: "personnel-tab-documents"
+                            },
+                            {
+                                step: "Compliance Tracker",
+                                description: "Filter employees by name or status to find gaps in your workforce.",
+                                targetId: "personnel-search"
+                            }
                         ]}
-                        integrations={[
-                            { name: "Training", description: "Links to Training Management." },
-                            { name: "Policies", description: "Tracks policy acceptance." }
+                        scenarios={[
+                            {
+                                title: "Monthly Compliance Audit",
+                                example: "You need to verify that all employees have signed the latest 'Acceptable Use Policy' before a major customer audit.",
+                                auditTip: "Go to the 'Tracking' tab. Use the search bar to filter by 'Policy Acceptance' status. This provides a clear 'Pass/Fail' list for your audit report."
+                            },
+                            {
+                                title: "New Hire Onboarding Verification",
+                                example: "An HR manager wants to know if the three new hires from this week have completed their mandatory security training.",
+                                auditTip: "Switch to the 'Tracking' tab and search by employee name. The 'Overall' badge provides an immediate percentage of completion across all onboarding tasks."
+                            }
                         ]}
                     />
                 </div>
@@ -69,6 +89,7 @@ export default function PersonnelComplianceHub() {
                     <TabsList className="bg-[#1C4D8D] p-1 rounded-xl h-auto flex-wrap md:flex-nowrap">
                         <TabsTrigger
                             value="training"
+                            id="personnel-tab-training"
                             className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
                         >
                             <GraduationCap className="h-4 w-4" />
@@ -76,6 +97,7 @@ export default function PersonnelComplianceHub() {
                         </TabsTrigger>
                         <TabsTrigger
                             value="documents"
+                            id="personnel-tab-documents"
                             className="flex-1 gap-2 py-3 data-[state=active]:bg-[#3ABEF9] data-[state=active]:text-white bg-[#1C4D8D] text-white hover:bg-[#3ABEF9]/80 transition-all font-bold"
                         >
                             <ClipboardList className="h-4 w-4" />
@@ -162,7 +184,7 @@ function ComplianceTrackingTab({ clientId }: { clientId: number }) {
                         Real-time status of employee onboarding and training completion.
                     </CardDescription>
                 </div>
-                <div className="relative w-72">
+                <div className="relative w-72" id="personnel-search">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search employees..."

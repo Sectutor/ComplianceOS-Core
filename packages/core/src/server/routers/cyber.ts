@@ -18,10 +18,12 @@ export const createCyberRouter = (t: any, clientProcedure: any) => {
             }))
             .query(async ({ input }: { input: any }) => {
                 const db = await getDb();
+                // Fallback to input clientId if ctx.clientId is not available
+                const queryClientId = input.clientId;
                 // We reuse the privacyAssessments table but with type 'nis2'
                 const assessment = await db.query.privacyAssessments.findFirst({
                     where: and(
-                        eq(privacyAssessments.clientId, input.clientId),
+                        eq(privacyAssessments.clientId, queryClientId),
                         eq(privacyAssessments.type, 'nis2')
                     )
                 });
@@ -42,17 +44,27 @@ export const createCyberRouter = (t: any, clientProcedure: any) => {
                 score: z.number().optional()
             }))
             .mutation(async ({ ctx, input }: { ctx: any, input: any }) => {
+                console.log('[CyberRouter saveAssessment] Called with input:', { clientId: input.clientId, status: input.status, score: input.score, responsesCount: Object.keys(input.responses).length });
+                console.log('[CyberRouter saveAssessment] Context clientId:', ctx.clientId);
+
+                // Fallback to input clientId if ctx.clientId is not available
+                const assessmentClientId = ctx.clientId || input.clientId;
+                if (!assessmentClientId) {
+                    throw new TRPCError({ code: "BAD_REQUEST", message: "Client ID required" });
+                }
+
                 try {
                     const db = await getDb();
 
                     const existing = await db.query.privacyAssessments.findFirst({
                         where: and(
-                            eq(privacyAssessments.clientId, input.clientId),
+                            eq(privacyAssessments.clientId, assessmentClientId),
                             eq(privacyAssessments.type, 'nis2')
                         )
                     });
 
                     if (existing) {
+                        console.log('[CyberRouter saveAssessment] Updating existing record:', existing.id);
                         await db.update(privacyAssessments)
                             .set({
                                 responses: input.responses,
@@ -61,14 +73,17 @@ export const createCyberRouter = (t: any, clientProcedure: any) => {
                                 updatedAt: new Date()
                             })
                             .where(eq(privacyAssessments.id, existing.id));
+                        console.log('[CyberRouter saveAssessment] Update successful');
                     } else {
-                        await db.insert(privacyAssessments).values({
-                            clientId: input.clientId,
+                        console.log('[CyberRouter saveAssessment] Creating new record');
+                        const result = await db.insert(privacyAssessments).values({
+                            clientId: assessmentClientId,
                             type: 'nis2',
                             responses: input.responses,
                             status: input.status,
                             score: input.score
-                        });
+                        }).returning();
+                        console.log('[CyberRouter saveAssessment] Insert successful:', result);
                     }
 
                     return { success: true };
@@ -194,3 +209,4 @@ export const createCyberRouter = (t: any, clientProcedure: any) => {
             })
     });
 };
+

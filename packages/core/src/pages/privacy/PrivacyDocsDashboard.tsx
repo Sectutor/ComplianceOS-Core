@@ -16,6 +16,8 @@ import {
     TableHeader,
     TableRow,
 } from "@complianceos/ui/ui/table";
+import { PageGuide } from "@/components/PageGuide";
+import { cn } from "@/lib/utils";
 
 export default function PrivacyDocsDashboard() {
     const { selectedClientId } = useClientContext();
@@ -34,12 +36,53 @@ export default function PrivacyDocsDashboard() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Privacy Documentation</h1>
                     <p className="text-slate-500 text-lg">Manage your privacy policies, notices, and procedural documents.</p>
                 </div>
-                <Button
-                    onClick={() => setLocation(`/clients/${clientId}/policies/new?module=privacy`)}
-                    className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-sky-100 transition-all active:scale-95"
-                >
-                    <Plus className="mr-2 h-5 w-5" /> Add Document
-                </Button>
+                <div className="flex items-center gap-3">
+                    <PageGuide
+                        title="Privacy Documentation"
+                        description="Build and maintain your full library of GDPR-required privacy documents and notices."
+                        rationale="GDPR Articles 13 & 14 mandate data subjects be informed about data processing. A documented policy library is not just good governance—it is a legal requirement with fines up to 4% of global annual turnover."
+                        howToUse={[
+                            {
+                                step: "Check Coverage",
+                                description: "Review the recommended document cards at the top to see which mandatory policies you already have.",
+                                targetId: "privacy-docs-recommended"
+                            },
+                            {
+                                step: "Add Document",
+                                description: "Create a new privacy policy, notice, or procedure from the policy builder.",
+                                targetId: "privacy-docs-add-btn"
+                            },
+                            {
+                                step: "Manage Library",
+                                description: "View, edit, and version-control all your privacy documents in the table registry.",
+                                targetId: "privacy-docs-table"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "GDPR Accountability Evidence",
+                                example: "A Data Protection Authority requests evidence of your privacy program. Export your complete document registry as proof of Article 5(2) accountability principles.",
+                                auditTip: "Auditors check for 'Currency'. Ensure all policies show a review date within the last 12 months and a named owner/DPO who approved the document."
+                            },
+                            {
+                                title: "New Product Launch",
+                                example: "Your team is launching a new feature that collects user location data. Add a new privacy notice specific to that feature, linking it to the corresponding ROPA entry.",
+                                auditTip: "GDPR requires purpose limitation. Each document must clearly state the lawful basis and purpose for processing the data it covers."
+                            }
+                        ]}
+                        integrations={[
+                            { name: "ROPA", description: "Privacy documents are linked to their corresponding ROPA processing activities." },
+                            { name: "Governance", description: "Document approval status feeds into your overall compliance maturity score." }
+                        ]}
+                    />
+                    <Button
+                        id="privacy-docs-add-btn"
+                        onClick={() => setLocation(`/clients/${clientId}/policies/new?module=privacy`)}
+                        className="bg-[#3ABEF9] hover:bg-[#1C4D8D] text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-sky-100 transition-all active:scale-95"
+                    >
+                        <Plus className="mr-2 h-5 w-5" /> Add Document
+                    </Button>
+                </div>
             </div>
 
             {isLoading ? (
@@ -50,7 +93,7 @@ export default function PrivacyDocsDashboard() {
             ) : (
                 <div className="space-y-10">
                     {/* Recommended Docs Cards */}
-                    <div className="grid gap-6 md:grid-cols-3">
+                    <div id="privacy-docs-recommended" className="grid gap-6 md:grid-cols-3">
                         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl bg-white overflow-hidden ring-1 ring-slate-200/50 hover:-translate-y-1 transition-all">
                             <CardHeader className="pb-4">
                                 <div className="flex justify-between items-start">
@@ -96,7 +139,7 @@ export default function PrivacyDocsDashboard() {
                     </div>
 
                     {/* Registry */}
-                    <div className="rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden">
+                    <div id="privacy-docs-table" className="rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden">
                         <Table>
                             <TableHeader className="bg-slate-50/50">
                                 <TableRow className="hover:bg-transparent border-0">

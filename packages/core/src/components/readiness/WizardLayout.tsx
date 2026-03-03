@@ -208,13 +208,13 @@ export function WizardLayout({
                                 {isLoading ? (
                                     <span className="flex items-center gap-2">
                                         <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>Savings...</span>
+                                        <span>Saving...</span>
                                     </span>
                                 ) : currentStep === totalSteps ? (
                                     "Complete Discovery"
                                 ) : (
                                     <span className="flex items-center gap-2">
-                                        Next Component
+                                        Continue
                                         <ArrowLeft className="h-4 w-4 rotate-180" />
                                     </span>
                                 )}

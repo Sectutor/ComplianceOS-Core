@@ -29,6 +29,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@complianceos/ui/ui/alert-dialog";
+import { PageGuide } from "@/components/PageGuide";
 
 export default function ClientTasksPage() {
     const { selectedClientId } = useClientContext();
@@ -167,12 +168,51 @@ export default function ClientTasksPage() {
 
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex flex-col">
                         <h1 className="text-2xl font-bold tracking-tight">Tasks Management</h1>
                         <p className="text-muted-foreground">Universal view of all tasks, remediation items, and assignments.</p>
                     </div>
+
+                    <PageGuide
+                        title="Operations Command"
+                        description="Manage the daily operational tasks required to maintain compliance."
+                        rationale="Compliance is a marathon, not a sprint. This board ensures that remediation items from audits and regular maintenance tasks (SOP reviews, access reviews) are tracked to completion."
+                        howToUse={[
+                            {
+                                step: "Task Ownership",
+                                description: "Toggle between 'My Tasks' to focus on your assignments and 'All Tasks' for a team overview.",
+                                targetId: "tasks-view-mode"
+                            },
+                            {
+                                step: "Source Intelligence",
+                                description: "Filter by 'Remediation' to see items directly linked to audit gaps, or 'POA&M' for formal government-style remediation plans.",
+                                targetId: "tasks-source-filter"
+                            },
+                            {
+                                step: "Execution",
+                                description: "Double-click any row to update status, priority, or assignees.",
+                                targetId: "tasks-table-board"
+                            }
+                        ]}
+                        scenarios={[
+                            {
+                                title: "Post-Audit Remediation",
+                                example: "An auditor found that your 'Access Review' policy wasn't followed.",
+                                auditTip: "Switch the filter to 'Remediation'. The system automatically creates tasks for every Gap found during the Gap Analysis phase. Solving these tasks proves you are actively maturing your security posture."
+                            },
+                            {
+                                title: "Daily Security Operations",
+                                example: "You need to assign a server patch task to the IT lead.",
+                                auditTip: "Click 'Create Task'. Set the priority to 'Critical'. Auditors look for a documented trail of 'who did what and when' regarding security maintenance."
+                            }
+                        ]}
+                        integrations={[
+                            { name: "Gap Analysis", description: "Tasks are automatically spawned from identified gaps." },
+                            { name: "Frameworks", description: "Tasks can be linked back to specific controls for evidence." }
+                        ]}
+                    />
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center border rounded-lg p-1 bg-white">
+                        <div id="tasks-view-mode" className="flex items-center border rounded-lg p-1 bg-white">
                             <Button
                                 variant={viewMode === 'all' ? 'secondary' : 'ghost'}
                                 size="sm"
@@ -191,20 +231,23 @@ export default function ClientTasksPage() {
                             </Button>
                         </div>
 
-                        <Select value={filterSource} onValueChange={setFilterSource}>
-                            <SelectTrigger className="w-[180px] bg-white">
-                                <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-                                <SelectValue placeholder="Source" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Sources</SelectItem>
-                                <SelectItem value="generic">General Tasks</SelectItem>
-                                <SelectItem value="remediation">Remediation</SelectItem>
-                                <SelectItem value="poam">POA&M</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div id="tasks-source-filter">
+                            <Select value={filterSource} onValueChange={setFilterSource}>
+                                <SelectTrigger className="w-[180px] bg-white">
+                                    <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+                                    <SelectValue placeholder="Source" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Sources</SelectItem>
+                                    <SelectItem value="generic">General Tasks</SelectItem>
+                                    <SelectItem value="remediation">Remediation</SelectItem>
+                                    <SelectItem value="poam">POA&M</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
                         <Button
+                            id="tasks-create-btn"
                             className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
                             onClick={() => setIsCreateOpen(true)}
                         >
@@ -214,7 +257,7 @@ export default function ClientTasksPage() {
                 </div>
 
                 {/* Task Board */}
-                <Card className="border shadow-lg rounded-xl overflow-hidden bg-white">
+                <Card id="tasks-table-board" className="border shadow-lg rounded-xl overflow-hidden bg-white">
                     <CardHeader className="pb-3 border-b bg-white">
                         <div className="flex items-center justify-between">
                             <div>
@@ -495,8 +538,8 @@ export default function ClientTasksPage() {
                                 </div>
 
                                 <SheetFooter className="mt-8 flex justify-between sm:justify-between">
-                                     <Button 
-                                        variant="destructive" 
+                                    <Button
+                                        variant="destructive"
                                         size="icon"
                                         onClick={() => {
                                             setIsSheetOpen(false);
@@ -542,7 +585,7 @@ export default function ClientTasksPage() {
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                                 className="bg-red-600 hover:bg-red-700"
-                                onClick={() => taskToDelete && deleteTask.mutate({ 
+                                onClick={() => taskToDelete && deleteTask.mutate({
                                     id: taskToDelete.id,
                                     clientId: selectedClientId as number
                                 })}

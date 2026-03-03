@@ -194,6 +194,13 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
                                     { step: "Review", description: "Examine detected apps and services." },
                                     { step: "Classify", description: "Assign ownership and criticality." },
                                     { step: "Onboard", description: "Convert to active vendor inventory." }
+                                ],
+                                scenarios: [
+                                    {
+                                        title: "Identifying Shadow IT",
+                                        example: "An automated scan has detected multiple instances of unauthorized AI tools being used by the marketing team.",
+                                        auditTip: "Instead of just deleting them, 'Classify' them here to decide if they should be approved with security guardrails or moved to a 'Restricted' status to prove oversight."
+                                    }
                                 ]
                             };
                             case 'reviews': return {
@@ -204,16 +211,47 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
                                     { step: "Track", description: "Monitor progress of sent questionnaires." },
                                     { step: "Analyze", description: "Review responses and identified gaps." },
                                     { step: "Approve", description: "Sign off on vendor security posture." }
+                                ],
+                                scenarios: [
+                                    {
+                                        title: "Urgent Vendor Security Questionnaire (VSQ)",
+                                        example: "A new critical vendor needs to be onboarded by end-of-day for a board meeting project.",
+                                        auditTip: "Use the 'Details' link to jump to the individual vendor assessment. You can see exactly which security questions are still 'Pending' and call the vendor contact to speed them up."
+                                    }
                                 ]
                             };
                             default: return {
                                 title: 'All Vendors',
                                 description: 'Complete inventory of third-party vendors.',
-                                rationale: 'Centralized view of all external relationships.',
+                                rationale: 'Centralized view of all external relationships. ISO 27001 Annex A.15 requires maintaining a list of all suppliers that may access your assets.',
                                 howToUse: [
-                                    { step: "Search", description: "Find vendors by name or category." },
-                                    { step: "Filter", description: "Sort by risk level or status." },
-                                    { step: "Manage", description: "View details and update attributes." }
+                                    {
+                                        step: "Quick Search",
+                                        description: "Find vendors by name, category, or business owner.",
+                                        targetId: "vendor-search-input"
+                                    },
+                                    {
+                                        step: "Request Review",
+                                        description: "Allow employees to submit new vendors for security sign-off.",
+                                        targetId: "vendor-request-btn"
+                                    },
+                                    {
+                                        step: "Direct Entry",
+                                        description: "Manually add a confirmed vendor to your active inventory.",
+                                        targetId: "vendor-add-direct"
+                                    }
+                                ],
+                                scenarios: [
+                                    {
+                                        title: "Supply Chain Rationalization",
+                                        example: "You want to reduce costs by consolidating multiple SaaS tools that do the same thing.",
+                                        auditTip: "Filter by 'Category' (e.g., 'Project Management'). This gives you a side-by-side view of all vendors in that space, allowing you to see which has the highest 'Trust Score' for consolidation."
+                                    },
+                                    {
+                                        title: "Annual High-Criticality Audit",
+                                        example: "Regulation requires you to perform a deep-dive security review of your top 10 most critical vendors every year.",
+                                        auditTip: "Sort the list by 'Criticality'. Focus your internal audit resources on vendors marked as 'High' risk to maximize compliance coverage with minimal effort."
+                                    }
                                 ]
                             };
                         }
@@ -226,7 +264,7 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
                             If Non-Admin (simulated), "Request Vendor" is primary.
                             For now, we show both for demo.
                         */}
-                        <Button variant="outline" onClick={() => setIsRequestOpen(true)}>
+                        <Button id="vendor-request-btn" variant="outline" onClick={() => setIsRequestOpen(true)}>
                             <BriefcaseIcon className="w-4 h-4 mr-2" /> Request Vendor
                         </Button>
                         <Link href={`/clients/${clientId}/vendors/onboard`}>
@@ -234,7 +272,7 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
                                 <Plus className="w-4 h-4 mr-2" /> Subprocessor Onboarding
                             </Button>
                         </Link>
-                        <Button onClick={() => setIsAddOpen(true)}>
+                        <Button id="vendor-add-direct" onClick={() => setIsAddOpen(true)}>
                             <Plus className="w-4 h-4 mr-2" /> Add Directly
                         </Button>
                     </div>
@@ -267,7 +305,7 @@ export default function VendorList({ mode = 'all' }: VendorListProps) {
 
                     {activeTab === 'active' && (
                         <div className="flex gap-4">
-                            <div className="relative w-64">
+                            <div className="relative w-64" id="vendor-search-input">
                                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
                                 <Input
                                     placeholder="Search vendors..."

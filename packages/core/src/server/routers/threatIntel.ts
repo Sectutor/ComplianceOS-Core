@@ -338,4 +338,258 @@ export const createThreatIntelRouter = (t: any, adminProcedure: any, publicProce
 
             return { tactics, techniques };
         }),
+
+    // Get assets affected by a specific threat
+    getThreatAffectedAssets: clientProcedure
+        .input(z.object({
+            threatId: z.number()
+        }))
+        .query(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings, assets } = await import("../../schema");
+
+            const mappings = await dbConn.select({
+                mappingId: threatAssetMappings.id,
+                assetId: threatAssetMappings.assetId,
+                assetName: assets.name,
+                assetType: assets.type,
+                confidence: threatAssetMappings.confidence,
+                impactLevel: threatAssetMappings.impactLevel,
+                status: threatAssetMappings.status,
+                mappingMethod: threatAssetMappings.mappingMethod,
+                createdAt: threatAssetMappings.createdAt
+            })
+                .from(threatAssetMappings)
+                .innerJoin(assets, eq(threatAssetMappings.assetId, assets.id))
+                .where(eq(threatAssetMappings.threatId, input.threatId));
+
+            return mappings;
+        }),
+
+    // Get threats affecting a specific asset
+    getAssetThreats: clientProcedure
+        .input(z.object({
+            assetId: z.number()
+        }))
+        .query(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings, threats } = await import("../../schema");
+
+            const mappings = await dbConn.select({
+                mappingId: threatAssetMappings.id,
+                threatId: threatAssetMappings.threatId,
+                threatName: threats.name,
+                threatCategory: threats.category,
+                likelihood: threats.likelihood,
+                confidence: threatAssetMappings.confidence,
+                impactLevel: threatAssetMappings.impactLevel,
+                status: threatAssetMappings.status,
+                createdAt: threatAssetMappings.createdAt
+            })
+                .from(threatAssetMappings)
+                .innerJoin(threats, eq(threatAssetMappings.threatId, threats.id))
+                .where(eq(threatAssetMappings.assetId, input.assetId));
+
+            return mappings;
+        }),
+
+    // Get all threat-asset mappings for a client (for dashboard)
+    getClientThreatAssetMappings: clientProcedure
+        .input(z.object({
+            clientId: z.number()
+        }))
+        .query(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings, threats, assets } = await import("../../schema");
+
+            const mappings = await dbConn.select({
+                mappingId: threatAssetMappings.id,
+                threatId: threatAssetMappings.threatId,
+                threatName: threats.name,
+                threatCategory: threats.category,
+                threatLikelihood: threats.likelihood,
+                assetId: threatAssetMappings.assetId,
+                assetName: assets.name,
+                assetType: assets.type,
+                confidence: threatAssetMappings.confidence,
+                impactLevel: threatAssetMappings.impactLevel,
+                status: threatAssetMappings.status,
+                createdAt: threatAssetMappings.createdAt
+            })
+                .from(threatAssetMappings)
+                .innerJoin(threats, eq(threatAssetMappings.threatId, threats.id))
+                .innerJoin(assets, eq(threatAssetMappings.assetId, assets.id))
+                .where(eq(threatAssetMappings.clientId, input.clientId))
+                .orderBy(desc(threatAssetMappings.createdAt));
+
+            return mappings;
+        }),
+
+    // Link an asset to a threat
+    linkAssetToThreat: clientProcedure
+        .input(z.object({
+            clientId: z.number(),
+            threatId: z.number(),
+            assetId: z.number(),
+            confidence: z.number().optional().default(100),
+            impactLevel: z.enum(['low', 'medium', 'high', 'critical']).optional().default('medium'),
+            mappingMethod: z.enum(['manual', 'automated', 'ai_suggested']).optional().default('manual'),
+            notes: z.string().optional()
+        }))
+        .mutation(async ({ input, ctx }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings } = await import("../../schema");
+
+            // Check if mapping already exists
+            const existing = await dbConn.select()
+                .from(threatAssetMappings)
+                .where(sql`${threatAssetMappings.threatId} = ${input.threatId} AND ${threatAssetMappings.assetId} = ${input.assetId}`)
+                .limit(1);
+
+            if (existing.length > 0) {
+                // Update existing mapping
+                const [updated] = await dbConn.update(threatAssetMappings)
+                    .set({
+                        confidence: input.confidence,
+                        impactLevel: input.impactLevel,
+                        mappingMethod: input.mappingMethod,
+                        notes: input.notes,
+                        updatedAt: new Date()
+                    })
+                    .where(sql`${threatAssetMappings.threatId} = ${input.threatId} AND ${threatAssetMappings.assetId} = ${input.assetId}`)
+                    .returning();
+                return { mapping: updated, created: false };
+            }
+
+            // Create new mapping
+            const [mapping] = await dbConn.insert(threatAssetMappings).values({
+                clientId: input.clientId,
+                threatId: input.threatId,
+                assetId: input.assetId,
+                confidence: input.confidence,
+                impactLevel: input.impactLevel,
+                mappingMethod: input.mappingMethod,
+                notes: input.notes,
+                mappedBy: ctx.user?.id,
+                status: 'active'
+            }).returning();
+
+            return { mapping, created: true };
+        }),
+
+    // Remove a threat-asset mapping
+    unlinkAssetFromThreat: clientProcedure
+        .input(z.object({
+            mappingId: z.number()
+        }))
+        .mutation(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings } = await import("../../schema");
+
+            await dbConn.delete(threatAssetMappings)
+                .where(eq(threatAssetMappings.id, input.mappingId));
+
+            return { success: true };
+        }),
+
+    // Update threat-asset mapping status
+    updateThreatAssetMapping: clientProcedure
+        .input(z.object({
+            mappingId: z.number(),
+            status: z.enum(['active', 'mitigated', 'false_positive']),
+            impactLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+            notes: z.string().optional()
+        }))
+        .mutation(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings } = await import("../../schema");
+
+            const updateData: any = {
+                status: input.status,
+                updatedAt: new Date()
+            };
+
+            if (input.impactLevel) updateData.impactLevel = input.impactLevel;
+            if (input.notes) updateData.notes = input.notes;
+
+            const [updated] = await dbConn.update(threatAssetMappings)
+                .set(updateData)
+                .where(eq(threatAssetMappings.id, input.mappingId))
+                .returning();
+
+            return { mapping: updated };
+        }),
+
+    // Get affected assets summary for dashboard
+    getAffectedAssetsSummary: clientProcedure
+        .input(z.object({ clientId: z.number() }))
+        .query(async ({ input }: any) => {
+            const dbConn = await db.getDb();
+            const { threatAssetMappings, assets, threats } = await import("../../schema");
+
+            // Get total affected assets count
+            const affectedAssetsResult = await dbConn.select({
+                assetId: threatAssetMappings.assetId
+            })
+                .from(threatAssetMappings)
+                .where(and(
+                    eq(threatAssetMappings.clientId, input.clientId),
+                    eq(threatAssetMappings.status, 'active')
+                ))
+                .groupBy(threatAssetMappings.assetId);
+
+            const affectedAssetsCount = affectedAssetsResult.length;
+
+            // Get total active threats affecting assets
+            const activeThreatsResult = await dbConn.select({
+                threatId: threatAssetMappings.threatId
+            })
+                .from(threatAssetMappings)
+                .where(and(
+                    eq(threatAssetMappings.clientId, input.clientId),
+                    eq(threatAssetMappings.status, 'active')
+                ))
+                .groupBy(threatAssetMappings.threatId);
+
+            const activeThreatsCount = activeThreatsResult.length;
+
+            // Get assets by impact level
+            const byImpactLevel = await dbConn.select({
+                impactLevel: threatAssetMappings.impactLevel,
+                count: sql<number>`count(*)`.mapWith(Number)
+            })
+                .from(threatAssetMappings)
+                .where(and(
+                    eq(threatAssetMappings.clientId, input.clientId),
+                    eq(threatAssetMappings.status, 'active')
+                ))
+                .groupBy(threatAssetMappings.impactLevel);
+
+            // Get recent mappings
+            const recentMappings = await dbConn.select({
+                mappingId: threatAssetMappings.id,
+                threatId: threatAssetMappings.threatId,
+                threatName: threats.name,
+                assetId: threatAssetMappings.assetId,
+                assetName: assets.name,
+                impactLevel: threatAssetMappings.impactLevel,
+                createdAt: threatAssetMappings.createdAt
+            })
+                .from(threatAssetMappings)
+                .innerJoin(threats, eq(threatAssetMappings.threatId, threats.id))
+                .innerJoin(assets, eq(threatAssetMappings.assetId, assets.id))
+                .where(and(
+                    eq(threatAssetMappings.clientId, input.clientId),
+                    eq(threatAssetMappings.status, 'active')
+                ))
+                .orderBy(desc(threatAssetMappings.createdAt))
+                .limit(10);
+
+            return {
+                affectedAssetsCount,
+                activeThreatsCount,
+                byImpactLevel,
+                recentMappings
+            };
+        }),
 });
